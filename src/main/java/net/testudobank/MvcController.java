@@ -446,7 +446,7 @@ public class MvcController {
   }
 
   /**
-   * Helper method for submitWithdraw()
+   * The Helper method for submitWithdraw()
    * Applies interest rate to an input penny amount.
    * @param user
    * @return
