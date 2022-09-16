@@ -81,8 +81,9 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-		model.addAttribute("user", user);
-		
+    model.addAttribute("user", user);
+    applyInterest(user);
+
 		return "login_form";
 	}
 

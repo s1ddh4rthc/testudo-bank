@@ -75,7 +75,6 @@ public class TestudoBankRepository {
   }
 
   public static int getCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID) { 
-
     String getCustomerInterestDepositsSql = String.format("Select NumDepositsForInterest from Customers WHERE CustomerID='%s;", customerID);
     int customerDepositsForInterest = jdbcTemplate.queryForObject(getCustomerInterestDepositsSql, Integer.class);
     return customerDepositsForInterest;
