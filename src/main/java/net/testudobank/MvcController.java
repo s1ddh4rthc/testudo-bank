@@ -369,10 +369,24 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+<<<<<<< HEAD
       
       if (userDepositAmt > 20) {
         applyInterest(user);
       }
+=======
+
+      // if number of deposits is a multiple of 5 then apply interest
+      int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
+        return applyInterest(user);
+      }
+      // otherwise just increment number of deposits for interest  
+      else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      }
+
+>>>>>>> 8fb8139 (Adds logic to deposit method for whether to add interest)
       
     }
 
