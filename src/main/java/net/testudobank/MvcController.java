@@ -262,6 +262,7 @@ public class MvcController {
     return (int) (pennyAmount * INTEREST_RATE);
   }
 
+<<<<<<< HEAD
   /**
    * Helper method for applyInterest()
    * Applies BALANCE_INTEREST_RATE to an input penny amount.
@@ -273,6 +274,8 @@ public class MvcController {
     return (int) (pennyAmount * BALANCE_INTEREST_RATE);
   }
 
+=======
+>>>>>>> 55ae594 (Manually adds prerequisites for HW2)
   // HTML POST HANDLERS ////
 
   /**
