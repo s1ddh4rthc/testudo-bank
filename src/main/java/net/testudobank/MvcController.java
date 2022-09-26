@@ -355,6 +355,18 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+
+      // if number of deposits is a multiple of 5 then apply interest
+      int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
+        return applyInterest(user);
+      }
+      // otherwise just increment number of deposits for interest  
+      else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      }
+
+      
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -815,6 +827,12 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //TODO: add interest to account
+    
     return "welcome";
   }
 
