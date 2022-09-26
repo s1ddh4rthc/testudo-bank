@@ -46,6 +46,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
+  private static double BALANCE_INTEREST_RATE = 1.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -74,6 +75,21 @@ public class MvcController {
       model.addAttribute("user", user);
       return "account_info";
     }
+  /**
+   * HTML GET request handler that serves the "login_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's login form input.
+   * 
+   * @param model
+   * @return "login_form" page
+   */
+  @GetMapping("/login")
+	public String showLoginForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
+
+		return "login_form";
+	}
 
   /**
    * HTML GET request handler that serves the "deposit_form" page to the user.
@@ -181,6 +197,7 @@ public class MvcController {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     user.setUsername(auth.getName());
     List<Map<String, Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogs(jdbcTemplate, user.getUsername());
+    applyInterest(user);
 
     List<OverdraftHistoryEntry> overdraftHistoryEntries = overdraftLogs.stream()
             .map(overdraftEntry ->
@@ -753,6 +770,16 @@ public class MvcController {
     } else {
       return "welcome";
     }
+  }
+
+  /**
+   * 
+   * 
+   * @param user
+   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   */
+  public String applyInterest(@ModelAttribute("user") User user) {
+    return "welcome";
   }
 
 }
