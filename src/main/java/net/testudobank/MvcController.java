@@ -81,8 +81,8 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-    model.addAttribute("user", user);
-
+		model.addAttribute("user", user);
+		
 		return "login_form";
 	}
 
@@ -261,8 +261,6 @@ public class MvcController {
   private int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
   }
-
-<<<<<<< HEAD
   /**
    * Helper method for applyInterest()
    * Applies BALANCE_INTEREST_RATE to an input penny amount.
@@ -273,9 +271,6 @@ public class MvcController {
   private int applyBalanceInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * BALANCE_INTEREST_RATE);
   }
-
-=======
->>>>>>> 55ae594 (Manually adds prerequisites for HW2)
   // HTML POST HANDLERS ////
 
   /**
@@ -369,25 +364,10 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
-<<<<<<< HEAD
       
       if (userDepositAmt > 20) {
         applyInterest(user);
       }
-=======
-
-      // if number of deposits is a multiple of 5 then apply interest
-      int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
-      if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
-        return applyInterest(user);
-      }
-      // otherwise just increment number of deposits for interest  
-      else {
-        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
-      }
-
->>>>>>> 8fb8139 (Adds logic to deposit method for whether to add interest)
-      
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -402,7 +382,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -864,7 +843,6 @@ public class MvcController {
 
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAddInPennies);
-
       return "account_info";
     }
     // otherwise just increment number of deposits for interest  
