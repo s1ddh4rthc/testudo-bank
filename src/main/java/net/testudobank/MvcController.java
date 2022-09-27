@@ -82,7 +82,6 @@ public class MvcController {
 	public String showLoginForm(Model model) {
 		User user = new User();
 		model.addAttribute("user", user);
-    applyInterest(user);
 		
 		return "login_form";
 	}
@@ -262,6 +261,18 @@ public class MvcController {
     return (int) (pennyAmount * INTEREST_RATE);
   }
 
+  /**
+   * Helper method for applyInterest()
+   * Applies BALANCE_INTEREST_RATE to an input penny amount.
+   * Rounds to the nearest penny.
+   * @param pennyAmount
+   * @return
+   */
+  private int applyBalanceInterestRateToPennyAmount(int pennyAmount) {
+    double interest = (pennyAmount * BALANCE_INTEREST_RATE);
+    return (int) (interest + 0.5); //round to nearest penny amount
+  }
+
   // HTML POST HANDLERS ////
 
   /**
@@ -355,18 +366,7 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
-
-      // if number of deposits is a multiple of 5 then apply interest
-      int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
-      if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
-        return applyInterest(user);
-      }
-      // otherwise just increment number of deposits for interest  
-      else {
-        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
-      }
-
-      
+      applyInterest(user);
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -828,12 +828,22 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
-    //TODO: add interest to account
-    
-    return "welcome";
+    int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+    // if number of deposits is a multiple of 5 then apply interest
+    if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
+      // apply interest to account balance
+      int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int balanceToAdd = applyBalanceInterestRateToPennyAmount(currentBalance);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceToAdd);
+      return "account_info";
+    }
+    // otherwise just increment number of deposits for interest  
+    else {
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      return "welcome";
+    }
   }
 
 }
