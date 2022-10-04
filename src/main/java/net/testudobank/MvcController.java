@@ -189,7 +189,6 @@ public class MvcController {
    * @param user
    */
   private void updateAccountInfo(User user) {
-    applyInterest(user);
     List<Map<String,Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogs(jdbcTemplate, user.getUsername());
     String logs = HTML_LINE_BREAK;
     for(Map<String, Object> overdraftLog : overdraftLogs){
@@ -218,8 +217,6 @@ public class MvcController {
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
-    System.out.println("CUSTOMER ID ::: " + userData.get("NumDepositsForInterest"));
-
     // calculate total Crypto holdings balance by summing balance of each supported cryptocurrency
     double cryptoBalanceInDollars = 0;
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
@@ -240,7 +237,7 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest((int) userData.get("NumDepositsForInterest"));
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -388,6 +385,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
