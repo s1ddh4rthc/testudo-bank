@@ -35,6 +35,7 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
+  private final static int BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES = 20000;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
@@ -344,6 +345,11 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      
+      if (userDepositAmtInPennies >= BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES) {
+        int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), currentDepositsForInterest + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
