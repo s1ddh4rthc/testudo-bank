@@ -36,6 +36,7 @@ public class MvcController {
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
   private final static int BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES = 20000;
+  private final static int BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD = 5;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
@@ -44,6 +45,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -810,6 +812,22 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
+    user.getUsername());
+    if (currentDepositsForInterest >= BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD) {
+      int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate,
+          user.getUsername());
+      int appliedInterestInPennies = (int) (currentBalanceInPennies * BALANCE_INTEREST_RATE);
+
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
+          CRYPTO_HISTORY_SELL_ACTION, TRANSACTION_HISTORY_INTEREST, appliedInterestInPennies);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
+          currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
+
+      return "account_info";
+    }
+
     return "welcome";
   }
 
