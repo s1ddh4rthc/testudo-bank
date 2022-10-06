@@ -31,14 +31,17 @@ public class MvcControllerIntegTestHelpers {
     dataSource.setPassword(db.getPassword());
     return dataSource;
   }
-
-  // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
-  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals) throws ScriptException {
-    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals);
+    // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int NumDepositsForInterest) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, NumDepositsForInterest);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
 
     String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
+  }
+  // Adds a customer to MySQL DB with no prior deposits
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals) throws ScriptException {
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, overdraftBalance, numFraudReversals, 0);
   }
 
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes

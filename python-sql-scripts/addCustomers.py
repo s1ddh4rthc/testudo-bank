@@ -19,7 +19,8 @@ create_customer_table_sql = '''
     LastName varchar(255),
     Balance int,
     OverdraftBalance int,
-    NumFraudReversals int
+    NumFraudReversals int,
+    NumDepositsForInterest int
   );
   '''
 cursor.execute(create_customer_table_sql)
