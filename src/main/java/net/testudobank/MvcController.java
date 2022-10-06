@@ -35,7 +35,7 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
-  private final static int BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES = 20000;
+  private final static int BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES = 2000;
   private final static int BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD = 5;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
