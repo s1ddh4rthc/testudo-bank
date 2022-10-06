@@ -252,24 +252,6 @@ public class MvcController {
   int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount*INTEREST_RATE);
   }
-
-  //attempts to apply interest to a user's account
-  void tryToApplyInterest(JdbcTemplate jdbcTemplate, String userID, int depositInPennies) {
-    // If the number of transactions since last interest application is (a multiple
-    // of) 5, try to apply the interest and reset
-    TestudoBankRepository.incrementCustomerNumTransactionsForInterest(jdbcTemplate, userID);
-    // If num transactions is a multiple of 5 and it is enough to trigger interest, then:
-    if (TestudoBankRepository.getCustomerNumTransactionsForInterest(jdbcTemplate, userID) % 5 == 0
-        && TestudoBankRepository.getCustomerNumTransactionsForInterest(jdbcTemplate, userID) != 0
-        && depositInPennies >= 2000) {
-      // reset number of transactions
-      TestudoBankRepository.setCustomerNumTransactionsForInterest(jdbcTemplate, userID, 0);
-      //apply interest to user balance
-      int UserBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-      int newBalanceInPennies = applyInterestRateToPennyAmount(UserBalanceInPennies);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalanceInPennies);
-    }
-  }
   // HTML POST HANDLERS ////
 
   /**
@@ -375,7 +357,6 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
-    tryToApplyInterest(jdbcTemplate, userID, userDepositAmtInPennies);
 
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
