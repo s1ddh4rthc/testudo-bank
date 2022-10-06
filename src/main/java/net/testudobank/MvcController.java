@@ -817,11 +817,15 @@ public class MvcController {
     if (currentDepositsForInterest >= BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD) {
       int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate,
           user.getUsername());
-      int appliedInterestInPennies = (int) (currentBalanceInPennies * BALANCE_INTEREST_RATE);
+      int newBalanceInPennies = (int) Math.round(currentBalanceInPennies * BALANCE_INTEREST_RATE);
+      int appliedInterestInPennies = newBalanceInPennies - currentBalanceInPennies;
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
-          CRYPTO_HISTORY_SELL_ACTION, TRANSACTION_HISTORY_INTEREST, appliedInterestInPennies);
+      currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, appliedInterestInPennies);
+      // TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema is updated.
+      // Currently, transactionhistory table restricted to existing transaction types due to following constraint:
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
           currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
 
