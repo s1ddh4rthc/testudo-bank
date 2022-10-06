@@ -45,12 +45,6 @@ public class TestudoBankRepository {
     return userOverdraftBalanceInPennies;
   }
 
-  public static int getCustomerNumTransactionsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
-    String getNumTransactionsForInterest = String.format("SELECT NumDepositsForInterest FROM Customers where CustomerID='%s'", customerID);
-    int numOfTransactionsForInterest = jdbcTemplate.queryForObject(getNumTransactionsForInterest, Integer.class);
-    return numOfTransactionsForInterest;
-  }
-
   public static List<Map<String,Object>> getRecentTransactions(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
     String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
     List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
@@ -114,16 +108,6 @@ public class TestudoBankRepository {
     jdbcTemplate.update(overdraftBalanceIncreaseSql);
   }
 
-  public static void incrementCustomerNumTransactionsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
-    String incrementNumTransactions = String.format("UPDATE Customers SET NumDepositsForInterest = NumDepositsForInterest + 1 WHERE CustomerID='%s';", customerID);
-    jdbcTemplate.update(incrementNumTransactions);
-  }
-
-  public static void setCustomerNumTransactionsForInterest(JdbcTemplate jdbcTemplate, String customerID, int newNum) {
-    String setNumTransactions = String.format("UPDATE Customers SET NumDepositsForInteres = %d WHERE CustomerID='%s", newNum, customerID);
-    jdbcTemplate.update(setNumTransactions);
-  }
-  
   public static void setCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
     String updateBalanceSql = String.format("UPDATE Customers SET Balance = %d WHERE CustomerID='%s';", newBalanceInPennies, customerID);
     jdbcTemplate.update(updateBalanceSql);
