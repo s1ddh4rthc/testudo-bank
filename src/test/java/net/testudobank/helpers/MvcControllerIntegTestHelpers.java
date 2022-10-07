@@ -102,6 +102,11 @@ public class MvcControllerIntegTestHelpers {
     return (int) (dollarAmountInPennies * MvcController.INTEREST_RATE);
   }
 
+  // New helper method for tests: Apply interest rate to balance
+  public static int applyDepositInterest(int dollarAmountInPennies) {
+    return (int) (dollarAmountInPennies * 1.5);
+  }
+
   // Fetches current local time with no milliseconds because the MySQL DB has granularity only up to seconds (does not use milliseconds)
   public static LocalDateTime fetchCurrentTimeAsLocalDateTimeNoMilliseconds() {
     LocalDateTime currentTimeAsLocalDateTime = convertDateToLocalDateTime(new java.util.Date());
