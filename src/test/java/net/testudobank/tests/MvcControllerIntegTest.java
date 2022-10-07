@@ -197,6 +197,8 @@ public class MvcControllerIntegTest {
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
 
+
+
   /**
    * Verifies the case where a customer withdraws more than their available balance.
    * The customer's main balance should be set to $0, and their Overdraft balance
@@ -1115,6 +1117,82 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
   }
+
+  public void testSimpleAppliedInterest() throws SQLException, ScriptException{
+      //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = 5000;
+
+    //Initializing user for the deposits
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+    for(int i = 0; i < 5; i++){
+    CUSTOMER1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(CUSTOMER1);
+    }
+
+    List<Map<String,Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+    Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+    assertEquals((126875), (int)customer1Data.get("Balance"));
+  }
+
+  public void testInterestResetsAfterApplied() throws SQLException, ScriptException{
+    //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+  double CUSTOMER1_BALANCE = 1000;
+  int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+  int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = 5000;
+
+  //Initializing user for the deposits
+  User CUSTOMER1 = new User();
+  CUSTOMER1.setUsername(CUSTOMER1_ID);
+  CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+  for(int i = 0; i < 5; i++){
+  CUSTOMER1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(CUSTOMER1);
+  }
+
+  List<Map<String,Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+  Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+  assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+}
+
+public void testDepositsThatDoNotMeetRequirement() throws SQLException, ScriptException{
+  //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+double CUSTOMER1_BALANCE = 1000;
+int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = 1000;
+
+//Initializing user for the deposits
+User CUSTOMER1 = new User();
+CUSTOMER1.setUsername(CUSTOMER1_ID);
+CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+for(int i = 0; i < 5; i++){
+CUSTOMER1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+// send request to the Deposit Form's POST handler in MvcController
+controller.submitDeposit(CUSTOMER1);
+}
+
+List<Map<String,Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+assertEquals((105000), (int)customer1Data.get("Balance"));
+assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+}
 
   /**
    * Enum for {@link CryptoTransactionTester}
