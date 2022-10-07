@@ -1741,15 +1741,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     // send request to the Deposit Form's POST handler in MvcController
     controller.submitDeposit(customer1DepositFormInputs);   
 
-    /* 
-     * We expect that the customer's balance before applying interest is ($24.25 * 4 + 12.56 + $123.45) = $233.01
-     * We expect that the interest to be added is $233.01 * 1.015 = $236.50515 ~ $236.50
-     * Then the CUSTOMER1_BALANCE should become $233.01 + $236.50 = $469.51
-     */ 
-
-    double BALANCE_INTEREST_RATE = 1.015;
-    double CUSTOMER1_AMOUNT_APPLIED_INTEREST = (4 * CUSTOMER1_AMOUNT_TO_DEPOSIT_1 + CUSTOMER1_AMOUNT_TO_DEPOSIT_2 + CUSTOMER1_BALANCE) * BALANCE_INTEREST_RATE;
-
     // fetch updated data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
     List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
