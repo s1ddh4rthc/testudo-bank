@@ -840,6 +840,12 @@ public class MvcController {
       int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       int balanceToAdd = applyBalanceInterestRateToPennyAmount(currentBalance);
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceToAdd);
+
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+
+      // Adds deposit to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAdd);
+
       return "account_info";
     }
     // otherwise just increment number of deposits for interest  
