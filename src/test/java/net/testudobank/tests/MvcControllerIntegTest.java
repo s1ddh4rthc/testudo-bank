@@ -1611,7 +1611,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     // Deposit 2
     // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
-    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
@@ -1621,7 +1620,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     // Deposit 3
     // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
-    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
@@ -1631,7 +1629,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     // Deposit 4
     // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
-    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
@@ -1641,7 +1638,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     // Deposit 5
     // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
-    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
@@ -1668,7 +1664,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
     // verify customer balance was increased by $12.34
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_AMOUNT_APPLIED_INTEREST;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + 5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_AMOUNT_APPLIED_INTEREST;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
 
