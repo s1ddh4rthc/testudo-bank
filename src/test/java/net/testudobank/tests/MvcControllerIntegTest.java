@@ -1578,4 +1578,103 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Verifies interest upon 5th deposit.
+   * The customer's Balance in the Customers table should be increased,
+   * and the Deposit should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * Does not check the accuracy of the transaction history amounts.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testDepositWithInterest() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Deposit 1
+    // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // Deposit 2
+    // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // Deposit 3
+    // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);    
+
+    // Deposit 4
+    // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);   
+
+    // Deposit 5
+    // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 24.25; // user input is in dollar amount, not pennies.
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);   
+
+    /* 
+     * We expect that the customer's balance before applying interest is ($24.25 * 5 + $123.45) = $244.7
+     * We expect that the interest to be added is $244.7 * 1.015 = $248.3705 ~ $248.37
+     * Then the CUSTOMER1_BALANCE should become $244.7 + $248.37 = $493.07
+     */ 
+
+    double BALANCE_INTEREST_RATE = 1.015;
+    double CUSTOMER1_AMOUNT_APPLIED_INTEREST = (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE) * BALANCE_INTEREST_RATE;
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance was increased by $12.34
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_AMOUNT_APPLIED_INTEREST;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // verify that the 5 Deposits and interest applied are the only logs in TransactionHistory table
+    assertEquals(6, transactionHistoryTableData.size());
+    
+  }
+
 }
