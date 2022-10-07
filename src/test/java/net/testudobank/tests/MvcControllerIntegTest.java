@@ -1678,7 +1678,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
-   * Verifies interest upon 5th deposit.
+   * Verifies no interest upon 5th deposit with 4 qualifying deposits and 1 non qualifying deposit.
    * The customer's Balance in the Customers table should be increased,
    * and the Deposit should be logged in the TransactionHistory table.
    * 
