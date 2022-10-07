@@ -269,8 +269,7 @@ public class MvcController {
    * @return
    */
   private int applyBalanceInterestRateToPennyAmount(int pennyAmount) {
-    double interest = (pennyAmount * BALANCE_INTEREST_RATE);
-    return (int) (interest + 0.5); //round to nearest penny amount
+    return (int) (pennyAmount * BALANCE_INTEREST_RATE);
   }
 
   // HTML POST HANDLERS ////
