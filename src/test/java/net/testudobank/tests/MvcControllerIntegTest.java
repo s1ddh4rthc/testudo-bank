@@ -80,6 +80,11 @@ public class MvcControllerIntegTest {
 
 
   //// INTEGRATION TESTS ////
+
+  /* Tests that once 5 deposits are made that are at least 20 dollars,
+      interest will be applied and added to the balance accordingly,
+      and that the numDepositsForInterest will be reset back to zero. 
+      */
   @Test
   public void testResetInterestAfterFifthDeposit() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 0.00;
@@ -121,6 +126,8 @@ public class MvcControllerIntegTest {
 
   }
 
+  /* Tests that deposits made that are equal to 20 dollars will 
+      increase the numDepositsForInterest variable in the database */
   @Test
   public void testDepositEqualsTwentyHasInterest() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 0.00;
@@ -153,6 +160,8 @@ public class MvcControllerIntegTest {
 
   }
 
+  /* Tests that deposits made that are above 20 dollars will 
+      increase the numDepositsForInterest variable in the database */
   @Test
   public void testDepositAboveTwentyHasInterest() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 0.00;
@@ -207,7 +216,6 @@ public class MvcControllerIntegTest {
     // verify that there are no logs in TransactionHistory table before Deposit
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
 
-    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
     // send request to the Deposit Form's POST handler in MvcController
     controller.submitDeposit(customer1DepositFormInputs);
     
@@ -220,24 +228,11 @@ public class MvcControllerIntegTest {
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
-    
-    // verify customer balance was increased by $12.34
-    /*
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
-    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-    */
-
     //Checking that a deposit of less than 20 did not increase the number of deposits for interest
     assertEquals(0, customer1Data.get("NumDepositsForInterest")); //c
     // verify that the Deposit is the only log in TransactionHistory table
     assertEquals(1, transactionHistoryTableData.size());
     
-    // verify that the Deposit's details are accurately logged in the TransactionHistory table
-    Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(0);
-    int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
-    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
-
     /* Depositing 19.99 */
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_ANOTHER_AMOUNT_TO_DEPOSIT);
     controller.submitDeposit(customer1DepositFormInputs);

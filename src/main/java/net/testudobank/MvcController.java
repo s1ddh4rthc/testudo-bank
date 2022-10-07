@@ -824,13 +824,10 @@ public class MvcController {
   public String applyInterest(@ModelAttribute("user") User user) {
     
     String userID = user.getUsername();
-    
-    //int currentDepositAmountInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-    //double currentDepositAmountInDollars = (double) currentDepositAmountInPennies / 100.0;
-    
+
     /*Getting the current number of deposits for interest 
-    - will have already been incremented after deposit 
-    by helper method at this point, so do not need to increment here */
+      numDepositsForInterest will have already been incremented after deposit 
+      by helper method (incrementNumDepositsForInterest) at this point, so do not need to increment here */
     int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
     
     if (numDepositsForInterest >= 5) { //should not be greater than 5, but just in case
@@ -855,13 +852,11 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, "Deposit", interestInPennies);
       */
 
-      updateAccountInfo(user); //I think i need to this to make sure that the account info now reflects it!
+      updateAccountInfo(user);
       return "account_info";
     } else {
       return "welcome";
     }
-    
-    /*return "welcome";*/
 
   }
 
