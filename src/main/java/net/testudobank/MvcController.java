@@ -837,14 +837,14 @@ public class MvcController {
     // if number of deposits is a multiple of 5 then apply interest
     if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
       // apply interest to account balance
-      int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-      int balanceToAdd = applyBalanceInterestRateToPennyAmount(currentBalance);
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceToAdd);
+      int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int balanceToAddInPennies = applyBalanceInterestRateToPennyAmount(currentBalanceInPennies);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceToAddInPennies);
 
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
 
       // Adds deposit to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAdd);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAddInPennies);
 
       return "account_info";
     }
