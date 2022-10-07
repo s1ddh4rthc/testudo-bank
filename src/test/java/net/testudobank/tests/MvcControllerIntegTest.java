@@ -1759,7 +1759,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
-    // verify customer balance was increased by $12.34
+    // verify customer balance
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + 4 * CUSTOMER1_AMOUNT_TO_DEPOSIT_1 + CUSTOMER1_AMOUNT_TO_DEPOSIT_2;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
@@ -1894,7 +1894,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     controller.submitDeposit(customer1DepositFormInputs);   
 
     /* 
-     * Interest applied to the first five deposits:
+     * Interest applied to the last five deposits:
      *
      * We expect that the customer's balance before applying interest is ($21 * 5 + $460.32) = $565.32
      * We expect that the interest to be added is 565.32 * 1.015 = $573.7998 ~ $573.79
@@ -1913,7 +1913,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
-    // verify customer balance was increased by $12.34
+    // verify customer balance
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE_AFTER_FIRST_TEN_DEPOSITS;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
