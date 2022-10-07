@@ -366,7 +366,11 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
-      applyInterest(user);
+      
+      if (userDepositAmt > 20) {
+        applyInterest(user);
+      }
+      
     }
 
     // only adds deposit to transaction history if is not transfer
