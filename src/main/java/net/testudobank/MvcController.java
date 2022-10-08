@@ -807,35 +807,45 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Handles all interest logic with the exception of tallying interest-qualifying deposits, which
+   * is handled in the simple deposit case of submitDeposit.
+   * <p>
+   * If user has reached the number of qualifying deposits required to trigger interest application,
+   * interest is applied to the current balance, the deposit counter is reset, and the interest
+   * application is logged as a transaction, finally returning the account_info page. Otherwise, no
+   * state changes occur and the welcome page is returned.
+   * <p>
+   * This function assumes it is not possible to achieve the qualifying deposit count while any
+   * disqualifying constraints (zero balance, overdraft), since it should not be possible to
+   * increment the counter while these constraints are true.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
     int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
-    user.getUsername());
-    if (currentDepositsForInterest >= BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD) {
-      int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate,
-          user.getUsername());
-      int newBalanceInPennies = (int) Math.round(currentBalanceInPennies * BALANCE_INTEREST_RATE);
-      int appliedInterestInPennies = newBalanceInPennies - currentBalanceInPennies;
-      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
-      /* TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema
-       * for transactionhistory table is updated to include 'Interest'.
-       * In current state, there is no way to distinguish deposits from interest applications. */
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
-      currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, appliedInterestInPennies);
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
-          currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
-
-      return "account_info";
+        user.getUsername());
+    
+    if (currentDepositsForInterest < BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD) {
+      return "welcome";
     }
 
-    return "welcome";
+    int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate,
+        user.getUsername());
+    int newBalanceInPennies = (int) Math.round(currentBalanceInPennies * BALANCE_INTEREST_RATE);
+    int appliedInterestInPennies = newBalanceInPennies - currentBalanceInPennies;
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
+    /* TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema
+      * for transactionhistory table is updated to include 'Interest'.
+      * In current state, there is no way to distinguish deposits from interest applications. */
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
+    currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, appliedInterestInPennies);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
+        currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
+
+    return "account_info";
   }
 
 }
