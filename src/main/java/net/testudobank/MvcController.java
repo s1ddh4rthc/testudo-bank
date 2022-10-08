@@ -351,6 +351,25 @@ public class MvcController {
       }
 
     } else { // simple deposit case
+      // only increase intrest if it is not a transfer from acc
+      if(!user.isTransfer()){
+        int depositNumber = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+        // increment bc a deposit is occurring right now
+        //only increment if amount is greater and equal to $20
+        if(userDepositAmtInPennies >= 2000){
+          depositNumber++;
+          //set in DB
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, depositNumber);
+        }
+        
+        if(depositNumber == 5){
+          // calculate interest and then add interest
+          userDepositAmtInPennies += applyInterestRateToPennyAmount(userDepositAmtInPennies);
+          // reset deposit
+          depositNumber = 0;
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, depositNumber);
+        }
+      }
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 

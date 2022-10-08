@@ -21,6 +21,12 @@ public class TestudoBankRepository {
     return numOfReversals;
   }
 
+  public static int getCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
+    String getNumberOfDepositsForInterest = String.format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", customerID);
+    int numOfReversals = jdbcTemplate.queryForObject(getNumberOfDepositsForInterest, Integer.class);
+    return numOfReversals;
+  }
+
   public static int getCustomerCashBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
     String getUserBalanceSql =  String.format("SELECT Balance FROM Customers WHERE CustomerID='%s';", customerID);
     int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
@@ -96,6 +102,11 @@ public class TestudoBankRepository {
   public static void setCustomerNumFraudReversals(JdbcTemplate jdbcTemplate, String customerID, int newNumFraudReversals) {
     String numOfReversalsUpdateSql = String.format("UPDATE Customers SET NumFraudReversals = %d WHERE CustomerID='%s';", newNumFraudReversals, customerID);
     jdbcTemplate.update(numOfReversalsUpdateSql);
+  }
+
+  public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int newNumFraudReversals) {
+    String numOfDepositsForInterest = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", newNumFraudReversals, customerID);
+    jdbcTemplate.update(numOfDepositsForInterest);
   }
 
   public static void setCustomerOverdraftBalance(JdbcTemplate jdbcTemplate, String customerID, int newOverdraftBalanceInPennies) {
