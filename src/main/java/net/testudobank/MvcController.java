@@ -823,10 +823,11 @@ public class MvcController {
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
+      /* TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema
+       * for transactionhistory table is updated to include 'Interest'.
+       * In current state, there is no way to distinguish deposits from interest applications. */
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
-      currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, appliedInterestInPennies);
-      // TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema is updated.
-      // Currently, transactionhistory table restricted to existing transaction types due to following constraint:
+      currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, appliedInterestInPennies);
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
           currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
 
