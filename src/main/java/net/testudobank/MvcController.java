@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -324,6 +325,10 @@ public class MvcController {
     double userDepositAmt = user.getAmountToDeposit();
     if (userDepositAmt < 0) {
       return "welcome";
+    } else if (userDepositAmt > 20){
+      // if the deposit was of 20 or more, then we incremet the number of deposits until interest
+      int depositover20 = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, (++depositover20));
     }
     
     //// Complete Deposit Transaction ////
@@ -343,7 +348,14 @@ public class MvcController {
       }
 
     } else { // simple deposit case
+      // calculate the interest from users current balance
+      int totalInterest = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      // if the user has achieved 5 deposits of over 20 dollars, then we deposit the interest to his balance and reset the deposit count 
+      if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) == 5){
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, totalInterest);
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
