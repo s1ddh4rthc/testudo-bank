@@ -1599,8 +1599,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   public void testDepositWithInterest() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_INITIAL_NUM_DEPOSITS = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_INITIAL_NUM_DEPOSITS);
 
     // Deposit 1
     // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
@@ -1695,8 +1696,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   public void testDepositWithInterestNot5QualifyingDeposits() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_INITIAL_NUM_DEPOSITS = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_INITIAL_NUM_DEPOSITS);
 
     // Deposit 1
     // Prepare Deposit Form to Deposit $24.25 to customer 1's account.
@@ -1782,8 +1784,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   public void testDepositWithInterestDepositIs20() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_INITIAL_NUM_DEPOSITS = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_INITIAL_NUM_DEPOSITS);
 
     // Deposit 1
     // Prepare Deposit Form to Deposit $20 to customer 1's account.
@@ -1870,8 +1873,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   public void testFifthAndTenthDepositWithInterest() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_INITIAL_NUM_DEPOSITS = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_INITIAL_NUM_DEPOSITS);
 
     // Deposit 1
     // Prepare Deposit Form to Deposit $21 to customer 1's account.
