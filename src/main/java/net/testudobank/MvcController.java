@@ -350,10 +350,11 @@ public class MvcController {
     } else { // simple deposit case
       // calculate the interest from users current balance
       int totalInterest = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interest = (int)(totalInterest * (BALANCE_INTEREST_RATE - 1));
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
       // if the user has achieved 5 deposits of over 20 dollars, then we deposit the interest to his balance and reset the deposit count 
       if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) == 5){
-        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, totalInterest);
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interest);
         TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
       }
     }
