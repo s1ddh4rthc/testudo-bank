@@ -45,6 +45,11 @@ public class User {
   @Setter @Getter @Positive
   private double amountToDeposit;
 
+  //// Interest Fields ////
+
+  @Setter @Getter @PositiveOrZero
+  private int numDepositsForInterest;
+
   //// Withdraw Fields ////
 
   @Setter @Getter @Positive
