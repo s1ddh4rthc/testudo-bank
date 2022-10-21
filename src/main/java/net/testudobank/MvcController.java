@@ -346,6 +346,14 @@ public class MvcController {
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 
+    // deposit counts towards interest
+    if (userDepositAmt >= 20.00) {
+      int customerCurrentNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      customerCurrentNumberOfDeposits+=1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, customerCurrentNumberOfDeposits);
+    }
+
+
     // only adds deposit to transaction history if is not transfer
     if (user.isTransfer()){
       // Adds transaction recieve to transaction history
@@ -799,13 +807,33 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Apply the Balance Interest Rate every 5 deposits made that are
+   * greater than or equal to 20.00
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    int customerNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+    if (customerNumberOfDeposits == 5) {
+      int customerCashBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      customerCashBalance*=BALANCE_INTEREST_RATE;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, customerCashBalance);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      return "account_info";
+    }
     return "welcome";
 
   }
