@@ -325,7 +325,7 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
-    System.out.println("userDepositAmt" + userDepositAmt);
+    //If deposit amount is greater than or equal to 20, the global counter is incremented. 
     if (userDepositAmt >= 20) {
 
       int numdepositcounter = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
@@ -366,8 +366,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    System.out.println(user.getNumDepositsForInterest());
-    System.out.println("new user balance? " + TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID));
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -814,6 +812,8 @@ public class MvcController {
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
+  //interest function applies if there is a balance and no overdraft balance. When 5 transactions greater than or equal to 20 dollars are made,
+  //the interest is applied to their balance and the user is alerted in the transaction history table. 
   public String applyInterest(@ModelAttribute("user") User user) {
     String userId = user.getUsername();
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
