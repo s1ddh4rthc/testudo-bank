@@ -47,6 +47,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -240,6 +241,24 @@ public class MvcController {
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
   }
 
+  /**
+   * Helper method that applys 1.5% APY to balance for every 5th deposit greater than or equal to $20 
+   * (assuming balance > 0 and no overdraft) and adds these values to the `user` Model Attribute and logs 
+   * the added interest in the TransactionHistory table.
+   * 
+   * @param user
+   */
+  private void applyInterestToBalance(User user) {
+    int newBalance = 0;
+    //Verifies user has deposited a multiple of 5 transactions >= $20 and overdraft balance is 0 and the balance is > 0
+    if (user.getNumDepositsForInterest() % 5 == 0 && user.getOverDraftBalance() == 0 && user.getBalance() > 0.0) {
+      newBalance = (int) (BALANCE_INTEREST_RATE * user.getBalance());
+      user.setBalance(newBalance);
+    }
+    //Update DB
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, newBalance);
+  }
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
     return (int) (dollarAmount * 100);
@@ -340,10 +359,17 @@ public class MvcController {
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
+        //if mainBalanceIncreaseAmtInPennies over $19.99 it counts towards earning interest on every fifth deposit
+        if (mainBalanceIncreaseAmtInPennies > convertDollarsToPennies(19.99)) {
+          user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+        }
       }
 
     } else { // simple deposit case
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);        //if mainBalanceIncreaseAmtInPennies over $19.99 it counts towards earning interest on every fifth deposit
+      if (userDepositAmtInPennies > convertDollarsToPennies(19.99)) {
+        user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -355,6 +381,11 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+    }
+
+    // Verifies user has deposited a multiple of 5 transactions >= $20 and overdraft balance is 0 and the balance is > 0
+    if (user.getNumDepositsForInterest() % 5 == 0 && user.getOverDraftBalance() == 0 && user.getBalance() > 0.0) {
+      applyInterestToBalance(user);
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
