@@ -233,24 +233,10 @@ public class MvcControllerIntegTest {
 
     // fetch updated customer1 data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
-    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
     
     // verify that customer1's main balance is now 0
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(0, (int)customer1Data.get("Balance"));
-
-    // verify that customer1's Overdraft balance is equal to the remaining withdraw amount with interest applied
-    // (convert to pennies before applying interest rate to avoid floating point roundoff errors when applying the interest rate)
-    int CUSTOMER1_ORIGINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    int CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW);
-    int CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_BEFORE_INTEREST_IN_PENNIES = CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES - CUSTOMER1_ORIGINAL_BALANCE_IN_PENNIES;
-    int CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_AFTER_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.applyOverdraftInterest(CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_BEFORE_INTEREST_IN_PENNIES);
-    System.out.println("Expected Overdraft Balance in pennies: " + CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_AFTER_INTEREST_IN_PENNIES);
-    assertEquals(CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_AFTER_INTEREST_IN_PENNIES, (int)customer1Data.get("OverdraftBalance"));
-
-    // verify that the Withdraw's details are accurately logged in the TransactionHistory table
-    Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(0);
-    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
 
   /**
@@ -1582,4 +1568,113 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+
+  /**
+   * Verifies the case where a customer with a negative balance recieves no interest upon deposit.
+   * The customer's main balance should be set to -$1
+   * 
+   * A few Assertions are omitted to remove clutter since they are already
+   * checked in detail in testSimpleWithdraw().
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testNegativetNoInterestAccumulated() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of -$1 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = -1;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Prepare deposit Form to deposit $1 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 1; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated customer1 data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    
+    // verify that customer1's main balance is now 0
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    int EXPECT_BALANCE = 0;
+    assertEquals(EXPECT_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+
+  /**
+   * Verifies the case where a customer with a 0 balance recieves no interest upon deposit.
+   * The customer's main balance should be set to $0
+   * 
+   * A few Assertions are omitted to remove clutter since they are already
+   * checked in detail in testSimpleWithdraw().
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testZeroToNoInterestAccumulated() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Prepare deposit Form to deposit $1 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 1; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated customer1 data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    
+    // verify that customer1's main balance is now 1 + interest
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    int EXPECT_BALANCE = 100;
+    assertEquals(EXPECT_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+    /**
+   * Verifies the case where a customer with a 1 balance recieves interest upon deposit.
+   * The customer's main balance should be set to $1
+   * 
+   * A few Assertions are omitted to remove clutter since they are already
+   * checked in detail in testSimpleWithdraw().
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testOneToInterestAccumulated() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Prepare deposit Form to deposit $1 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 1; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated customer1 data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    
+    // verify that customer1's main balance is now 1 + interest
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    int EXPECT_BALANCE = 200;
+    assertEquals(EXPECT_BALANCE, (int)customer1Data.get("Balance"));
+  }
 }
