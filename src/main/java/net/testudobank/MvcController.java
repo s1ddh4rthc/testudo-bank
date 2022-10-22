@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -65,10 +66,10 @@ public class MvcController {
    * @param model
    * @return "welcome" page
    */
-	@GetMapping("/")
-	public String showWelcome(Model model) {
-		return "welcome";
-	}
+  @GetMapping("/")
+  public String showWelcome(Model model) {
+    return "welcome";
+  }
 
   /**
    * HTML GET request handler that serves the "login_form" page to the user.
@@ -79,12 +80,12 @@ public class MvcController {
    * @return "login_form" page
    */
   @GetMapping("/login")
-	public String showLoginForm(Model model) {
-		User user = new User();
+  public String showLoginForm(Model model) {
+    User user = new User();
     model.addAttribute("user", user);
 
-		return "login_form";
-	}
+    return "login_form";
+  }
 
   /**
    * HTML GET request handler that serves the "deposit_form" page to the user.
@@ -95,11 +96,11 @@ public class MvcController {
    * @return "deposit_form" page
    */
   @GetMapping("/deposit")
-	public String showDepositForm(Model model) {
+  public String showDepositForm(Model model) {
     User user = new User();
-		model.addAttribute("user", user);
-		return "deposit_form";
-	}
+    model.addAttribute("user", user);
+    return "deposit_form";
+  }
 
   /**
    * HTML GET request handler that serves the "withdraw_form" page to the user.
@@ -110,11 +111,11 @@ public class MvcController {
    * @return "withdraw_form" page
    */
   @GetMapping("/withdraw")
-	public String showWithdrawForm(Model model) {
+  public String showWithdrawForm(Model model) {
     User user = new User();
-		model.addAttribute("user", user);
-		return "withdraw_form";
-	}
+    model.addAttribute("user", user);
+    return "withdraw_form";
+  }
 
   /**
    * HTML GET request handler that serves the "dispute_form" page to the user.
@@ -125,11 +126,11 @@ public class MvcController {
    * @return "dispute_form" page
    */
   @GetMapping("/dispute")
-	public String showDisputeForm(Model model) {
+  public String showDisputeForm(Model model) {
     User user = new User();
-		model.addAttribute("user", user);
-		return "dispute_form";
-	}
+    model.addAttribute("user", user);
+    return "dispute_form";
+  }
 
   /**
    * HTML GET request handler that serves the "transfer_form" page to the user.
@@ -140,11 +141,11 @@ public class MvcController {
    * @return "dispute_form" page
    */
   @GetMapping("/transfer")
-	public String showTransferForm(Model model) {
+  public String showTransferForm(Model model) {
     User user = new User();
-		model.addAttribute("user", user);
-		return "transfer_form";
-	}
+    model.addAttribute("user", user);
+    return "transfer_form";
+  }
 
   /**
    * HTML GET request handler that serves the "buycrypto_form" page to the user.
@@ -155,13 +156,13 @@ public class MvcController {
    * @return "buycrypto_form" page
    */
   @GetMapping("/buycrypto")
-	public String showBuyCryptoForm(Model model) {
+  public String showBuyCryptoForm(Model model) {
     User user = new User();
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-		model.addAttribute("user", user);
-		return "buycrypto_form";
-	}
+    model.addAttribute("user", user);
+    return "buycrypto_form";
+  }
 
   /**
    * HTML GET request handler that serves the "sellcrypto_form" page to the user.
@@ -172,13 +173,13 @@ public class MvcController {
    * @return "sellcrypto_form" page
    */
   @GetMapping("/sellcrypto")
-	public String showSellCryptoForm(Model model) {
+  public String showSellCryptoForm(Model model) {
     User user = new User();
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-		model.addAttribute("user", user);
-		return "sellcrypto_form";
-	}
+    model.addAttribute("user", user);
+    return "sellcrypto_form";
+  }
 
   //// HELPER METHODS ////
 
@@ -205,7 +206,7 @@ public class MvcController {
     String transferHistoryOutput = HTML_LINE_BREAK;
     for(Map<String, Object> transferLog : transferLogs){
       transferHistoryOutput += transferLog + HTML_LINE_BREAK;
-    }
+    } 
 
     List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
     StringBuilder cryptoHistoryOutput = new StringBuilder(HTML_LINE_BREAK);
@@ -270,9 +271,9 @@ public class MvcController {
    * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
    */
   @PostMapping("/login")
-	public String submitLoginForm(@ModelAttribute("user") User user) {
+  public String submitLoginForm(@ModelAttribute("user") User user) {
     // Print user's existing fields for debugging
-		System.out.println(user);
+    System.out.println(user);
 
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
@@ -287,7 +288,7 @@ public class MvcController {
     } else {
       return "welcome";
     }
-	}
+  }
 
   /**
    * HTML POST request handler for the Deposit Form page.
@@ -306,6 +307,8 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    boolean addedInterest = false;
+    int logInterest = 0;
 
     //// Invalid Input/State Handling ////
 
@@ -324,6 +327,10 @@ public class MvcController {
     double userDepositAmt = user.getAmountToDeposit();
     if (userDepositAmt < 0) {
       return "welcome";
+    } else if (userDepositAmt >= 20){
+      // if the deposit was of $20 or more, then incremet the number of deposits until interest condition is met
+      int depositover20 = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, (++depositover20));
     }
     
     //// Complete Deposit Transaction ////
@@ -343,7 +350,24 @@ public class MvcController {
       }
 
     } else { // simple deposit case
+      // Retreive the customer current balance in penies from the repository balance field
+      int custormerBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      // Calculate the interest to be added to the customer balance
+      int interest = (int)(custormerBalance * (BALANCE_INTEREST_RATE - 1));
+
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      
+      // Check if the user has achieved 5 deposits of over 20 dollars
+      if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) == 5){
+        // If the user meets the condition(numDepositsForInterest == 5), then we add the calculated interest to his balance
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interest);
+        // Reset the numDepositsForInterest value to 0 after succesful interest balance deposit
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+        addedInterest = true;
+        // Used to store interest value for use in log later
+        logInterest = interest;
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -355,6 +379,10 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      if (addedInterest){
+        // If interest was added to the balance, add the interest amount to the balance log
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, logInterest);
+      }
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -362,7 +390,7 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
   }
-	
+  
   /**
    * HTML POST request handler for the Withdraw Form page.
    * 
