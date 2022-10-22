@@ -35,6 +35,8 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
+  private final static int BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES = 2000;
+  private final static int BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD = 5;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
@@ -43,6 +45,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -344,6 +347,11 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      
+      if (userDepositAmtInPennies >= BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES) {
+        int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), currentDepositsForInterest + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -799,15 +807,45 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Handles all interest logic with the exception of tallying interest-qualifying deposits, which
+   * is handled in the simple deposit case of submitDeposit.
+   * <p>
+   * If user has reached the number of qualifying deposits required to trigger interest application,
+   * interest is applied to the current balance, the deposit counter is reset, and the interest
+   * application is logged as a transaction, finally returning the account_info page. Otherwise, no
+   * state changes occur and the welcome page is returned.
+   * <p>
+   * This function assumes it is not possible to achieve the qualifying deposit count while any
+   * disqualifying constraints (zero balance, overdraft), since it should not be possible to
+   * increment the counter while these constraints are true.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
+        user.getUsername());
+    
+    if (currentDepositsForInterest < BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD) {
+      return "welcome";
+    }
 
-    return "welcome";
+    int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate,
+        user.getUsername());
+    int newBalanceInPennies = (int) Math.round(currentBalanceInPennies * BALANCE_INTEREST_RATE);
+    int appliedInterestInPennies = newBalanceInPennies - currentBalanceInPennies;
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
+    /* TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema
+      * for transactionhistory table is updated to include 'Interest'.
+      * In current state, there is no way to distinguish deposits from interest applications. */
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
+    currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, appliedInterestInPennies);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
+        currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
+
+    return "account_info";
   }
 
 }
