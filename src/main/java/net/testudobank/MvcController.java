@@ -834,7 +834,7 @@ public class MvcController {
     }
 
     if(appliedInterest){
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)dueInterestBalance);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)numDepositsForInterest);
       updateAccountInfo(user);
     }
     return "account_info";
