@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.SQLWarningException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.delegate.DatabaseDelegate;
@@ -1854,6 +1855,304 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     
   }
 
+  @Test
+  public void testTheDepositsWithInterest() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_INITIAL_NUM_DEPOSITS = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_INITIAL_NUM_DEPOSITS);
+
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 21;
+    
+    //Deposit 1
+    System.out.println("\n" + "DEBUG: Deposit 1");
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    //Deposit 2
+    System.out.println("\n" + "DEBUG: Deposit 2");
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    //Deposit 3
+    System.out.println("\n" + "DEBUG: Deposit 3");
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    //Deposit 4
+    System.out.println("\n" + "DEBUG: Deposit 4");
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    //Deposit 5
+    System.out.println("\n" + "DEBUG: Deposit 5");
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    /* 
+     * Interest applied to the first five deposits:
+     *
+     * We expect that the customer's balance before applying interest is ($21 * 5 + $123.45) = $228.45
+     * We expect that the interest to be added is $228.45 * 1.015 = $231.87675 ~ $231.87
+     * Then the balance of customer 1 should become $228.45 + $231.87 = $460.32
+     */ 
+
+     // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
   
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance
+
+    double BALANCE_INTEREST_RATE = 1.015;
+    double CUSTOMER1_AMOUNT_APPLIED_INTEREST = (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE) * BALANCE_INTEREST_RATE;
+    System.out.print("Customer1 Initial Balance: ");
+    System.out.println(CUSTOMER1_BALANCE);
+    System.out.print("Customer1 Applied Interest: ");
+    System.out.println(CUSTOMER1_AMOUNT_APPLIED_INTEREST);
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + 5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_AMOUNT_APPLIED_INTEREST;
+    System.out.print("Customer1 Expected Final Balance: ");
+    System.out.println(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // verify that the 5 Deposits and 1 interest applied are the only logs in TransactionHistory table
+    assertEquals(6, transactionHistoryTableData.size());
+    
+    //Deposit 6
+    System.out.println("\n" + "DEBUG: Deposit 6");
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    /*
+     * We expect that the customer's balance is simply
+     */
+
+    // fetch updated data from the DB
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+   
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance
+
+    double Customer1NewBalance = CUSTOMER1_EXPECTED_FINAL_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+
+    System.out.print("Customer1 Expected Balance: ");
+    System.out.println(Customer1NewBalance);
+
+    System.out.print("Customer1 Actual Balance");
+    System.out.println(0.01 * (int)customer1Data.get("Balance"));
+
+    double Customer1NewBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(Customer1NewBalance);
+    assertEquals(Customer1NewBalanceInPennies, (int)customer1Data.get("Balance"));
+
+    // verify that the 6 Deposits and 1 interest applied are the only logs in TransactionHistory table
+    assertEquals(7, transactionHistoryTableData.size());
+
+    
+
+  }
+
+  /**
+   * Verifies interest upon 5th and 10th deposit.
+   * The customer's Balance in the Customers table should be increased,
+   * and the Deposit should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * Does not check the accuracy of the transaction history amounts.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+
+/*   
+@Test
+public void testFifthAndTenthDepositWithInterest() throws SQLException, ScriptException {
+  // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+  double CUSTOMER1_BALANCE = 123.45;
+  int CUSTOMER1_INITIAL_NUM_DEPOSITS = 0;
+  int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_INITIAL_NUM_DEPOSITS);
+
+  // Deposit 1
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT = 21; // user input is in dollar amount, not pennies.
+  User customer1DepositFormInputs = new User();
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  // Deposit 2
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  // Deposit 3
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);    
+
+  // Deposit 4
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);   
+
+  // Deposit 5
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);   
+*/
+
+  /* 
+   * Interest applied to the first five deposits:
+   *
+   * We expect that the customer's balance before applying interest is ($21 * 5 + $123.45) = $228.45
+   * We expect that the interest to be added is $228.45 * 1.015 = $231.87675 ~ $231.87
+   * Then the balance of customer 1 should become $228.45 + $231.87 = $460.32
+   */ 
+
+  /* 
+  double BALANCE_INTEREST_RATE = 1.015;
+  double CUSTOMER1_AMOUNT_APPLIED_INTEREST_FIRST_FIVE_DEPOSITS = (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE) * BALANCE_INTEREST_RATE;
+  double CUSTOMER1_BALANCE_AFTER_FIRST_FIVE_DEPOSITS = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_APPLIED_INTEREST_FIRST_FIVE_DEPOSITS;
+  */
+
+  //DEBUG
+  /* 
+  // fetch updated data from the DB
+  List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+  List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+  // verify that customer1's data is still the only data populated in Customers table
+  assertEquals(1, customersTableData.size());
+  Map<String,Object> customer1Data = customersTableData.get(0);
+  assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+  double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE_AFTER_FIRST_FIVE_DEPOSITS);
+  assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+  //END DEBUG
+  */
+
+/*   // Deposit 6
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  // Deposit 7
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  // Deposit 8
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);    
+
+  // Deposit 9
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);   
+
+  // Deposit 10
+  // Prepare Deposit Form to Deposit $21 to customer 1's account.
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(customer1DepositFormInputs);   
+*/  
+
+  /* 
+   * Interest applied to the last five deposits:
+   *
+   * We expect that the customer's balance before applying interest is ($21 * 5 + $460.32) = $565.32
+   * We expect that the interest to be added is 565.32 * 1.015 = $573.7998 ~ $573.79
+   * Then the balance of customer 1 should become $565.32 + $573.79 = $1139.11
+   */ 
+
+/*   
+  double CUSTOMER1_AMOUNT_APPLIED_INTEREST_FIRST_TEN_DEPOSITS = (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE_AFTER_FIRST_FIVE_DEPOSITS) * BALANCE_INTEREST_RATE;
+  double CUSTOMER1_BALANCE_AFTER_FIRST_TEN_DEPOSITS = CUSTOMER1_BALANCE_AFTER_FIRST_FIVE_DEPOSITS + CUSTOMER1_AMOUNT_APPLIED_INTEREST_FIRST_TEN_DEPOSITS;
+
+  // fetch updated data from the DB
+  List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+  List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+  // verify that customer1's data is still the only data populated in Customers table
+  assertEquals(1, customersTableData.size());
+  Map<String,Object> customer1Data = customersTableData.get(0);
+  assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+  // verify customer balance
+  double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE_AFTER_FIRST_TEN_DEPOSITS;
+  double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+  assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  // verify that the 10 Deposits and 2 interests applied are the only logs in TransactionHistory table
+  assertEquals(12, transactionHistoryTableData.size());
+*/  
+//}
+
 
 }

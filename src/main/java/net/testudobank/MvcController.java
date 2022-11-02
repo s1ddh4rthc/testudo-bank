@@ -831,6 +831,10 @@ public class MvcController {
     String userID = user.getUsername();
 
     int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    //DEBUG
+    System.out.print("\n" + "DEBUG: currNumDepositsForInterest before trying to apply interest: ");
+    System.out.println(currNumDepositsForInterest);
+    //END DEBUG
 
     // if number of deposits is a multiple of 5 then apply interest
     if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
@@ -843,11 +847,18 @@ public class MvcController {
 
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAddInPennies);
+
+      // Increment the number of deposits for interest
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
       return "account_info";
     }
     // otherwise just increment number of deposits for interest  
     else {
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      //DEBUG
+      System.out.print("\n" + "DEBUG: currNumDepositsForInterest after trying to apply interest: ");
+      System.out.println(currNumDepositsForInterest);
+      //END DEBUG
       return "welcome";
     }
   }
