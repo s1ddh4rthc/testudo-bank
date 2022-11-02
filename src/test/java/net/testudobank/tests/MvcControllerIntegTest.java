@@ -1868,7 +1868,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 21;
     
     //Deposit 1
-    System.out.println("\n" + "DEBUG: Deposit 1");
     User customer1DepositFormInputs = new User();
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
@@ -1876,28 +1875,24 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     controller.submitDeposit(customer1DepositFormInputs);
 
     //Deposit 2
-    System.out.println("\n" + "DEBUG: Deposit 2");
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
     controller.submitDeposit(customer1DepositFormInputs);
 
     //Deposit 3
-    System.out.println("\n" + "DEBUG: Deposit 3");
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
     controller.submitDeposit(customer1DepositFormInputs);
 
     //Deposit 4
-    System.out.println("\n" + "DEBUG: Deposit 4");
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
     controller.submitDeposit(customer1DepositFormInputs);
 
     //Deposit 5
-    System.out.println("\n" + "DEBUG: Deposit 5");
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
@@ -1924,14 +1919,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     double BALANCE_INTEREST_RATE = 1.015;
     double CUSTOMER1_AMOUNT_APPLIED_INTEREST = (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE) * BALANCE_INTEREST_RATE;
-    System.out.print("Customer1 Initial Balance: ");
-    System.out.println(CUSTOMER1_BALANCE);
-    System.out.print("Customer1 Applied Interest: ");
-    System.out.println(CUSTOMER1_AMOUNT_APPLIED_INTEREST);
 
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + 5 * CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_AMOUNT_APPLIED_INTEREST;
-    System.out.print("Customer1 Expected Final Balance: ");
-    System.out.println(CUSTOMER1_EXPECTED_FINAL_BALANCE);
 
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
@@ -1940,14 +1929,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals(6, transactionHistoryTableData.size());
     
     //Deposit 6
-    System.out.println("\n" + "DEBUG: Deposit 6");
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
     controller.submitDeposit(customer1DepositFormInputs);
 
     //Deposit 7
-    System.out.println("\n" + "DEBUG: Deposit 7");
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
@@ -1965,12 +1952,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     // verify customer balance
 
     double Customer1NewBalance = CUSTOMER1_EXPECTED_FINAL_BALANCE + 2 * CUSTOMER1_AMOUNT_TO_DEPOSIT;
-
-    System.out.print("Customer1 Expected Balance: ");
-    System.out.println(Customer1NewBalance);
-
-    System.out.print("Customer1 Actual Balance");
-    System.out.println(0.01 * (int)customer1Data.get("Balance"));
 
     double Customer1NewBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(Customer1NewBalance);
     assertEquals(Customer1NewBalanceInPennies, (int)customer1Data.get("Balance"));
