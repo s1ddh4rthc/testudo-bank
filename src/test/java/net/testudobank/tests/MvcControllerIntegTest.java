@@ -1855,8 +1855,16 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     
   }
 
-  /*
+   /**
    * Verifies that the 6th and 7th qualifying deposits do not apply interest.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * Does not check the accuracy of the transaction history amounts.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
    */
   @Test
   public void test7thDepositWithInterest() throws SQLException, ScriptException {
