@@ -1658,6 +1658,33 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
+   * Tests that selling BTC, an invalid and unsupported Crypto Currency, cannot occur.
+   * Should return the welcome page.
+   */
+  @Test
+  public void testSellBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    
+    cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+  }
+
+  /**
    * Verifies interest upon 5th deposit.
    * The customer's Balance in the Customers table should be increased,
    * and the Deposit should be logged in the TransactionHistory table.
