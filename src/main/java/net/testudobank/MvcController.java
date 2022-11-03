@@ -81,8 +81,8 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-		model.addAttribute("user", user);
-		
+    model.addAttribute("user", user);
+
 		return "login_form";
 	}
 
@@ -382,6 +382,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
