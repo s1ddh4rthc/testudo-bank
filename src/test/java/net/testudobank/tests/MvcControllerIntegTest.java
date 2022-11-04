@@ -1504,6 +1504,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
+
+    
   }
 
   /**
@@ -1581,5 +1583,176 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+  @Test
+  public void testApplyInterest() throws SQLException, ScriptException {
+    
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    
+      double CUSTOMER1_AMOUNT_TO_DEPOSIT = 200.00; // user input is in dollar amount, not pennies.
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      assertEquals(customer1DepositFormInputs.getNumDepositsForInterest(), 1);
+
+      controller.submitDeposit(customer1DepositFormInputs);
+      
+      assertEquals(customer1DepositFormInputs.getNumDepositsForInterest(), 2);
+
+      controller.submitDeposit(customer1DepositFormInputs);
+      
+      assertEquals(customer1DepositFormInputs.getNumDepositsForInterest(), 3);
+      controller.submitDeposit(customer1DepositFormInputs);
+      
+      assertEquals(customer1DepositFormInputs.getNumDepositsForInterest(), 4);
+
+      controller.submitDeposit(customer1DepositFormInputs);
+      
+      assertEquals(customer1DepositFormInputs.getNumDepositsForInterest(), 0);
+      
+      // verify customer balance was increased
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE = 1008.11;
+
+
+      assertEquals(customer1DepositFormInputs.getBalance(), CUSTOMER1_EXPECTED_FINAL_BALANCE);
+  
+    
+  }
+
+  @Test
+  public void testNotApplyInterest() throws SQLException, ScriptException {
+    
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    for (int i=0; i<4; i++){
+      double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; // user input is in dollar amount, not pennies.
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+      
+    }
+
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+    
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+  
+    // verify customer balance was increased by $99.98
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = 99.98;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+    
+  }
+
+//Three New Tests that Test Buying and Selling ETH, SOL, BTC
+
+  @Test
+  public void testBuyAndSellCrytoUserFlow () throws ScriptException{
+    CryptoTransactionTester cryptoTransaction = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransaction.initialize();
+
+    CryptoTransaction cryptoTransaction1 = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransaction.test(cryptoTransaction1);
+
+    CryptoTransaction cryptoTransaction2 = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(500)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransaction.test(cryptoTransaction2);
+    
+    CryptoTransaction cryptoTransaction3 = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(500)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransaction.test(cryptoTransaction3);
+    
+  }
+
+  @Test
+  public void BuyBTCInvalid() throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+    
+  }
+
+  @Test
+  public void SellBTCInvalid() throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+    
+  }
+  
 
 }
