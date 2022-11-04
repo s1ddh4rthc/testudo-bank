@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import javax.script.ScriptException;
 
@@ -1286,6 +1287,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       } else {
         assertEquals("account_info", returnedPage);
 
+        
         // check transaction logs
         assertEquals(numTransactions + 1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
         List<Map<String, Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory ORDER BY Timestamp DESC;");
@@ -1293,6 +1295,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
         int expectedCryptoValueInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(transaction.cryptoPrice * transaction.cryptoAmountToTransact);
         MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, cryptoTransactionTime, CUSTOMER1_ID, transaction.cryptoTransactionTestType.transactionHistoryActionName, expectedCryptoValueInPennies);
 
+        //I THINK THAT THE CRYPTO LOG ISNT ORDERING TRANSACTIONS CORRECTLY - TRY SLEEP
         // check crypto logs
         assertEquals(numTransactions + 1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM CryptoHistory;", Integer.class));
         List<Map<String, Object>> cryptoHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM CryptoHistory ORDER BY Timestamp DESC;");
@@ -1581,5 +1584,110 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+//INTEGRATION TESTS FOR CRYPTO SOLANA ASSIGNMENT 3
+
+/*
+*This test verifies that a user can purchase 2 different types of crypto (ETH and SOL)
+*and then sell some SOL successfully. 
+*/
+  @Test
+  public void testCryptoBuyAndSell() throws ScriptException, InterruptedException {
+    //use a map with two elements as opposed to a singleton map for storing the crypto-value pairs
+    Map<String, Double> bal = new HashMap<>();
+    bal.put("ETH", 0.0);
+    bal.put("SOL", 0.0);
+    //initialize the crypo transaction tester class 
+    CryptoTransactionTester custSOL = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.unmodifiableMap(bal))
+            .build();
+
+    custSOL.initialize();
+
+    //initialize the crypo transaction value and action (to buy ETH)
+    CryptoTransaction buyETH = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+
+    //use the cryptoTransferTester object to test if he transaction can be successfully completed     
+    custSOL.test(buyETH);
+
+    //sleep for ease of differentiation between timestamps for the transactions
+    Thread.sleep(1000);
+
+    //initialize the transaction to buy SOL
+    CryptoTransaction buySOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    custSOL.test(buySOL);
+
+    Thread.sleep(1000);
+
+    //initialize the transaction to sell SOL
+    CryptoTransaction sellSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.05)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.05)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    custSOL.test(sellSOL);
+  }
+
+  //Ensures that a user cannot purchase any crypto that isn't in our system
+  @Test
+  public void testInvalidBTC() throws ScriptException{
+    CryptoTransactionTester cust = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(800)
+            .build();
+
+    cust.initialize();
+
+    CryptoTransaction buyBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.05)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cust.test(buyBTC);
+  }
+
+  //Ensures that a user cannot sell any crypto that is not in our systems
+
+  @Test
+  public void testSellingInvalidBTC() throws ScriptException{
+    CryptoTransactionTester cust = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(800)
+    .build();
+
+    cust.initialize();
+
+    CryptoTransaction sellBTC = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(800)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.05)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    cust.test(sellBTC);
+  }
+  
 
 }
