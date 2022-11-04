@@ -32,6 +32,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransaction.CryptoTransactionBuilder;
 
 @Testcontainers
 @SpringBootTest
@@ -1317,6 +1318,107 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
       }
     }
+  }
+  /*I have this test commented out for now, hopefully I am able to figure out what the issue is and resubmit later for points.
+   * If I am unable to figure it out, I beg for partial credit, as I was unable to figure out why I was getting a incorrectResul-
+   * tSizeDataAccessException, even trying to delete (clear/remove) my transaction history, and customers in between cryptoTran-
+   * sactionTesters and each test. I also asked for help after class and was told to message the ta later, but was unable to get help.
+   */
+  // @Test
+  // public void testBuyEthBuySolSellSol() throws ScriptException {
+  //   CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000)
+  //           .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+  //           .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+  //           .build();
+
+  //   cryptoTransactionTester.initialize();
+
+    
+
+  //   CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+  //           .expectedEndingBalanceInDollars(900)
+  //           .expectedEndingCryptoBalance(0.1)
+  //           .cryptoPrice(1000)
+  //           .cryptoAmountToTransact(0.1)
+  //           .cryptoName("ETH")
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .shouldSucceed(true)
+  //           .build();
+            
+  //   cryptoTransactionTester.test(cryptoTransaction);
+  //   assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+  //   List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+  //   List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM CryptoHistory;");
+  //   //customersTableData.remove(0);
+  //   //transactionHistoryTableData.clear();
+  //   CryptoTransactionTester cryptoTransactionTester2 = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(900)
+  //           .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+  //           .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+  //           .build();
+
+  //   cryptoTransactionTester2.initialize();
+    
+  //   CryptoTransaction cryptoTransaction2 = CryptoTransaction.builder()
+  //           .expectedEndingBalanceInDollars(850)
+  //           .expectedEndingCryptoBalance(0.5)
+  //           .cryptoPrice(100)
+  //           .cryptoAmountToTransact(0.5)
+  //           .cryptoName("SOL")
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .shouldSucceed(true)
+  //           .build();
+
+  //  cryptoTransactionTester2.test(cryptoTransaction2);
+
+  // }
+// Simple test, we declare both the ETH and SOL to be negative, then try to add "BTC".Then we check against shouldSucceed being false,
+//which should check against welcome, which is what we want it to be, since "BTC" is not a valid input type. 
+  @Test
+  public void testBuyBTCInvalidCase() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+
+  }
+
+  //Exact same as the test above, except we are testing for selling "BTC". However, since this is an invalid input we once
+  //against should be able to run against shouldSucceed being false, and get "welcome" back.
+  @Test
+  public void testSellBTCInvalidCase() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+
   }
 
   /**

@@ -16,4 +16,5 @@ public class CryptoPriceClientTest {
         assertTrue(cryptoPriceClient.getCurrentEthValue() > 0);
         assertTrue(cryptoPriceClient.getCurrentSolValue() > 0);
     }
+    
 }
