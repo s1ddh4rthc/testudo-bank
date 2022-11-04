@@ -1,5 +1,5 @@
 # MySQL DB Connection Config Values
-mysql_endpoint='localhost'
+mysql_endpoint='real local server'
 username='root'
-password='<Put MySQL Server Password Here>'
+password='heats3'
 database_name = 'testudo_bank'

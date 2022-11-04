@@ -325,6 +325,11 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
+
+    if (userDepositAmt >= 20.00){
+      int numDepositsForInterest = user.getNumDepositsForInterest() + 1;
+      user.setNumDepositsForInterest(numDepositsForInterest);
+    }
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -355,7 +360,10 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      
     }
+
+    
 
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
@@ -624,6 +632,7 @@ public class MvcController {
 
     return "account_info";
   }
+  
 
   /**
    * HTML POST request handler for the Buy Crypto Form page.
@@ -805,6 +814,18 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    
+    if (user.getNumDepositsForInterest() == 5){
+      double depositInterest = (user.getBalance() * (BALANCE_INTEREST_RATE/100.00));
+      
+      user.setNumDepositsForInterest(0);
+      user.setAmountToDeposit(depositInterest);
+
+      submitDeposit(user);
+    
+
+      return "account_info";
+    }
 
     return "welcome";
 
