@@ -357,7 +357,14 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+    // Increments deposits for interest if deposit at least $20
+    if(userDepositAmtInPennies >= 2000) {
+      user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1);
+    }
+
     // update Model so that View can access new main balance, overdraft balance, and logs
+    
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -805,6 +812,30 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    
+    //If customer in overdraft do not apply interest
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }
+
+
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) % 5 == 0) {
+      int acctBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestDepositedToAcctInPennies = (int) ((BALANCE_INTEREST_RATE - 1) * acctBalanceInPennies);
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestDepositedToAcctInPennies);
+
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestDepositedToAcctInPennies);
+
+      updateAccountInfo(user);
+      return "account_info";
+    }
+
 
     return "welcome";
 
