@@ -1690,4 +1690,97 @@ assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Test the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, and then sells some of their SOL.
+   */
+  @Test
+  public void testCryptoMultipleBuyAndSell() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction1 = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction1);
+    
+    CryptoTransaction cryptoTransaction2 = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction2);
+
+    CryptoTransaction cryptoTransaction3 = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.05)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.05)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction3);
+  }
+
+
+  /*
+   * Tests the case in which user attempts to buy Bitcoin to see if a welcome page is returned
+   */
+  @Test
+  public void testBuyBitcoin() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /*
+   * Tests the case in which user attempts to sell Bitcoin to see if a welcome page is returned
+   */
+  @Test
+  public void testSellBitcoin() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
 }
