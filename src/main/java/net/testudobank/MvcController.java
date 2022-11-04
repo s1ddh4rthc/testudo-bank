@@ -50,7 +50,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double BALANCE_INTEREST_RATE = 0.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -325,6 +325,10 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
+
+    if (userDepositAmt >= 20){
+      user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+    }
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -358,6 +362,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -806,8 +811,17 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+    if (user.getNumDepositsForInterest() != 5){
+      return "welcome";
+    }
 
+    user.setNumDepositsForInterest(0);
+    double currentBalance = user.getBalance();
+    double interestApplied = currentBalance*BALANCE_INTEREST_RATE;
+    user.setAmountToDeposit(interestApplied);
+    submitDeposit(user);
+
+    return "account_info";
   }
 
 }
