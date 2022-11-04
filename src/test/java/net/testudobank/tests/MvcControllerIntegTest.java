@@ -1667,8 +1667,10 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     
   }
 
+//Three New Tests that Test Buying and Selling ETH, SOL, BTC
+
   @Test
-  public void testBuyAndSellCryto () throws ScriptException{
+  public void testBuyAndSellCrytoUserFlow () throws ScriptException{
     CryptoTransactionTester cryptoTransaction = CryptoTransactionTester.builder()
             .initialBalanceInDollars(1000)
             .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
