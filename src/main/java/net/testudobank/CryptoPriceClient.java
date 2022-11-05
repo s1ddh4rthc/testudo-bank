@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import yahoofinance.YahooFinance;
 
 import java.io.IOException;
-
+//
 @Component
 public class CryptoPriceClient {
     /**
