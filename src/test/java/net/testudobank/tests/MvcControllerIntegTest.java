@@ -233,24 +233,10 @@ public class MvcControllerIntegTest {
 
     // fetch updated customer1 data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
-    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
     
     // verify that customer1's main balance is now 0
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(0, (int)customer1Data.get("Balance"));
-
-    // verify that customer1's Overdraft balance is equal to the remaining withdraw amount with interest applied
-    // (convert to pennies before applying interest rate to avoid floating point roundoff errors when applying the interest rate)
-    int CUSTOMER1_ORIGINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    int CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW);
-    int CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_BEFORE_INTEREST_IN_PENNIES = CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES - CUSTOMER1_ORIGINAL_BALANCE_IN_PENNIES;
-    int CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_AFTER_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.applyOverdraftInterest(CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_BEFORE_INTEREST_IN_PENNIES);
-    System.out.println("Expected Overdraft Balance in pennies: " + CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_AFTER_INTEREST_IN_PENNIES);
-    assertEquals(CUSTOMER1_EXPECTED_OVERDRAFT_BALANCE_AFTER_INTEREST_IN_PENNIES, (int)customer1Data.get("OverdraftBalance"));
-
-    // verify that the Withdraw's details are accurately logged in the TransactionHistory table
-    Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(0);
-    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
 
   /**
@@ -1582,4 +1568,214 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+    /**
+   *  Test the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, 
+   *  and then sells some of their SOL.
+   * @throws ScriptException
+   */
+  @Test
+  public void testBuyValidCrypto () throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+            cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoETHBuyTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+            cryptoTransactionTester.test(cryptoETHBuyTransaction);
+
+    CryptoTransaction cryptoSOLBuyTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(500)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+            cryptoTransactionTester.test(cryptoSOLBuyTransaction);
+
+    CryptoTransaction cryptoSOLSellTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(500)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+            cryptoTransactionTester.test(cryptoSOLSellTransaction);
+
+  }
+  /**
+   *  TestudoBank does not currently support BitCoin ($BTC). Write an integ test that 
+   *  ensures that the "welcome" page is returned when a user attempts to put "BTC" as 
+   *  the crypto name in the front-end when filling out the CryptoBuy form.
+   * @throws ScriptException
+   */
+  @Test
+  public void BuyBTCInvalid() throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+
+  }
+  
+  /**
+   *  TestudoBank does not currently support BitCoin ($BTC). Write an integ test that 
+   *  ensures that the "welcome" page is returned when a user attempts to put "BTC" as 
+   *  the crypto name in the front-end when filling out the CryptoSell form.
+   * @throws ScriptException
+   */
+  @Test
+  public void SellBTCInvalid() throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+
+  }
+
+
+  /**
+   * Verifies the case where a customer with a negative balance recieves no interest upon deposit.
+   * The customer's main balance should be set to -$1
+   * 
+   * A few Assertions are omitted to remove clutter since they are already
+   * checked in detail in testSimpleWithdraw().
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testNegativetNoInterestAccumulated() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of -$1 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = -1;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Prepare deposit Form to deposit $1 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 1; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated customer1 data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    
+    // verify that customer1's main balance is now 0
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    int EXPECT_BALANCE = 0;
+    assertEquals(EXPECT_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+
+  /**
+   * Verifies the case where a customer with a 0 balance recieves no interest upon deposit.
+   * The customer's main balance should be set to $0
+   * 
+   * A few Assertions are omitted to remove clutter since they are already
+   * checked in detail in testSimpleWithdraw().
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testZeroToNoInterestAccumulated() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Prepare deposit Form to deposit $1 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 1; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated customer1 data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    
+    // verify that customer1's main balance is now 1 + interest
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    int EXPECT_BALANCE = 100;
+    assertEquals(EXPECT_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+    /**
+   * Verifies the case where a customer with a 1 balance recieves interest upon deposit.
+   * The customer's main balance should be set to $1
+   * 
+   * A few Assertions are omitted to remove clutter since they are already
+   * checked in detail in testSimpleWithdraw().
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testOneToInterestAccumulated() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    // Prepare deposit Form to deposit $1 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 1; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); // user input is in dollar amount, not pennies.
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated customer1 data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    
+    // verify that customer1's main balance is now 1 + interest
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    int EXPECT_BALANCE = 200;
+    assertEquals(EXPECT_BALANCE, (int)customer1Data.get("Balance"));
+  }
 }

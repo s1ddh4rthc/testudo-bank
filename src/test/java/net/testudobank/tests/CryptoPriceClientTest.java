@@ -1,5 +1,4 @@
 package net.testudobank.tests;
-
 import net.testudobank.CryptoPriceClient;
 import org.junit.jupiter.api.Test;
 
