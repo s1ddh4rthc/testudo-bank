@@ -1564,6 +1564,107 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+    /**
+   *  Test the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, 
+   *  and then sells some of their SOL.
+   * @throws ScriptException
+   */
+  @Test
+  public void testBuyValidCrypto () throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+            cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoETHBuyTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+            cryptoTransactionTester.test(cryptoETHBuyTransaction);
+
+    CryptoTransaction cryptoSOLBuyTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(500)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+            cryptoTransactionTester.test(cryptoSOLBuyTransaction);
+
+    CryptoTransaction cryptoSOLSellTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(500)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+            cryptoTransactionTester.test(cryptoSOLSellTransaction);
+
+  }
+  /**
+   *  TestudoBank does not currently support BitCoin ($BTC). Write an integ test that 
+   *  ensures that the "welcome" page is returned when a user attempts to put "BTC" as 
+   *  the crypto name in the front-end when filling out the CryptoBuy form.
+   * @throws ScriptException
+   */
+  @Test
+  public void BuyBTCInvalid() throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+
+  }
+  
+  /**
+   *  TestudoBank does not currently support BitCoin ($BTC). Write an integ test that 
+   *  ensures that the "welcome" page is returned when a user attempts to put "BTC" as 
+   *  the crypto name in the front-end when filling out the CryptoSell form.
+   * @throws ScriptException
+   */
+  @Test
+  public void SellBTCInvalid() throws ScriptException{
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+
+  }
+
 
   /**
    * Verifies the case where a customer with a negative balance recieves no interest upon deposit.
