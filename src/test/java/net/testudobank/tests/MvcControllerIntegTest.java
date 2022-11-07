@@ -1748,4 +1748,135 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       assertEquals(4, customer1Data.get("NumDepositsForInterest"));
     }
   }
+
+
+  /**
+   * Test that no sell transaction occurs when the cryptocurrency price cannot be obtained
+   */
+  @Test
+  public void testCryptoSellInvalidPrice() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(-1)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test the Buy ETH, Buy SOL, Sell SOL user flow
+   */
+  @Test
+  public void testCryptoBuyETHBuySolSellSol() throws ScriptException, InterruptedException {
+    /* TODO: the only reason this test passes consistently is because execution is manually paused for 1 second
+     * between each transaction to prevent them from getting the same timestamp and messing up transaction
+     * log ordering, which is used by CryptoTransactionTester to fetch the most recent transaction.
+     *
+     * THIS SHOULD **NOT** BE LEFT AS IS, and can only be properly addressed by giving a more precise
+     * absolute ordering for transactions, perhaps by issuing a unique transaction ID which increments for each
+     * transaction across the database or by increasing the precision of timestamps (they currently only seem
+     * to have a 1 second resolution).
+     */
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+    Thread.sleep(1000);
+
+    CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(810)
+            .expectedEndingCryptoBalance(3.0)
+            .cryptoPrice(30)
+            .cryptoAmountToTransact(3.0)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBuySOL);
+
+    Thread.sleep(1000);
+
+    CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(2.0)
+            .cryptoPrice(40)
+            .cryptoAmountToTransact(1.0)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionSellSOL);
+  }
+
+  /**
+   * Test that buying an unsupported cryptocurrency (BTC) does not modify
+   * the user's account and simply redirects them to the welcome page.
+   */
+  @Test
+  public void testCryptoBuyInvalidCurrency() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(-1)
+            .cryptoAmountToTransact(1.0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test that selling an unsupported cryptocurrency (BTC) does not modify
+   * the user's account and simply redirects them to the welcome page.
+   */
+  @Test
+  public void testCryptoSellInvalidCurrency() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(-1)
+            .cryptoAmountToTransact(1.0)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
 }
