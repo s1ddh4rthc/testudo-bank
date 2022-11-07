@@ -251,6 +251,26 @@ public class MvcController {
     return dateTime;
   }
 
+  /**
+   * The Helper method for submitWithdraw()
+   * Applies interest rate to an input penny amount.
+   * @param user
+   * @return
+   */
+
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+  /**
+   * Helper method for applyInterest()
+   * Applies BALANCE_INTEREST_RATE to an input penny amount.
+   * Rounds to the nearest penny.
+   * @param pennyAmount
+   * @return
+   */
+  private int applyBalanceInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * BALANCE_INTEREST_RATE);
+  }
   // HTML POST HANDLERS ////
 
   /**
@@ -344,6 +364,10 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      
+      if (userDepositAmt > 20) {
+        applyInterest(user);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -410,7 +434,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -805,9 +829,31 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
 
-    return "welcome";
+    int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
+    // if number of deposits is a multiple of 5 then apply interest
+    if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
+      // apply interest to account balance
+      int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int balanceToAddInPennies = applyBalanceInterestRateToPennyAmount(currentBalanceInPennies);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceToAddInPennies);
+
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+
+      // Adds deposit to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAddInPennies);
+
+      // Increment the number of deposits for interest
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      return "account_info";
+    }
+    // otherwise just increment number of deposits for interest  
+    else {
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      return "welcome";
+    }
   }
 
 }
