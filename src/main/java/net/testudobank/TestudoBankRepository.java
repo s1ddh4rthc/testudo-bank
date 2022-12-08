@@ -177,4 +177,17 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  /*TODO */
+  public static void insertRowToCustomersTable(JdbcTemplate jdbcTemplate, String newCustomerID, String newCustomerFirstName, String newCustomerLastName, int newCustomerBalance, int newCustomerOverdraftBalance, int newCustomerNumFraudReversals, int newCustomerNumDepositsForInterest) {
+    String insertRowToCustomersSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d);", 
+                                                        newCustomerID,
+                                                        newCustomerFirstName,
+                                                        newCustomerLastName,
+                                                        newCustomerBalance,
+                                                        newCustomerOverdraftBalance,
+                                                        newCustomerNumFraudReversals,
+                                                        newCustomerNumDepositsForInterest);
+    jdbcTemplate.update(insertRowToCustomersSql);
+  }
 }
