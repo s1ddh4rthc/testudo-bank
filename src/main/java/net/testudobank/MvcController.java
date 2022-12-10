@@ -385,6 +385,40 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
   }
+
+  /**
+   * HTML POST request handler for the Create Sub Account page.
+   * 
+   * The same username+password handling from the login page is used.
+   * 
+   * If the password attempt is correct, the new user is created
+   * if it is a valid user. New customer has 0 balance.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/createSub")
+  public String createSubAccount(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    //// Complete Sub Account Creation ////
+    //String theNewCustomerName = user.getNewCustomerName();
+
+
+    return ""; //TODO
+  }
 	
   /**
    * HTML POST request handler for the Withdraw Form page.
