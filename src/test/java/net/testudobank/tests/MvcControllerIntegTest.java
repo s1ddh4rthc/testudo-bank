@@ -1582,4 +1582,195 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /*
+ * Test that the interest is not applied before the 5th transaction, applied on the 5th transaction,
+ * and not applied on the 6h transaction. It also checks that the counters are incremented each transaction,
+ * and reset to zero on the 5th transaction.
+ */
+@Test
+public void testInterestRateApplied() throws SQLException, ScriptException {
+
+  double CUSTOMER1_BALANCE = 0.00;
+  int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT = 30.00;
+  User customer1DepositFormInputs = new User();
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+  customer1DepositFormInputs.setNumDepositsForInterest(0);
+
+  for (int i=0; i<6; i++){
+    // send request to the Deposit Form's POST handler in MvcController
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+    System.out.println(customer1DepositFormInputs.getNumDepositsForInterest());
+    assertEquals((i+1)%5, customer1DepositFormInputs.getNumDepositsForInterest());
+  }
+
+  
+  List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+  Map<String,Object> customer1Data = customersTableData.get(0);
+  double CUSTOMER1_EXPECTED_FINAL_BALANCE = 182.25;
+  double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+  assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
 }
+
+/*
+* Only valid deposits increment the counter
+*/
+@Test
+public void testNumberOfDepositsUpdated() throws SQLException, ScriptException {
+
+double CUSTOMER1_BALANCE = 0;
+int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+double CUSTOMER1_QUALIFIED_AMOUNT_TO_DEPOSIT = 20.00;
+double CUSTOMER1_UNQUALIFIED_AMOUNT_TO_DEPOSIT = 19.99;
+User customer1DepositFormInputs = new User();
+
+customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_QUALIFIED_AMOUNT_TO_DEPOSIT);
+controller.submitDeposit(customer1DepositFormInputs);
+
+assertEquals(1, customer1DepositFormInputs.getNumDepositsForInterest());
+customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_UNQUALIFIED_AMOUNT_TO_DEPOSIT);
+controller.submitDeposit(customer1DepositFormInputs);
+
+assertEquals(1, customer1DepositFormInputs.getNumDepositsForInterest());
+}
+
+/*
+* Test that the interest is not applied after deposits of less than $20, and the counter remains 0.
+*/
+@Test
+public void testInterestRateNotApplied() throws SQLException, ScriptException {
+
+double CUSTOMER1_BALANCE = 0;
+int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+
+double CUSTOMER1_AMOUNT_TO_DEPOSIT = 15.00;
+User customer1DepositFormInputs = new User();
+customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+for (int i=0; i<5; i++){
+  controller.submitDeposit(customer1DepositFormInputs);
+  System.out.println(customer1DepositFormInputs.getNumDepositsForInterest());
+  assertEquals(0, customer1DepositFormInputs.getNumDepositsForInterest());
+}
+
+// Get data from database
+List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+Map<String,Object> customer1Data = customersTableData.get(0);
+
+// Interest rate should not be applied here
+double CUSTOMER1_EXPECTED_FINAL_BALANCE = 75.00;
+double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+}
+
+/**
+ * Case: Customer buys ETH, buys SOL, then sells SOL.
+ */
+@Test
+public void testBuyETHBuySOLSellSOLUserFlow() throws ScriptException {
+CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+        .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+        .build();
+
+cryptoTransactionTester.initialize();
+
+CryptoTransaction cryptoTransactionETH = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+cryptoTransactionTester.test(cryptoTransactionETH);
+
+CryptoTransaction cryptoTransactionSOLBuy = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(500)
+        .expectedEndingCryptoBalance(0.4)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.4)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+cryptoTransactionTester.test(cryptoTransactionSOLBuy);
+
+CryptoTransaction cryptoTransactionSOLSell = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(700)
+        .expectedEndingCryptoBalance(0.2)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.2)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(true)
+        .build();
+cryptoTransactionTester.test(cryptoTransactionSOLSell);
+}
+
+/**
+ * Welcome page returned after user tries to buy "BTC"
+ */
+@Test
+public void testBuyBtcInvalid() throws ScriptException {
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+          .initialBalanceInDollars(1000)
+          .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+          .build();
+
+  cryptoTransactionTester.initialize();
+
+  CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(1000)
+          .expectedEndingCryptoBalance(0)
+          .cryptoPrice(1000)
+          .cryptoAmountToTransact(0.1)
+          .cryptoName("BTC")
+          .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+          .shouldSucceed(false)
+          .build();
+  cryptoTransactionTester.test(cryptoTransaction);
+}
+
+/**
+* "BTC" as crypto name returns the welcome page
+*/
+@Test
+public void testSellBtcInvalid() throws ScriptException {
+CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+        .build();
+
+cryptoTransactionTester.initialize();
+
+CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingCryptoBalance(0)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+cryptoTransactionTester.test(cryptoTransaction);
+}
+
+}
+
