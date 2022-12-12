@@ -42,9 +42,9 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>
             
-      <form:label path="newCustomerName">New Customer Name:</form:label>
+            <form:label path="newCustomerName">New Customer Name:</form:label>
 			<form:password path="newCustomerName"/><br/>
-      
+
       <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
 			<form:input path="amountToDeposit"/><br/>	
 				

@@ -47,6 +47,7 @@
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/createSubAccount'>Create New Sub Account</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

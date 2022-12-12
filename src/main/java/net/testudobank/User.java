@@ -99,4 +99,8 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Create Sub Account Fields ////
+  @Setter @Getter @ToString.Include
+  private String newCustomerName;
+
 }

@@ -102,6 +102,21 @@ public class MvcController {
 	}
 
   /**
+   * HTML GET request handler that serves the "create_sub_account" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's deposit form input.
+   * 
+   * @param model
+   * @return "deposit_form" page
+   */
+  @GetMapping("/createSubAccount")
+	public String showAccountCreationForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "create_sub_account";
+	}
+
+  /**
    * HTML GET request handler that serves the "withdraw_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
    * the user's withdraw form input.
@@ -402,22 +417,22 @@ public class MvcController {
    */
   @PostMapping("/createSub")
   public String createSubAccount(@ModelAttribute("user") User user) {
-    String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    //String userID = user.getUsername();
+    //String userPasswordAttempt = user.getPassword();
+    //String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
     
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
-    if (userPasswordAttempt.equals(userPassword) == false) {
+    /*if (userPasswordAttempt.equals(userPassword) == false) {
       return "welcome";
-    }
+    }*/
 
     //// Complete Sub Account Creation ////
     //String theNewCustomerName = user.getNewCustomerName();
 
 
-    return ""; //TODO
+    return "account_info"; //TODO
   }
 	
   /**
