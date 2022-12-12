@@ -831,4 +831,110 @@ public class MvcController {
 
   }
 
+  @PostMapping("/Crypto transfer")
+  public String submitCryptoTransfer(@ModelAttribute("user") User sender) {
+
+    // checks to see the customer you are transfering to exists
+    if (!TestudoBankRepository.doesCustomerExist(jdbcTemplate, sender.getTransferRecipientID())){
+      return "welcome";
+    }
+
+    String senderUserID = sender.getUsername();
+    String senderPasswordAttempt = sender.getPassword();
+    String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
+
+    // creates new user for recipient
+    User recipient = new User();
+    String recipientUserID = sender.getTransferRecipientID();
+    String recipientPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, recipientUserID);
+    recipient.setUsername(recipientUserID);
+    recipient.setPassword(recipientPassword);
+
+    // sets isTransfer to true for sender and recipient
+    sender.setTransfer(true);
+    recipient.setTransfer(true);
+
+    /// Invalid Input/State Handling ///
+
+    // unsuccessful login
+    if (senderPasswordAttempt.equals(senderPassword) == false) {
+      return "welcome";
+    }
+
+    // case where customer already has too many reversals
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, senderUserID);
+    if (numOfReversals >= MAX_DISPUTES) {
+      return "welcome";
+    }
+
+    // case where customer tries to send money to themselves
+    if (sender.getTransferRecipientID().equals(senderUserID)){
+      return "welcome";
+    }
+
+    // initialize variables for transfer amount in dollars
+    double transferAmount = sender.getAmountToTransfer();
+    int transferAmountInPennies = convertDollarsToPennies(transferAmount);
+
+
+    // negative transfer amount is not allowed
+    if (transferAmount < 0) {
+      return "welcome";
+    } 
+
+    // must transfer a supported cryptocurrency
+    String cryptoToBuy = sender.getWhichCryptoToBuy();
+    if (MvcController.SUPPORTED_CRYPTOCURRENCIES.contains(cryptoToBuy) == false) {
+      return "welcome";
+    }
+
+    //initialize crypto amount to ransfer
+    double cryptoAmounttoTransfer = transferAmount/cryptoPriceClient.getCurrentCryptoValue(cryptoToBuy);
+
+    // possible for user to not have any crypto
+    Optional<Double> cryptoBalance = TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, senderUserID, cryptoToBuy);
+    if (!cryptoBalance.isPresent()) {
+      return "welcome";
+    }
+
+    // check if user has required crypto balance
+    // TODO: comparing doubles like this is probably not a good idea
+    if (cryptoBalance.get() < cryptoAmounttoTransfer) {
+      return "welcome";
+    }
+
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this transfer
+
+    // withdraw transfer amount from sender and deposit into recipient's account
+    sender.setAmountToWithdraw(transferAmount);
+    submitWithdraw(sender);
+    sender.setCryptoTransaction(true);
+
+    recipient.setAmountToDeposit(transferAmount);
+    String depositResponse = submitDeposit(recipient);
+    recipient.setCryptoTransaction(true);
+
+    // Inserting transfer into transfer history for both customers
+    TestudoBankRepository.insertRowToTransferLogsTable(jdbcTemplate, senderUserID, recipientUserID, currentTime, transferAmountInPennies);
+    updateAccountInfo(sender);
+
+    if (depositResponse.equals("account_info")) {
+
+      TestudoBankRepository.decreaseCustomerCryptoBalance(jdbcTemplate, senderUserID, cryptoToBuy, cryptoAmounttoTransfer);
+      TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, senderUserID, cryptoToBuy, CRYPTO_HISTORY_SELL_ACTION, currentTime, cryptoAmounttoTransfer);
+
+      updateAccountInfo(sender);
+
+      TestudoBankRepository.increaseCustomerCryptoBalance(jdbcTemplate, recipientUserID, cryptoToBuy, cryptoAmounttoTransfer);
+      TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, recipientUserID, cryptoToBuy, CRYPTO_HISTORY_BUY_ACTION, currentTime, cryptoAmounttoTransfer);
+
+      updateAccountInfo(recipient);  
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
+  }
+
 }
