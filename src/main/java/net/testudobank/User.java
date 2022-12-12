@@ -99,4 +99,7 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
 
+  @Setter @Getter
+  private int numDepositsForInterest;
+
 }

@@ -50,6 +50,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
+  private static double BALANCE_INTEREST_RATE = 1.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -80,8 +81,8 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-		model.addAttribute("user", user);
-		
+    model.addAttribute("user", user);
+
 		return "login_form";
 	}
 
@@ -220,6 +221,7 @@ public class MvcController {
 
 
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance FROM Customers WHERE CustomerID='%s';", user.getUsername());
+
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -244,6 +246,7 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -364,6 +367,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -801,6 +805,18 @@ public class MvcController {
     } else {
       return "welcome";
     }
+  }
+
+  /**
+   * 
+   * 
+   * @param user
+   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   */
+  public String applyInterest(@ModelAttribute("user") User user) {
+
+    return "welcome";
+
   }
 
 }
