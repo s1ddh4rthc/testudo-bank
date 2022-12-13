@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.boot.autoconfigure.integration.IntegrationProperties.Jdbc;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -72,17 +73,6 @@ public class TestudoBankRepository {
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
-  }
-
-  public static int getCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
-    String getCustomerNumberOfDepositsForInterestSql = String.format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", customerID);
-    int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql, Integer.class);
-    return numberOfDepositsForInterest;
-  }
-
-  public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
-    String customerInterestDepositsSql = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", numDepositsForInterest, customerID);
-    jdbcTemplate.update(customerInterestDepositsSql);
   }
 
   public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies) {
@@ -176,5 +166,49 @@ public class TestudoBankRepository {
     } else {
       return false;
     }
+  }
+
+  public static void insertRowToNFTHoldingsTable(JdbcTemplate jdbcTemplate, String customerID, String NFTName, double NFTValue){
+    String NFTRecord = "INSERT INTO NFTHoldings (NFTName, CustomerID, NFTValue) VALUES (?, ?, ?)";
+    jdbcTemplate.update(NFTRecord, NFTName, customerID, NFTValue);
+  }
+
+  public static void deleteRowFromNFTHoldingsTable(JdbcTemplate jdbcTemplate, String customerID, String NFTName) {
+    String deleteRowFromNFTHoldingsSql = String.format("DELETE from NFTHoldings where CustomerID='%s' AND NFTName='%s' AND NFTValue='%s';", customerID, NFTName);
+    jdbcTemplate.update(deleteRowFromNFTHoldingsSql);
+  }
+
+  public static void insertRowToNFTMarketplaceTable(JdbcTemplate jdbcTemplate, String customerID, String NFTName, double NFTValue){
+    String NFTRecord = "INSERT INTO NFTMarketplace (NFTName, CustomerID, NFTValue) VALUES (?, ?, ?)";
+    jdbcTemplate.update(NFTRecord, NFTName, customerID, NFTValue);
+  }
+
+  public static void deleteRowFromNFTMarketplaceTable(JdbcTemplate jdbcTemplate, String customerID, String NFTName) {
+    String deleteRowFromNFTMarketplaceSql = String.format("DELETE from NFTMarketplace where CustomerID='%s' AND NFTName='%s';", customerID, NFTName);
+    jdbcTemplate.update(deleteRowFromNFTMarketplaceSql);
+  }
+
+  public static boolean doesCustomerOwnThisNFT(JdbcTemplate jdbcTemplate, String customerID, String NFTName) { 
+    String getCustomerIDSql =  String.format("SELECT CustomerID FROM NFTHoldings WHERE CustomerID='%s' AND NFTName='%s';", customerID, NFTName);
+    if (jdbcTemplate.queryForObject(getCustomerIDSql, String.class) != null) {
+     return true;
+    } else {
+      return false;
+    }
+  }
+
+  public static boolean doesNFTNameExist(JdbcTemplate jdbcTemplate, String NFTName) { 
+    String getCustomerIDSql =  String.format("SELECT CustomerID FROM NFTMarketplace WHERE NFTName='%s'';", NFTName);
+    if (jdbcTemplate.queryForObject(getCustomerIDSql, String.class) != null) {
+     return true;
+    } else {
+      return false;
+    }
+  }
+
+  public static String getNFTOwner(JdbcTemplate jdbcTemplate, String NFTName) { 
+    String getCustomerIDSql =  String.format("SELECT CustomerID FROM NFTMarketplace WHERE NFTName='%s'';", NFTName);
+    String ownerID  = jdbcTemplate.queryForObject(getCustomerIDSql, String.class);
+    return ownerID;
   }
 }

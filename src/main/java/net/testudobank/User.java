@@ -96,7 +96,11 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
 
-  @Setter @Getter
-  private int numDepositsForInterest;
+  //// NFT Fields ////
 
+  @Setter @Getter
+  private String NFTName;
+
+  @Setter @Getter @Positive
+  private double NFTPrice;
 }
