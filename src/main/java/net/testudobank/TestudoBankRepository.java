@@ -1,6 +1,8 @@
 package net.testudobank;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -9,6 +11,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 public class TestudoBankRepository {
+  private static final List<String> VALID_CRYPTOCURRENCIES = Arrays.asList("ETH", "SOL" );
+  
   public static String getCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
     String getCustomerPasswordSql = String.format("SELECT Password FROM Passwords WHERE CustomerID='%s';", customerID);
     String customerPassword = jdbcTemplate.queryForObject(getCustomerPasswordSql, String.class);
@@ -50,9 +54,21 @@ public class TestudoBankRepository {
     List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
     return transactionLogs;
   }
+  
+  public static List<Map<String,Object>> getTransactionsByMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d ORDER BY Timestamp;", customerID, year, month);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+    return transactionLogs;
+  }
 
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
+    List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
+    return transferLogs;
+  }
+
+  public static List<Map<String,Object>> getTransferLogsByMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getTransferHistorySql = String.format("Select * from TransferHistory WHERE (TransferFrom='%s' OR TransferTo='%s') AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d ORDER BY Timestamp;", customerID, customerID, year, month);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
     return transferLogs;
   }
@@ -63,6 +79,12 @@ public class TestudoBankRepository {
     return overdraftLogs;
   }
 
+  public static List<Map<String,Object>> getOverdraftLogsByMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month){
+    String getOverDraftLogsSql = String.format("SELECT * FROM OverdraftLogs WHERE CustomerID='%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d;", customerID, year, month);
+    List<Map<String,Object>> overdraftLogs = jdbcTemplate.queryForList(getOverDraftLogsSql);
+    return overdraftLogs;
+  }
+  
   public static List<Map<String,Object>> getOverdraftLogs(JdbcTemplate jdbcTemplate, String customerID, String timestamp){
     String getOverDraftLogsSql = String.format("SELECT * FROM OverdraftLogs WHERE CustomerID='%s' AND Timestamp='%s';", customerID, timestamp);
     List<Map<String,Object>> overdraftLogs = jdbcTemplate.queryForList(getOverDraftLogsSql);
@@ -71,6 +93,11 @@ public class TestudoBankRepository {
 
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";
+    return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
+  }
+  
+  public static List<Map<String,Object>> getCryptoLogsByMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getTransferHistorySql = String.format("Select * from CryptoHistory WHERE CustomerID=?  AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d ORDER BY Timestamp DESC", year, month);
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
   }
 
@@ -176,5 +203,55 @@ public class TestudoBankRepository {
     } else {
       return false;
     }
+  }
+  
+  public static int getNetCashFlowInMonthInPennies(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getPositiveCashFlowInMonthSql = String.format(
+        "SELECT SUM(Amount) FROM transactionhistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND Action IN ('Deposit', 'Interest', 'CryptoSell', 'TransferReceive')",
+        customerID, year, month);
+    String getNegativeCashFlowInMonthSql = String.format(
+        "SELECT SUM(Amount) FROM transactionhistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND Action IN ('Withdraw', 'CryptoBuy', 'TransferSend')",
+        customerID, year, month);
+
+    Optional<Integer> positiveCashFlowResult = Optional.ofNullable(jdbcTemplate.queryForObject(getPositiveCashFlowInMonthSql, Integer.class));
+    Optional<Integer> negativeCashFlowResult = Optional.ofNullable(jdbcTemplate.queryForObject(getNegativeCashFlowInMonthSql, Integer.class));
+    int positiveCashFlow = positiveCashFlowResult.orElse(0);
+    int negativeCashFlow = negativeCashFlowResult.orElse(0);
+
+    return positiveCashFlow - negativeCashFlow;
+  }
+  
+  public static int getInterestInMonthInPennies(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getInterestInMonthSql = String.format(
+        "SELECT SUM(Amount) FROM transactionhistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND Action='Interest'",
+        customerID, year, month);
+
+    Optional<Integer> accruedInterestResult = Optional.ofNullable(jdbcTemplate.queryForObject(getInterestInMonthSql, Integer.class));
+    int accruedInterest = accruedInterestResult.orElse(0);
+
+    return accruedInterest;
+  }
+
+  public static Map<String, Double> getNetCryptoInMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    Map<String, Double> netCryptoFlow = new LinkedHashMap<>();
+    
+    for (String currency : VALID_CRYPTOCURRENCIES) {
+      String getCryptoBuyInMonthSql = String.format(
+        "SELECT SUM(CryptoAmount) FROM cryptohistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND CryptoName = '%s' AND Action='Buy'",
+          customerID, year, month, currency);
+        String getCryptoSellInMonthSql = String.format(
+        "SELECT SUM(CryptoAmount) FROM cryptohistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND CryptoName = '%s' AND Action='Sell'",
+            customerID, year, month, currency);
+        
+        Optional<Double> positiveCryptoFlowResult = Optional
+            .ofNullable(jdbcTemplate.queryForObject(getCryptoBuyInMonthSql, BigDecimal.class)).map(BigDecimal::doubleValue);
+        Optional<Double> negativeCryptoFlowResult = Optional
+            .ofNullable(jdbcTemplate.queryForObject(getCryptoSellInMonthSql, BigDecimal.class)).map(BigDecimal::doubleValue);
+      
+        Double netCryptoFlowResult = positiveCryptoFlowResult.orElse(0.0) - negativeCryptoFlowResult.orElse(0.0);
+        netCryptoFlow.put(currency, netCryptoFlowResult);
+    }
+
+    return netCryptoFlow;
   }
 }

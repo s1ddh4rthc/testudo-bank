@@ -35,6 +35,8 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
+  private final static int BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES = 2000;
+  private final static int BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD = 5;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
@@ -43,6 +45,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -51,6 +54,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static int MIN_YEAR_SUPPORTED = 2021;
+  private static int MAX_YEAR_SUPPORTED = 2023;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -172,13 +177,29 @@ public class MvcController {
    * @return "sellcrypto_form" page
    */
   @GetMapping("/sellcrypto")
-	public String showSellCryptoForm(Model model) {
+  public String showSellCryptoForm(Model model) {
     User user = new User();
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-		model.addAttribute("user", user);
-		return "sellcrypto_form";
-	}
+    model.addAttribute("user", user);
+    return "sellcrypto_form";
+  }
+  
+  /**
+   * HTML GET request handler that serves the "statement_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input of desired statement's month and year.
+   * 
+   * @param model
+   * @return "statement_form" page
+   */
+  @GetMapping("/statement_form")
+  public String showStatementForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "statement_form";
+  }
+
 
   //// HELPER METHODS ////
 
@@ -250,7 +271,7 @@ public class MvcController {
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
   }
-
+  
   // HTML POST HANDLERS ////
 
   /**
@@ -344,6 +365,11 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      
+      if (userDepositAmtInPennies >= BALANCE_INTEREST_DEPOSIT_THRESHOLD_IN_PENNIES) {
+        int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), currentDepositsForInterest + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -797,17 +823,113 @@ public class MvcController {
       return "welcome";
     }
   }
+  
+  /**
+   * HTML POST request handler that uses user input from Monthly Statement page to determine 
+   * login success or failure and then serve the user with a monthly statement if a valid
+   * selection was made.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct and a valid month and year is selected
+   * (currently, any month in in 2021-2023), the "statement_info" page is served to the customer
+   * with a listing of transactions for that month as well as some summary information
+   * retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "statement_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/statement")
+	public String showStatementInfo(@ModelAttribute("user") User user) {
+    int year = user.getStatementYear();
+    int month = user.getStatementMonth();
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    int monthJanuary = 1;
+    int monthDecember = 12;
+
+    if (userPasswordAttempt.equals(userPassword)
+        && month >= monthJanuary && month <= monthDecember
+        && year >= MIN_YEAR_SUPPORTED && year <= MAX_YEAR_SUPPORTED) {
+      // The processing of all these lists of maps will be done in the view, so we
+      // pass them to the model unmodified.
+      List<Map<String,Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogsByMonth(jdbcTemplate, userID, year, month);  
+      List<Map<String,Object>> transactionLogs = TestudoBankRepository.getTransactionsByMonth(jdbcTemplate, userID, year, month);  
+      List<Map<String,Object>> transferLogs = TestudoBankRepository.getTransferLogsByMonth(jdbcTemplate, userID, year, month);
+      List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogsByMonth(jdbcTemplate, userID, year, month);
+
+      int netCashFlow = TestudoBankRepository.getNetCashFlowInMonthInPennies(jdbcTemplate, userID, year, month);
+      Map<String, Double> netCryptoFlow = TestudoBankRepository.getNetCryptoInMonth(jdbcTemplate, userID, year, month);
+      int accruedInterest = TestudoBankRepository.getInterestInMonthInPennies(jdbcTemplate, userID, year, month);
+      
+      String getFirstAndLastNameSql = String.format("SELECT FirstName, LastName FROM Customers WHERE CustomerID='%s';", userID);
+      List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getFirstAndLastNameSql);
+      Map<String,Object> userData = queryResults.get(0);
+
+      user.setMonthlyOverdraftLogs(overdraftLogs);
+      user.setMonthlyTransferLogs(transferLogs);      
+      user.setMonthlyCryptoLogs(cryptoLogs);
+      user.setMonthlyTransactionLogs(transactionLogs);
+      user.setNetCash(netCashFlow);
+      user.setNetCryptoFlow(netCryptoFlow);
+      user.setMonthlyInterest(accruedInterest);
+
+      user.setFirstName((String)userData.get("FirstName"));
+      user.setLastName((String)userData.get("LastName"));
+      
+      return "statement_info";
+    }
+    else {
+      // This branch is only reached if someone attempts to inject arbitrary values,
+      // so we kick them back to the welcome page.
+      return "welcome";
+    }
+	}
 
   /**
-   * 
+   * Handles all interest logic with the exception of tallying interest-qualifying deposits, which
+   * is handled in the simple deposit case of submitDeposit.
+   * <p>
+   * If user has reached the number of qualifying deposits required to trigger interest application,
+   * interest is applied to the current balance, the deposit counter is reset, and the interest
+   * application is logged as a transaction, finally returning the account_info page. Otherwise, no
+   * state changes occur and the welcome page is returned.
+   * <p>
+   * This function assumes it is not possible to achieve the qualifying deposit count while any
+   * disqualifying constraints (zero balance, overdraft), since it should not be possible to
+   * increment the counter while these constraints are true.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    int currentDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
+        user.getUsername());
+    
+    if (currentDepositsForInterest < BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD) {
+      return "welcome";
+    }
 
-    return "welcome";
+    int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate,
+        user.getUsername());
+    int newBalanceInPennies = (int) Math.round(currentBalanceInPennies * BALANCE_INTEREST_RATE);
+    int appliedInterestInPennies = newBalanceInPennies - currentBalanceInPennies;
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
+    currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, appliedInterestInPennies);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
+        currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
+
+    return "account_info";
   }
 
 }
