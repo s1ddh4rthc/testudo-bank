@@ -425,6 +425,19 @@ public class MvcController {
    */
   @PostMapping("/createSub")
   public String createSubAccount(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    //// Complete Sub Account Creation //// 
+
     String newCustomerFirstName = user.getNewCustomerFirstName();
     String newCustomerLastName = user.getNewCustomerLastName();
     String newCustomerPassword = user.getNewCustomerPassword();
@@ -458,8 +471,8 @@ public class MvcController {
     //// Complete Sub Account Creation ////
     //String theNewCustomerName = user.getNewCustomerName();
 
-
-    return "login_form"; //TODO: return account confirmation page with account details
+    updateAccountInfo(user);
+    return "account_info"; //TODO: return account confirmation page with account details
   }
 	
   /**

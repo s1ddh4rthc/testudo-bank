@@ -33,3 +33,5 @@ build/
 
 ### VS Code ###
 .vscode/
+python-sql-scripts/credentials.py
+src/main/resources/application.properties
