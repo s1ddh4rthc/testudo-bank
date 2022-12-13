@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 
 import javax.script.ScriptException;
+import javax.servlet.http.HttpServletResponse;
+import org.springframework.http.*;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,7 +23,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
@@ -32,6 +39,20 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
+import net.testudobank.Contact;
+
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.*;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.spy;
+import static org.mockito.BDDMockito.times;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @Testcontainers
 @SpringBootTest
@@ -60,6 +81,7 @@ public class MvcControllerIntegTest {
   private static JdbcTemplate jdbcTemplate;
   private static DatabaseDelegate dbDelegate;
   private static CryptoPriceClient cryptoPriceClient = Mockito.mock(CryptoPriceClient.class);
+  MockMvc mvc;
 
   @BeforeAll
   public static void init() throws SQLException {
@@ -1580,6 +1602,21 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  @Test
+  public void testContactForm() throws Exception {
+    Contact contact = new Contact();
+    contact.setName("John Doe");
+    contact.setEmail("John.Doe@gmail.com");
+    contact.setPhone("555-555-5555");
+
+    //I was having issues not getting a null pointer exception using Mockito
+    // mvc.perform(
+    //         get("/contact");
+    //         .andExpect(status().isOk());
+    // );
+
   }
 
 }
