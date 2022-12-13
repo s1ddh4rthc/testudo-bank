@@ -858,6 +858,22 @@ public class MvcController {
     if (userPasswordAttempt.equals(userPassword)
         && month >= monthJanuary && month <= monthDecember
         && year >= MIN_YEAR_SUPPORTED && year <= MAX_YEAR_SUPPORTED) {
+      // The processing of all these lists of maps will be done in the view, so we
+      // pass them to the model unmodified.
+      List<Map<String,Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogsByMonth(jdbcTemplate, userID, year, month);  
+      List<Map<String,Object>> transactionLogs = TestudoBankRepository.getTransactionsByMonth(jdbcTemplate, userID, year, month);  
+      List<Map<String,Object>> transferLogs = TestudoBankRepository.getTransferLogsByMonth(jdbcTemplate, userID, year, month);
+      List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogsByMonth(jdbcTemplate, userID, year, month);
+
+      String getFirstAndLastNameSql = String.format("SELECT FirstName, LastName FROM Customers WHERE CustomerID='%s';", userID);
+      List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getFirstAndLastNameSql);
+      Map<String,Object> userData = queryResults.get(0);
+
+      user.setMonthlyOverdraftLogs(overdraftLogs);
+      user.setMonthlyTransferLogs(transferLogs);      
+      user.setMonthlyCryptoLogs(cryptoLogs);
+      user.setMonthlyTransactionLogs(transactionLogs);
+
       user.setFirstName((String)userData.get("FirstName"));
       user.setLastName((String)userData.get("LastName"));
       
