@@ -45,7 +45,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
-  public static String TRANSACTION_HISTORY_INTEREST = "Interest";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -837,11 +837,8 @@ public class MvcController {
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
     TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), appliedInterestInPennies);
-    /* TODO: Amend transaction type to TRANSACTION_HISTORY_INTEREST once DB Schema
-      * for transactionhistory table is updated to include 'Interest'.
-      * In current state, there is no way to distinguish deposits from interest applications. */
     TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(),
-    currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, appliedInterestInPennies);
+    currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, appliedInterestInPennies);
     TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(),
         currentDepositsForInterest - BALANCE_INTEREST_NUM_DEPOSITS_THRESHOLD);
 

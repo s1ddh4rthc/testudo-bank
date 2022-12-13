@@ -1641,13 +1641,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
       if (customer1DepositCount == 4) {
         // verify that there are 6 transactions logged in TransactionHistory table (5 deposits + 1 interest accrual)
-        // TODO: Specifically check for Interest transaction when DB schema is updated
         assertEquals(6, transactionHistoryTableData.size());
 
         // verify that the interest accrual's details are accurately logged in the TransactionHistory table
         Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(5);
         MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent,
-            CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_EXPECTED_INTEREST_ACCRUAL);
+            CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_INTEREST_ACTION, CUSTOMER1_EXPECTED_INTEREST_ACCRUAL);
 
         // verify that the number of qualifying deposits has reset
         assertEquals(0, customer1Data.get("NumDepositsForInterest"));
