@@ -35,20 +35,17 @@
 </head>
 <body>
 	<div align="center">
-		<form:form action="createSub" method="post" modelAttribute="user">
-			<form:label path="username">Username:</form:label>
-			<form:input path="username"/><br/>
-			
-			<form:label path="password">Password:</form:label>
-			<form:password path="password"/><br/>
-            
-            <form:label path="newCustomerName">New Customer Name:</form:label>
-			<form:password path="newCustomerName"/><br/>
+		<form:form action="createSub" method="post" modelAttribute="user">            
+            <form:label path="newCustomerFirstName">New Customer First Name:</form:label>
+			<form:input path="newCustomerFirstName"/><br/>
 
-      <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
-			<form:input path="amountToDeposit"/><br/>	
+            <form:label path="newCustomerLastName">New Customer Last Name:</form:label>
+			<form:input path="newCustomerLastName"/><br/>
+
+            <form:label path="newCustomerPassword">New Customer Password:</form:label>
+			<form:password path="newCustomerPassword"/><br/>	
 				
-			<form:button>Deposit</form:button>
+			<form:button>Submit</form:button>
 		</form:form>
     <a href='/'>Home</a>
 	</div>

@@ -101,6 +101,12 @@ public class User {
 
   //// Create Sub Account Fields ////
   @Setter @Getter @ToString.Include
-  private String newCustomerName;
+  private String newCustomerFirstName;
+
+  @Setter @Getter @ToString.Include
+  private String newCustomerLastName;
+
+  @Setter @Getter @ToString.Include
+  private String newCustomerPassword;
 
 }

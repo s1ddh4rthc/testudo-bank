@@ -417,8 +417,15 @@ public class MvcController {
    */
   @PostMapping("/createSub")
   public String createSubAccount(@ModelAttribute("user") User user) {
-    //String userID = user.getUsername();
-    //String userPasswordAttempt = user.getPassword();
+    String newCustomerFirstName = user.getNewCustomerFirstName();
+    String newCustomerLastName = user.getNewCustomerLastName();
+    String newCustomerPassword = user.getNewCustomerPassword();
+
+    String newCustomerID = "123456789"; //TODO: Randomize and ensure is different from existing usernames
+
+    TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);
+    TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
+
     //String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
     
     //// Invalid Input/State Handling ////
@@ -432,7 +439,7 @@ public class MvcController {
     //String theNewCustomerName = user.getNewCustomerName();
 
 
-    return "account_info"; //TODO
+    return "account_info"; //TODO: return account confirmation page with account details
   }
 	
   /**

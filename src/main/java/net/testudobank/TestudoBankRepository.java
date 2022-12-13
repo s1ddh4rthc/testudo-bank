@@ -190,4 +190,11 @@ public class TestudoBankRepository {
                                                         newCustomerNumDepositsForInterest);
     jdbcTemplate.update(insertRowToCustomersSql);
   }
+
+  public static void insertRowToPasswordsTable(JdbcTemplate jdbcTemplate, String newCustomerID, String newCustomerPassword) {
+    String insertRowToPasswordsSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')",
+                                                        newCustomerID,
+                                                        newCustomerPassword);
+    jdbcTemplate.update(insertRowToPasswordsSql);                              
+  }
 }
