@@ -1,0 +1,2108 @@
+[33mcommit ddd8d138b11bf4927dbf7a807e7d2c3c9e7dd724[m[33m ([m[1;36mHEAD -> [m[1;32mlocBranch[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Thu Sep 22 20:47:33 2022 -0400
+
+    Changing interest loc
+
+[33mcommit 3d27e529b296b5f6d8e38baf95933bd7a22f2cf9[m
+Merge: 40adec2 d165d47
+Author: Siddharth Cherukupalli <40969261+s1ddh4rthc@users.noreply.github.com>
+Date:   Sat Sep 17 14:24:04 2022 -0400
+
+    Merge pull request #10 from s1ddh4rthc/siddharthc/interestFeaturePrep
+    
+    Siddharthc/interest feature prep
+
+[33mcommit d165d47e75a0e9cd46e9accd76d6a211059063e7[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Thu Sep 15 21:07:24 2022 -0400
+
+    Made SQL querying helper functions and starter code
+
+[33mcommit 02e4407d5393576a5d612a2ea0926fd95f4d3221[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Thu Sep 15 19:44:27 2022 -0400
+
+    Made starter function and interest rate var
+
+[33mcommit 40adec2dedf605610da7999d6d5c8b838a266d1c[m
+Merge: db3633a ff5d748
+Author: Siddharth Cherukupalli <40969261+s1ddh4rthc@users.noreply.github.com>
+Date:   Thu Sep 15 19:28:18 2022 -0400
+
+    Merge pull request #9 from s1ddh4rthc/siddharthc/interest-design-doc
+    
+    Adding Interest Feature Design Doc
+
+[33mcommit ff5d7484b0106c6b2d7c0f99b8312aa019a191e9[m
+Author: Siddharth Cherukupalli <40969261+s1ddh4rthc@users.noreply.github.com>
+Date:   Thu Sep 15 19:26:18 2022 -0400
+
+    Adding Interest Feature Design Doc
+
+[33mcommit 9a8e3df2b10f19c125a81d1bb506c77c0e17690a[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Thu Sep 15 19:01:12 2022 -0400
+
+    Changed DB Schema to allow for counting number of transactions
+
+[33mcommit db3633ab82b9abe75edfec39b70939955bc94bce[m[33m ([m[1;32mmain[m[33m)[m
+Author: Siddharth Cherukupalli <40969261+s1ddh4rthc@users.noreply.github.com>
+Date:   Sun Sep 11 18:00:20 2022 -0400
+
+    Update CODEOWNERS
+
+[33mcommit 187b9a6bb23f62da2e0176c5b4b5f8beb907a85c[m
+Merge: e9b09a0 e36a64c
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Sat Apr 2 15:11:17 2022 -0400
+
+    Merge pull request #131 from adithyasolai/joshuabg/crypto-feature
+    
+    CryptoTransactionTester: Support multiple transactions
+
+[33mcommit e36a64c58cf3c348e0604fbe2ea8bb735c86a075[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Fri Apr 1 19:42:50 2022 -0400
+
+    CryptoTransactionTester: Support multiple transactions
+    
+    * Add new CryptoTransaction to represent information for a single transaction
+    * Modify CryptoTransactionTester test method to take a CryptoTransaction argument
+    * Add initialize method to CryptoTransactionTester to set up database common for all transactions
+
+[33mcommit e9b09a0a3998312242be93768d5917daf6fa4f4c[m
+Merge: 65e62b8 3f49302
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Fri Apr 1 17:30:34 2022 -0400
+
+    Merge pull request #130 from adithyasolai/joshuabg/crypto-feature
+    
+    Add Solana Support
+
+[33mcommit 3f49302dc20fbb4612e7a9bfdedf109bd670eae8[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Apr 1 16:50:30 2022 -0400
+
+    enable Solana testing
+
+[33mcommit 699045fc2b6ffaf133994642f255b9fc7ab2440e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Apr 1 16:50:09 2022 -0400
+
+    implement Solana backend support
+
+[33mcommit f64e2a0e898d3a4ff0a4fecc70b3ed48afa1ae2d[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Apr 1 15:54:55 2022 -0400
+
+    re-organize User fields
+
+[33mcommit 2c986ec88effa52215943ade711985e0da0315ad[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Mar 31 23:01:02 2022 -0400
+
+    display $SOL Price in front-end, update front-end forms
+
+[33mcommit 25054a065b76806de2aeb73b081008da9e418ca4[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Mar 31 22:46:40 2022 -0400
+
+    update ETH fetch summary comment
+
+[33mcommit 4c66340c03f174f925fcc3a16c318713fb11ffad[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Mar 31 22:45:30 2022 -0400
+
+    remove JSoup imports
+
+[33mcommit 0efd46c5324765ff4d168222562b4b9e808ddf67[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Mar 31 22:44:35 2022 -0400
+
+    use yfinance to fetch ETH price
+
+[33mcommit 65e62b84263ee3de7f5e0e6c2067e834f2002cee[m
+Merge: ba8bdf4 0346615
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Mar 30 20:31:57 2022 -0400
+
+    Merge pull request #129 from adithyasolai/adithya/gitignore+re-organize
+    
+    removed Mockito Unit Tests
+
+[33mcommit 034661588290fa8351dd81b3b06e0c72c08182de[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Mar 30 20:31:15 2022 -0400
+
+    removed Mockito Unit Tests
+
+[33mcommit ba8bdf48518f828fd5742f23447dc06f64792def[m
+Merge: ffa88be f1c2ce8
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Mar 30 20:24:19 2022 -0400
+
+    Merge pull request #128 from adithyasolai/joshuabg/crypto-feature
+    
+    Joshuabg/crypto feature
+
+[33mcommit f1c2ce822df9ab9db2e566029ea900c2076a0699[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Fri Mar 4 13:44:00 2022 -0500
+
+    Cache price of ethereum
+    
+    * A user buying/selling cryptocurrency currently makes multiple
+      requests to the external service to get the price. This adds
+      significant page load time if the value is not cached
+    * Cache the price to greatly reduce the amount of calls to
+      ethereumprice.org
+    * The value is cached for a maximum of 30 seconds so the ethereum
+      price is up to date
+
+[33mcommit 1d68825e2549a4a6219f784694afde21c6b0b0e3[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Thu Mar 3 15:46:13 2022 -0500
+
+    Store crypto amounts in database as a decimal instead of a float
+    
+    * Floating point arithmetic errors were leading to an inaccurate crypto balance
+    * In terms of cryptocurrency, this error can attribute to a significant amount of crypto
+    * https://0.30000000000000004.com/
+
+[33mcommit 369bf991f6aff5a701292db95cc15f006ce87331[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Feb 24 21:29:36 2022 -0500
+
+    add ETH price to front-end
+
+[33mcommit 14430829e50bc8609f70af5d804e82469d59702f[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Thu Mar 3 11:18:34 2022 -0500
+
+    Revert "Add current Ethereum price to welcome page"
+    
+    This reverts commit e9e9c08a7f495ec90fc6cce9e291ce4a0ff8a208.
+
+[33mcommit b98b49c138fbffc99b3e1424d8adfb60c627af84[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Thu Mar 3 11:17:58 2022 -0500
+
+    Improve readability of crypto withdraw/deposit assert
+
+[33mcommit e157eb01c1993d03f587ed979417324ad0bb85a8[m
+Merge: e9e9c08 ffa88be
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Thu Mar 3 11:08:15 2022 -0500
+
+    Merge branch 'main' of github.com:adithyasolai/testudo-bank into joshuabg/crypto-feature
+
+[33mcommit ffa88be682b9540550f8e59e31c9fc51fc32eb90[m
+Merge: 05188c0 0b3af27
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Feb 24 20:21:19 2022 -0500
+
+    Merge pull request #123 from adithyasolai/adithyasolai/docs
+    
+    explain User object in MVC doc
+
+[33mcommit 0b3af27654d750f00c059e4f555da2e445e7fa7d[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Feb 24 20:20:42 2022 -0500
+
+    explain User object in MVC doc
+
+[33mcommit e9e9c08a7f495ec90fc6cce9e291ce4a0ff8a208[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Tue Feb 22 18:57:41 2022 -0500
+
+    Add current Ethereum price to welcome page
+
+[33mcommit bda914769510afa0a3c246fda99a9c648e98bfbd[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Tue Feb 15 19:12:43 2022 -0500
+
+    Various improvements to crypto integration tests
+    
+    * Test when price of cryptocurrency cannot be obtained
+    * Organize crypto test cases
+    * Ensure overdraft logs are checked when no overdraft transaction should occur
+    * Make default builder fields final to match others
+
+[33mcommit 4331561a3245cf4698a5b396499815d11f839ed4[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Mon Feb 14 17:12:47 2022 -0500
+
+    Check overdraft logs in crypto integration tests
+    
+    * Also some cleanup
+
+[33mcommit 6858021a6c77451ade5a4649badc838184a4dfab[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Mon Feb 14 16:49:17 2022 -0500
+
+    Assert crypto log size in integration tests
+
+[33mcommit c385ac72e8a33a7c2c5934f2e4eaab8d59a23ed5[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Mon Feb 14 16:38:30 2022 -0500
+
+    Add integrated test for selling crypto while in overdraft
+
+[33mcommit 0664abad44d4b54dc0903bf701994f9c0aefb03a[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Mon Feb 14 16:18:56 2022 -0500
+
+    Add class for scenario-based crypto transaction integration testing
+    
+    * This makes it much easier to make a test for a crypto transaction
+    * This avoids copy-paste testing for creating new tests
+    * This allows to easily add modify all crypto tests
+
+[33mcommit 76053de74bfdadca80963fb1152272a24ea839a7[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Mon Feb 14 15:07:32 2022 -0500
+
+    Add more invalid integration tests for crypto buying
+
+[33mcommit d2614e13d3ef943d19383dd12b37ed542f539927[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Mon Feb 14 15:02:44 2022 -0500
+
+    Check CryptoHistory logs in integration tests
+
+[33mcommit 10917c71158c537c5c38f216b721f32e914dee93[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 22:26:09 2022 -0500
+
+    Add overdraft buy, and simple sell crypto integration tests
+
+[33mcommit 8938e2271a2ddf78e19a735c41d035cfed71d0a3[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 21:54:30 2022 -0500
+
+    Add test for CryptoPriceClient
+    
+    * Since this is currently mocked in the integration test, it's
+      possible this client can stop working and tests in the integration
+      test will pass.
+    * Adding specific tests for this client allows to test functionality
+      and allows the possibility of testing error cases in the future.
+
+[33mcommit 25c065119bf65a7533a6e63060fd272a336531d2[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 19:39:42 2022 -0500
+
+    Extract crypto price method to a component
+    
+    * This allows easier mocking
+    * This allows crypto price functionality to be used by other parts
+      of the application
+    * This allows for the potential of caching the response locally to
+      speed up the application
+
+[33mcommit f46893b2edeb72d68700d03e16605e1d971fff2f[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 19:08:19 2022 -0500
+
+    Start to add basic integration tests for crypto
+
+[33mcommit b884ab41cfaeec6263252c36e8f4ab8749c77c06[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 10:45:16 2022 -0500
+
+    Display crypto history
+
+[33mcommit b540190aadfaf2f1c61fa19ad326d3094f9c43e2[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 10:30:15 2022 -0500
+
+    Save crypto transactions to database
+
+[33mcommit 015df109522ad91942f2cb0e2e4d0765221bc7dd[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 10:14:25 2022 -0500
+
+    Add CryptoBuy and CryptoSell actions to transaction history
+
+[33mcommit 188520c788b4231435f52798c3c72be0de39e6bd[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 09:58:15 2022 -0500
+
+    CryptoName should be "ETH" as per design doc
+
+[33mcommit 61ce36e7b39bd18c71bab7c5a298c78c37a12cad[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 09:50:14 2022 -0500
+
+    Show crypto balance in USD
+
+[33mcommit af42e15f58415b67f1ddfe0565b08128346c1ff1[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sun Feb 13 09:44:38 2022 -0500
+
+    Implement basics of selling crypto
+
+[33mcommit 375738d9b98d9494b5783f46f57dfa695c1317aa[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sat Feb 12 22:31:07 2022 -0500
+
+    Improvements to crypto repository methods
+    
+    * Use prepared statements to avoid potential security issues and unexpected behavior
+    * Simplify optional return
+
+[33mcommit 9f092584799b49d8b4fc951de422fc06cb431d6b[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sat Feb 12 20:52:38 2022 -0500
+
+    Get buying crypto working
+
+[33mcommit 483f7f36a81c1ce8d64689f3935e28b4d4faebaf[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sat Feb 12 20:34:45 2022 -0500
+
+    Show crypto balance on account info page
+
+[33mcommit b49b8ecf8dc34981134514a3595cdaeab38b4ac6[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sat Feb 12 20:15:46 2022 -0500
+
+    Start to add database logic for crypto
+
+[33mcommit 471509bb35d9568cd4e1b662cf652dcfb2969610[m
+Author: Joshua Goldberg <joshg4096@gmail.com>
+Date:   Sat Feb 12 19:17:01 2022 -0500
+
+    Start to add logic for buy crypto endpoint
+
+[33mcommit 05188c0d7a1112f5226a39217b6e516c9047ee83[m
+Merge: 512373c 5b904b2
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Feb 16 14:21:53 2022 -0500
+
+    Merge pull request #120 from adithyasolai/adithyasolai/crypto-prep
+    
+    update truncates in clearDB.sql
+
+[33mcommit 5b904b28ef0c33e15bfef986cd9f13e722d15f7e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 16 14:21:04 2022 -0500
+
+    update truncates in clearDB.sql
+
+[33mcommit 512373c3c622d8ec07509050b187585571e545b2[m
+Merge: 077710a afb055f
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Feb 15 20:47:02 2022 -0500
+
+    Merge pull request #119 from adithyasolai/adithyasolai/docs
+    
+    remove Making Private Repo doc, use Google Docs
+
+[33mcommit afb055f601775740ad0babbc00c2f09b84570bdf[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Feb 15 20:46:12 2022 -0500
+
+    remove Making Private Repo doc, use Google Docs
+
+[33mcommit 077710a76a9c91d56b82c92ca856b2f734484895[m
+Merge: 285c627 aaea7fc
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Sun Feb 13 17:22:24 2022 -0500
+
+    Merge pull request #115 from adithyasolai/adithyasolai/crypto-prep
+    
+    add CryptoBuy/Sell Actions in TransactionHistory
+
+[33mcommit aaea7fcec48e111b4cce767182a57fd93ce89c1f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sun Feb 13 17:21:48 2022 -0500
+
+    add CryptoBuy/Sell Actions in TransactionHistory
+
+[33mcommit 285c62751ed9cc5e74196cd8d2551f8a1e6a64f8[m
+Merge: 9fea07f 9fde90f
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Feb 9 20:20:03 2022 -0500
+
+    Merge pull request #91 from adithyasolai/adithyasolai/docs
+    
+    update crypto doc with transferhistory logs
+
+[33mcommit 9fde90f21383ce6162c9eacd8d8529becdc3057c[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 20:19:12 2022 -0500
+
+    update crypto doc with transferhistory logs
+
+[33mcommit 9fea07fbd70347123ce4033fa8a479fe890e6756[m
+Merge: 53631aa 447267a
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Feb 9 19:57:08 2022 -0500
+
+    Merge pull request #90 from adithyasolai/adithyasolai/docs
+    
+    add private repo doc
+
+[33mcommit 447267a8c32b8cd0b5336025ec917f6b8e8dc829[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:55:25 2022 -0500
+
+    add private repo doc
+
+[33mcommit 53631aaf1b0fbc74351624ffa5d5fbc4add305a8[m
+Merge: e993249 e331db4
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Feb 9 19:49:41 2022 -0500
+
+    Merge pull request #88 from adithyasolai/adithyasolai/docs
+    
+    add crypto design doc
+
+[33mcommit e331db4bec599bb114c830a7728e3800eb193b70[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:49:07 2022 -0500
+
+    add crypto design doc
+
+[33mcommit e993249a0a3fe5985b9eb6676faece8f51f53b47[m
+Merge: 2c0eba4 1ecf9e0
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Feb 9 19:48:13 2022 -0500
+
+    Merge pull request #87 from adithyasolai/adithya/gitignore+re-organize
+    
+    add .pyc to gitignore
+
+[33mcommit 1ecf9e0826054d55c6427458fffee2ff743ff34a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:47:40 2022 -0500
+
+    add .pyc to gitignore
+
+[33mcommit 2c0eba44c52e7e1dd59afe8d7bb640d48fc1ffe8[m
+Merge: e3bc7a3 ffc1b25
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Feb 9 19:46:18 2022 -0500
+
+    Merge pull request #86 from adithyasolai/adithyasolai/crypto-prep
+    
+    Adithyasolai/crypto prep
+
+[33mcommit ffc1b25ec72905c932601fd0243dbdd05a2e6399[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:42:51 2022 -0500
+
+    fix comment for cryptoHistory table
+
+[33mcommit 46f7bc07132f49760cd6e29f11d98115c1d9152a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:40:45 2022 -0500
+
+    add starter crypto front-end components
+
+[33mcommit 6fdaa7b34b58c9b4610875d1d090800bd59e517f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:39:56 2022 -0500
+
+    add DB Schema to addCustomers.py
+
+[33mcommit c9361d11e3ac69ebf966ae9cb13ce9e4ecf00945[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:32:26 2022 -0500
+
+    add jsoup dependency
+
+[33mcommit 4cf7bad0c39cbe224a92b730ce51469c888a0be1[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:32:07 2022 -0500
+
+    add starter GET and POST crypto handlers, and getETH helper method
+
+[33mcommit 958f08bf35522650f5f76af76cfa640fb77551c4[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Feb 9 19:17:32 2022 -0500
+
+    added crypto tables to DB schema
+
+[33mcommit e3bc7a3d495df01d055f3171391d4623fd7ecc66[m
+Merge: 0441344 752ec8d
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Sun Feb 6 19:45:38 2022 -0500
+
+    Merge pull request #77 from adithyasolai/jzhao/transfer-feature
+    
+    Implemented Transfer feature following the updated schema
+
+[33mcommit 752ec8dbf651d4ad4aa319798134a0c8130a7930[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sun Feb 6 19:43:24 2022 -0500
+
+    build and display transfer logs in front-end
+
+[33mcommit 0809aeb65267fea1829c46e8179b29cab2c79116[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sun Feb 6 19:42:26 2022 -0500
+
+    add Transfer Actions to TransferHistory table
+
+[33mcommit a973cf20adf2c524ac73a4cb761e8654544aee2d[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:57:57 2022 -0500
+
+    edited comments when fetching customer data in transfer tests
+
+[33mcommit fa76c5abc8579f381e1eeb60fd27986126649d9d[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:56:03 2022 -0500
+
+    changed TRANSFER_AMOUNT from int to double
+
+[33mcommit 0301eef1aeb48c117b330a39ac615695ed49dcaa[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:55:29 2022 -0500
+
+    changed TRANSFER_AMOUNT from int to double
+
+[33mcommit c0ef018f51f0e7b1bf90a123bab295360fea3b34[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:54:24 2022 -0500
+
+    removed submitWithdraw in testTransferPaysOffOverdraftBalance and testTransferPaysOverdraftAndDepositsRemainder and initialized overdraft balance in customer2
+
+[33mcommit 3b0e8f0b271d8bdf1bd7a3303e10254ada12b998[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:38:29 2022 -0500
+
+    changed setWhoToTransfer to setTransferRecipientID
+
+[33mcommit 105393726c28957af6df9cead7aa2bf97111a05b[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:37:21 2022 -0500
+
+    changed getWhoToTransfer to getTransferRecipientID
+
+[33mcommit 02c1a7812148c8d3ac9a563b09965199ecd84460[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:35:40 2022 -0500
+
+    changed whoToTransfer to transferRecipientID
+
+[33mcommit dc558bb5910fe8cae6e32cc61558c53b2ef1d535[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:32:52 2022 -0500
+
+    removed user2 in testTransfer
+
+[33mcommit 043f7482430e082c85f76522a86c8bcdad34b0b2[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:31:19 2022 -0500
+
+    replaced deposit with transfer
+
+[33mcommit ea9e8557fa3e406044eba79e2796d1d69aacb266[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:30:24 2022 -0500
+
+    removed userWithdrawAmt and userDepositAmt to use transferAmount and added comments in feature description for more clarity
+
+[33mcommit ec3438df314e3ca26e9ab3221fc5badf73ce908a[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:20:56 2022 -0500
+
+    changed logic of doesCustomerExist to return boolean depending on if recipient exists
+
+[33mcommit e01b811c05723a48b43740f717c90c118a69a9dd[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:17:53 2022 -0500
+
+    moved doesCustomerExist check before variable initalization
+
+[33mcommit 86e83b077ce35994156207563180cb16d3c895b5[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 22:04:20 2022 -0500
+
+    moved add to transfer send and receive actions to transaction history into withdraw and deposit handlers
+
+[33mcommit d4d7d491774fb4ba577b0cf0e5b4cae00b0d9079[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 21:58:37 2022 -0500
+
+    removed updateAccountInfo for recipient
+
+[33mcommit 957d863520054dbad602c0f4b4d0788c234a8264[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 21:57:53 2022 -0500
+
+    added variable transferAmount for error checking and initialized userDepositAmt before deposit call for better readability
+
+[33mcommit 1b62e7f031dba27cfcbb959142c3774ba8ee6ee4[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sat Feb 5 21:53:50 2022 -0500
+
+    removed redundent setTransfer in updateAccountInfo
+
+[33mcommit 40ccb2f61550301613dec2dc2a3af079aefbbc52[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Feb 4 02:18:24 2022 -0500
+
+    fixed spelling error
+
+[33mcommit 99f9565681bd813960a6a2adfa2e3539454c8888[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Feb 4 01:30:20 2022 -0500
+
+    set isTransfer to true in transfer handler and added additional comments when creating recipient
+
+[33mcommit 13f6631770d0afe8fa2534139a8021bf80bce905[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Feb 4 00:52:38 2022 -0500
+
+    changed transfer feature to only take sender as parameter and renamed sender and recipient variables
+
+[33mcommit b48f7ea736bc1d940dfdc546b47d2c10e9ca45a1[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Feb 4 00:51:28 2022 -0500
+
+    changed submitTransfer calls in transfer tests to only use sender as parameters
+
+[33mcommit 0441344c931186f406f23052e38b64a2a7d38530[m
+Merge: ff873cb 7a53b95
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Feb 3 17:29:45 2022 -0500
+
+    Merge pull request #76 from adithyasolai/adithya/gitignore+re-organize
+    
+    specifiy surefire version in pom.xml
+
+[33mcommit 7a53b95cd36c45bf080998bc80dfa88b1ba48d12[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Feb 3 17:12:30 2022 -0500
+
+    specifiy surefire version in pom.xml
+
+[33mcommit ba8f355057a570bd9504ef5c9fecf9e470dbfcc3[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:36:47 2022 -0500
+
+    finalized inserting to transaction history and transfer history and updated recieve user's account info in transfer function
+
+[33mcommit b25f766e21085214222953d921a4b71b3deb2906[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:32:44 2022 -0500
+
+    re-fixed error in sql command and changed transferAmount to properly represent transfer amount in pennies
+
+[33mcommit 7ed699f9addf9b8dc108f3c076f40dd92ba95c0c[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:31:36 2022 -0500
+
+    changed amountToTransfer to a double
+
+[33mcommit e5e70739da683e8a125de0c572c51e801b08f276[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:28:06 2022 -0500
+
+    fixed sql command to account for time stamp
+
+[33mcommit 7ac31073f9f959f749adf4fff37dbb0605c2e3d7[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:19:24 2022 -0500
+
+    added TranferSend and TransferRecieve to TransactionHistory
+
+[33mcommit d7ad18988ec1421737c98b1084cc9aadda093401[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:11:32 2022 -0500
+
+    adjusted insertRowToTransactionHistoryTable to differentiate between send transfer and recieve transfer actions
+
+[33mcommit f6a9d48854837d928bd20107f53c1ee4cb6f2c01[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:00:49 2022 -0500
+
+    adjusted insertRowToTransferLogsTable to account for currentTime
+
+[33mcommit 474fa8965d84d04db99fee70bcabeb81418ec390[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 04:00:01 2022 -0500
+
+    added timestamp field to insertRowToTransferLogsTable
+
+[33mcommit 0843fc08e4090b159c343b17c56ed7826d4e59c4[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 03:59:27 2022 -0500
+
+    added timestamp field in tranfer history schema
+
+[33mcommit 15eae9154f1ad8c42d9af0c989441a285bfbe9a3[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 03:58:57 2022 -0500
+
+    added TransferHistory
+
+[33mcommit 55b7c16c8c7dd301d51007d06d318f959d8be61c[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 03:53:58 2022 -0500
+
+    added insert into tranaction history for transfer feature
+
+[33mcommit 0fb66861cba80768a1788ed10021599362c33280[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 03:38:42 2022 -0500
+
+    added conditionals in deposit and withdraw to prevent addition to transaction history in transfer case
+
+[33mcommit 58714c8b49d6ff2a1518fb6ffa8eb4d12f040e9c[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 01:28:41 2022 -0500
+
+    fixed variable mismatch
+
+[33mcommit 29b8b41147f5cdf36b29c2fbad088339d012ad81[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 01:27:41 2022 -0500
+
+    updated transfer feature functionality
+
+[33mcommit 2cf48cfdcf2b6d4c2e3ebebcb9c08fd8094c8c6e[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 01:12:05 2022 -0500
+
+    cleaned up spacing and indentation
+
+[33mcommit c2fbc184e4b30be64a4dc65766d74f2b26281ea7[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 01:07:42 2022 -0500
+
+    adjusted transfer tests to take in two users as input
+
+[33mcommit 4b0396fa79d8f716a2e5d9afc85cb68f3c6d6ab6[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 00:03:11 2022 -0500
+
+    added create table sql for transfer history table
+
+[33mcommit 12bad68cad326738adcd6d00fd63f7c903f02b06[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Thu Feb 3 00:02:23 2022 -0500
+
+    copied over transfer integ tests
+
+[33mcommit bd1aa8b9a84de9e481fb554db2910b8f595867e1[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Feb 2 23:50:49 2022 -0500
+
+    created empty Transfer table
+
+[33mcommit f33f18076b254e396a7e45d0ffcab71fc53f6165[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Feb 2 23:46:54 2022 -0500
+
+    added necessary setters and getters for transfer
+
+[33mcommit ff873cb77b5be856b3a436125528cb81120ceec2[m
+Merge: e4eb3e8 95f0ba1
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Sat Jan 29 14:35:18 2022 -0500
+
+    Merge pull request #71 from adithyasolai/adithyasolai/docs
+    
+    update TransactionHistory Actions in transfer feature doc
+
+[33mcommit 95f0ba1837d2a1790829db2430a8ae611190a165[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 29 14:34:41 2022 -0500
+
+    update TransactionHistory Actions in transfer feature doc
+
+[33mcommit e4eb3e82c498c724a11465fd2f67c183035cc2cd[m
+Merge: 68662c8 508b11f
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Fri Jan 28 20:20:35 2022 -0500
+
+    Merge pull request #70 from adithyasolai/adithyasolai/integration-tests
+    
+    upgrade integ test mysql version for Apple Silicon
+
+[33mcommit 508b11fb63b97a51252f33a203465f700f74a111[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Jan 28 20:19:51 2022 -0500
+
+    upgrade integ test mysql version for Apple Silicon
+
+[33mcommit 68662c8fac4dbbbac4d704a774b90e7a45b4808e[m
+Merge: 92d5e44 76b48c2
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Jan 26 16:31:09 2022 -0500
+
+    Merge pull request #68 from adithyasolai/jzhao/integration-tests
+    
+    Adding Integration Tests for Dispute Edge Cases
+
+[33mcommit 76b48c25c8e86ca1703437a6bb81cc0271588f31[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 26 16:27:10 2022 -0500
+
+    fixed check that reversal never went through
+
+[33mcommit f587c4143753f1c18569cc99d1e2a6f4e54462c7[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 26 15:32:15 2022 -0500
+
+    keep newOverdraftBalanceInPennies variable name
+
+[33mcommit 2bbfcfec69e205dc5c883103c4b506aa983f7cb7[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 26 15:31:15 2022 -0500
+
+    move comment location
+
+[33mcommit ece24c2183bb2f43560adb691412be75a9d3b519[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 14:14:13 2022 -0500
+
+    checked transactionHistoryTransactionLog to ensure it contained only 2 entries
+
+[33mcommit 12315ea99bce9ba66b72b3fa1c47ea77c0db50d9[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 14:08:29 2022 -0500
+
+    changed testReverseDepositRePayOverdraft to testReverseDepositThatRepaysOverdraft
+
+[33mcommit ee2a55de1dc3b63ea7ce75106e7a64a97a8906a2[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 14:07:49 2022 -0500
+
+    changed testReverseDepositOverdraft to testReverseDepositCausesOverdraft
+
+[33mcommit f3f5a49dd4dce5528391b7a87441de1e23cbb3b0[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 14:06:28 2022 -0500
+
+    multiple comment changes within dispute function
+
+[33mcommit 6413e4a5b4a87b2a1f1e4be1d41fe777419806d2[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 14:03:35 2022 -0500
+
+    removed timestamp check in testReverseDepositRePayOverdraft
+
+[33mcommit 92357abab900b59e2566d452181122abce4b983e[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 14:02:38 2022 -0500
+
+    edited grammer of testReverseDepositExceedsOverdraftLimit description
+
+[33mcommit bac857970ebf5457717aa26a73a3c1f80c8f9841[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 13:59:57 2022 -0500
+
+    changed testOverdraftExceeded to testReverseDepositExceedsOverdraftLimit
+
+[33mcommit 0d11e0531ebc06a8aebfc448344c12fc374d9cd6[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 13:58:58 2022 -0500
+
+    renamed dateTime variable to datetimeOfReversedDeposit
+
+[33mcommit 83db845c53bbb5dcd59712af04f37fe2bf62bdb3[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 26 13:55:07 2022 -0500
+
+    change method name to convertLocalDateTimeToDate
+
+[33mcommit 92d5e4414b8740e865926b8f827c178b0a2dd15f[m
+Merge: 2c67687 194d812
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Jan 25 19:14:27 2022 -0500
+
+    Merge pull request #69 from adithyasolai/adithyasolai/docs
+    
+    upload transfer feature doc
+
+[33mcommit 194d812ad9e2ec7e89d21127114274da658c72a9[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 25 19:13:09 2022 -0500
+
+    upload transfer feature doc
+
+[33mcommit 6a40bb2603c04ed3d1e188d1dd3105619f055a34[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Tue Jan 25 00:18:13 2022 -0500
+
+    removed mockito test for reversing a dispute that causes an overdraft
+
+[33mcommit a80db97935e95c903d6b23e9b2e10af14ce7f9b3[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Tue Jan 25 00:03:30 2022 -0500
+
+    added test for reversing a dispute that contributed to re-paying an overdra balance
+
+[33mcommit beb92b049d6f7b5c77a56606a91a33935e77bb41[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Mon Jan 24 23:57:49 2022 -0500
+
+    added interest adjustment to prevent extra interest when disputing an desposit puts customer back into overdraft
+
+[33mcommit 70742d34f71567c078dc1367bfbbc464a2aa61c3[m
+Merge: 2bc2d75 2c67687
+Author: Jack <jacktzhao@gmail.com>
+Date:   Mon Jan 24 22:38:29 2022 -0500
+
+    Merge branch 'main' of https://github.com/adithyasolai/testudo-bank into jzhao/integration-tests
+
+[33mcommit 2c6768722eb2a51eb0461bc3e91bdfd277d3e327[m
+Merge: befbee1 ed7e52f
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Fri Jan 21 19:06:16 2022 -0500
+
+    Merge pull request #67 from adithyasolai/adithyasolai/docs
+    
+    upload test debugging doc
+
+[33mcommit ed7e52f9b6aea1affc979500b92785d166199f27[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Jan 21 19:05:12 2022 -0500
+
+    upload test debugging doc
+
+[33mcommit 2bc2d757763ea7c83fe245420b92f96def2566be[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Jan 21 14:28:55 2022 -0800
+
+    adjusted values of integ test for reversing desposit that causes overdraft and edited comments
+
+[33mcommit b15f3053c1bbc058cad118800667445f024ab289[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Jan 21 14:04:59 2022 -0800
+
+    added helper to convert LocalDateTime to Date and adjusted how we calculate date in deposit
+
+[33mcommit 6c14a06303e7b75db5b2f3c5bbb478e227688fb7[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Tue Jan 18 19:54:45 2022 -0800
+
+    added integ test for when reversal of deposit exceeds overdraft limit
+
+[33mcommit 81306572fd071550b979392da1d626741a111d80[m
+Merge: 6951413 befbee1
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Jan 14 18:01:19 2022 -0500
+
+    merged changes
+
+[33mcommit 695141389d85ed2fa74efd7dce03d08a8eeb1463[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Fri Jan 14 17:56:34 2022 -0500
+
+    added integration test for going over overdraft in dispute
+
+[33mcommit befbee14c98553397342c86e642b5cc0204ed368[m
+Merge: 2b962b3 5d3950b
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Fri Jan 14 17:24:09 2022 -0500
+
+    Merge pull request #66 from adithyasolai/integration-tests
+    
+    add frozen account integ test
+
+[33mcommit 5d3950b2df27b6c4b690fdd01e67966b391efaff[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Jan 14 17:19:21 2022 -0500
+
+    add frozen account integ test
+
+[33mcommit 2b962b3df6fca02106a2ba8bc4f03f74508f97ed[m
+Merge: 3e7371e 3748dd7
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Fri Jan 14 16:35:45 2022 -0500
+
+    Merge pull request #65 from adithyasolai/adithyasolai/integration-tests
+    
+    use non-whole dollar amts in integ tests + some code cleanup
+
+[33mcommit 3748dd7eaa1bfcee987e8a3098edea671c0a104c[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Jan 14 16:30:19 2022 -0500
+
+    use non-whole dollar amts in integ tests + some code cleanup
+
+[33mcommit 3e7371e286396ac1953b7d7e7b081b8a701b713c[m
+Merge: 96bdbe6 1d6b9e6
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Jan 12 15:34:04 2022 -0500
+
+    Merge pull request #64 from jzhao/clean-code
+    
+    re-use deposit and withdraw methods for Transaction Dispute
+
+[33mcommit 1d6b9e62a3766a3845cfa8e7d52f16cdb1cf5bf9[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 12 15:20:30 2022 -0500
+
+    changed reversalAmount to double to properly represent a dollar value
+
+[33mcommit b39a0cf46de8488c63e6fb65c9993263eca584b2[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 12 15:16:08 2022 -0500
+
+    added and edited comments in case where reversing deposit results in overdraft
+
+[33mcommit 5b7d5c488197a0f7269edfc90da5b45bf70d6476[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 12 15:08:54 2022 -0500
+
+    re-wrote condition for reversing deposit causes overdraft
+
+[33mcommit e22afce68707a939bf2443e1b14efe9aae9fa0aa[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Wed Jan 12 14:59:42 2022 -0500
+
+    changed value of OverdraftBalance to 10200 to pass unit tests
+
+[33mcommit 6e24a470b5ee216547cbdfa74382c47f43f2a0d2[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Tue Jan 11 16:05:50 2022 -0500
+
+    cleaned up syntax in dispute method
+
+[33mcommit 6fd0400d0d1f4342057d1339294a930ea02baf85[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sun Jan 9 17:53:10 2022 -0500
+
+    changed logic behind reversing deposit
+
+[33mcommit 96bdbe6fa9d2b5409e23130204546c544c1843fa[m
+Merge: 1700928 44d3f7c
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Sun Jan 9 17:09:56 2022 -0500
+
+    Merge pull request #63 from siddharthc/overdraft-integtest
+    
+    Adding Integration Test for exceeding Overdraft balance
+
+[33mcommit 44d3f7c063e069d6653a740fc7c796f15fafbfc8[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Sun Jan 9 13:51:49 2022 -0800
+
+    Addressing nitpicks in code
+
+[33mcommit 40ff5a37188025daa503ba18b98e77deadbaacd9[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Sun Jan 9 13:20:43 2022 -0800
+
+    Followed codebase and integration test conventions
+
+[33mcommit 477acd55c7cfcd24e33e513e5facec7b65b1df32[m
+Author: Siddharth Cherukupalli <cherukusid@gmail.com>
+Date:   Sun Jan 9 12:29:33 2022 -0800
+
+    Adding Integration Test for exceeding Overdraft balance
+
+[33mcommit 82d7446e8b9d6402a52a0d6a39ab981a50199cfb[m
+Author: Jack <jacktzhao@gmail.com>
+Date:   Sun Jan 9 15:09:45 2022 -0500
+
+    changed logic behind reversing withdraw
+
+[33mcommit 1700928d62f8a2b9edf976991f7fdc6a90a99f82[m
+Merge: c54df5f 9a5ed18
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Jan 6 21:27:01 2022 -0500
+
+    Merge pull request #61 from adithyasolai/adithya/gitignore+re-organize
+    
+    remove codeowners, credentials.py, and application.properties from gitignore
+
+[33mcommit 9a5ed1863602f616f6acc331f15ddabe7928abee[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Jan 6 21:21:22 2022 -0500
+
+    remove codeowners, credentials.py, and application.properties from gitignore
+
+[33mcommit c54df5ffa06af104a68be235ae4a2a928745b854[m
+Merge: 8a23d26 7338322
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Jan 6 20:42:16 2022 -0500
+
+    Merge pull request #60 from adithyasolai/adithyasolai/docs
+    
+    updated Spring MVC doc, deleted duplicate
+
+[33mcommit 7338322f33113fdbf37257badcff79e39b509941[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Jan 6 20:40:51 2022 -0500
+
+    updated Spring MVC doc, deleted duplicate
+
+[33mcommit 8a23d26fabf1b9852ee3c7d9e2e83798df6199db[m
+Merge: 313a3df ab32acc
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Jan 6 20:28:54 2022 -0500
+
+    Merge pull request #59 from adithyasolai/adithyasolai/docs
+    
+    update db doc, add unit & integ testing doc
+
+[33mcommit ab32acc0210e54316a6cb453956744d26cb3c308[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Jan 6 20:27:47 2022 -0500
+
+    update db doc, add unit & integ testing doc
+
+[33mcommit 313a3dfab8c349ab57536349642ba0796b8789b5[m
+Merge: f4bc250 671b529
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Jan 5 17:30:59 2022 -0500
+
+    Merge pull request #58 from adithyasolai/adithyasolai/docs
+    
+    updated transaction history design doc with edge cases
+
+[33mcommit 671b529b8a6f54678a86c207a10027a35de9221e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 5 17:30:26 2022 -0500
+
+    updated transaction history design doc with edge cases
+
+[33mcommit f4bc2503e0904ef29a9fe2da0fcf16a70b63e5c8[m
+Merge: 7d28fde 10f4176
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Jan 5 17:19:15 2022 -0500
+
+    Merge pull request #57 from adithyasolai/adithyasolai/clean-code
+    
+    re-organize deposit and withdraw POST handlers; update overdraft limit logic
+
+[33mcommit 10f4176286acb4f4d4482faa5662722304011891[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 5 17:08:37 2022 -0500
+
+    removed overdraft limit exceeded unit test
+
+[33mcommit 5379b0a6c6563c7171962bb6dfe7dc4cc15c9a1f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 5 17:07:37 2022 -0500
+
+    re-organized withdraw handler, updated summary comments, changed overdraft limit logic
+
+[33mcommit 77e367a78c5b899808da3fe00cb6b6063627a22e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Jan 5 16:42:55 2022 -0500
+
+    re-organized deposit POST handler for more readability
+
+[33mcommit 7d28fdef2ea6991445864c20d4edf442628676c0[m
+Merge: 492fc9f 4ebf753
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Jan 4 19:03:32 2022 -0500
+
+    Merge pull request #56 from adithyasolai/adithya/gitignore+re-organize
+    
+    adding jack zhao as codeowner
+
+[33mcommit 4ebf7538442d7e3896d669b972803f90d125c8e6[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 19:02:33 2022 -0500
+
+    adding jack zhao as codeowner
+
+[33mcommit 492fc9f039827c400050e12f65aa2a1a312a894e[m
+Merge: ff4b42f aaeac81
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Jan 4 15:48:46 2022 -0500
+
+    Merge pull request #55 from adithyasolai/adithya/gitignore+re-organize
+    
+    remove ananya, add sidd as codeowner
+
+[33mcommit aaeac812dd86a8babdbf2fd5136b351beff72ec8[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 15:47:17 2022 -0500
+
+    remove ananya, add sidd as codeowner
+
+[33mcommit ff4b42fa8be6e86ded3a4e4f16ef589180eec2f4[m
+Merge: 003db17 5357b57
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Jan 4 15:31:50 2022 -0500
+
+    Merge pull request #54 from adithyasolai/adithyasolai/clean-code
+    
+    shift to Repository paradigm
+
+[33mcommit 5357b57e97e2e3916a2c208dcb3a0cfebd48bab3[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 15:26:18 2022 -0500
+
+    add increase+delete overdraftLogs and setNumReversals SQL queries to Repository
+
+[33mcommit 67735b5e6d416e1f8708c655aaee96a7abdb4485[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 15:18:48 2022 -0500
+
+    added set/increase/decrease customer balance SQL queries to Repository
+
+[33mcommit 40987b45e11f843482eed5eea877f985d1aea18a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 15:07:55 2022 -0500
+
+    added customerID check to delete overdraft log code
+
+[33mcommit 3c41230d393a7801b2503757254e18e3a027c83e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 15:06:41 2022 -0500
+
+    added insert transaction+overdraft log and set OverdraftBalance SQL queries to repository
+
+[33mcommit 7193d89b653da2def25b1900377877e4434e2535[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 14:46:24 2022 -0500
+
+    add SQL queries that fetch transaction+overdraft logs to Repository
+
+[33mcommit 22bda1fe2e55efaed2a682dcc516f9d211c29e17[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 14:27:42 2022 -0500
+
+    added get SQL queries to Repository (password, overBalance, balance, etc)
+
+[33mcommit 003db177055fcb8cd15ec3f386d5bb36ca466fdc[m
+Merge: bfcad57 71fb93f
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Jan 4 13:30:20 2022 -0500
+
+    Merge pull request #53 from adithyasolai/adithyasolai/clean-code
+    
+    various refactors: file directory changes, helper classes, etc.
+
+[33mcommit 71fb93f8c72c45e65ea1b5993a42b26d3c9f88a3[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 13:21:44 2022 -0500
+
+    add convertDollarsToPennies() helper to controller
+
+[33mcommit 410abcc52dc8bd81ebf28e22edeec9f14874ab8b[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 13:15:15 2022 -0500
+
+    re-organize controller code for more readability
+
+[33mcommit 422e66317eb8c3284ccbea256a1792f76912c53f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 13:08:33 2022 -0500
+
+    removed unused imports from integ helpers class
+
+[33mcommit fd44fda5c6d63c359e4eba46ca2813b2afcdd719[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 13:06:54 2022 -0500
+
+    separated test files and helper methods
+
+[33mcommit a80e5b9eff7959e8fd2b19517da9eaee8bf06b6f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 12:45:46 2022 -0500
+
+    change filepath name from codejava to testudobank
+
+[33mcommit a8cc5bbba3702638ef11088b4fe7befad99ce2d9[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Jan 4 12:34:24 2022 -0500
+
+    move transaction deposit/withdraw action literals to controller
+
+[33mcommit bfcad57b9612a53abb0d2542c90b6133b4f503fc[m
+Merge: b6e1113 8d65fa2
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Mon Jan 3 17:35:08 2022 -0500
+
+    Merge pull request #52 from adithyasolai/adithyasolai/integration-tests
+    
+    add integration test suite
+
+[33mcommit 8d65fa2e8623108d03c28dd4b73f81018f102a67[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 14:32:05 2022 -0500
+
+    added withdraw dispute integ test, removed unit test for that case
+
+[33mcommit 35ed8322d4d4a9024176bc461769c9ec84d8a8fb[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 14:24:36 2022 -0500
+
+    remove dispute deposit unit test
+
+[33mcommit db447d9df28441b4bf268ae58af31d8e65e024ce[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 14:21:15 2022 -0500
+
+    added helper methods to check overdraft and transaction logs
+
+[33mcommit fd7b605e86d4002966ebbf92914a9f401c176b93[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 13:26:07 2022 -0500
+
+    made integ test MySQL DB password simple and public
+
+[33mcommit 495ffd4ef70e52f7ccad0d6776727b94fb059bbe[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 13:25:20 2022 -0500
+
+    added deposit reversal integ test
+
+[33mcommit 4a3e464f26c51203a1433a9892285bfb43948904[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 13:12:47 2022 -0500
+
+    make numFraudReversals increment on Deposit as well
+
+[33mcommit e9ccb18760ca9ad84d15f20a1004b7ef827cc8fd[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 12:45:41 2022 -0500
+
+    remove deposit overdraft not cleared unit test
+
+[33mcommit 81ada9f133d92ef2e409ca4fa35fd4aa87725cbd[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Jan 3 12:44:48 2022 -0500
+
+    added deposit overdraft not cleared integ test
+
+[33mcommit c2da3eb1105b33e1b7d75e65a6364f0ad2ed1094[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sun Jan 2 22:10:41 2022 -0500
+
+    remove simple deposit+withdraw and overdraft unit tests
+
+[33mcommit 9b923fc624eeb9115b65f2acf32f152042c20b6f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sun Jan 2 21:15:53 2022 -0500
+
+    added overdraft deposit and withdraw integ tests
+
+[33mcommit 8c3bbbffb635418203d2ccab9f5925ca878e82b6[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 19:30:31 2022 -0500
+
+    organized file, added summary comments to integ tests and helper functions
+
+[33mcommit cddab5bb43e26befbcbea13abbe1420eba474284[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 19:13:42 2022 -0500
+
+    move dbDelegate init to @BeforeAll
+
+[33mcommit 5828e57e4b733e55fa2522fcaae94f5e1ee575ad[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 19:10:33 2022 -0500
+
+    remove @DynamicPropertySource since Repository paradigm not used
+
+[33mcommit bf02697d7bbf2d2df771474815b05cdb67f5c3da[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 19:08:52 2022 -0500
+
+    remove log configuration for surefire in pom.xml
+
+[33mcommit 07ad0bf749c1d93abc475ec228914abfcbdc65fc[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 19:05:13 2022 -0500
+
+    remove unused @With from User.java
+
+[33mcommit c544bc833290bb5e7df6775d99e00c4b6ebc7c1f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 19:03:17 2022 -0500
+
+    added transactionhistory logs validation, copied logic to withdraw integ test
+
+[33mcommit ff7a88e6d64324d0c3457d78b8250cc0c2d55188[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 13:05:14 2022 -0500
+
+    match upper case in SQL mocks in unit tests
+
+[33mcommit 0158b7e3dd6387e5c1a137b348a8f58857adeaa4[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 01:43:18 2022 -0500
+
+    add simple deposit integ test
+
+[33mcommit 89a8f31aaac0e5e814b8d5e50f145b039db5b07f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Sat Jan 1 00:57:46 2022 -0500
+
+    remove debug logs from dockerjava
+
+[33mcommit 02a344af3e8a47086f7ea37bc5fd4015a925552c[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Dec 31 23:03:40 2021 -0500
+
+    remove Jython tests
+
+[33mcommit 964f852abddb2ec23bce9f602a6f8a2e0773b2e4[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Dec 31 22:19:55 2021 -0500
+
+    added simple Jython scripts to tests
+
+[33mcommit a687150abb7b69abca6c6a2b6ef7072f643f77bb[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Dec 31 20:44:12 2021 -0500
+
+    created MySQL test container, run simple SQL scripts
+
+[33mcommit b6e111309e14ad0915bceba6d99324822d4bed8c[m
+Merge: 969a3d3 6f1ccc2
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Nov 18 12:22:18 2021 -0500
+
+    Merge pull request #44 from adithyasolai/rschmid4/transaction-history
+    
+    Clean up Transaction History Feature
+
+[33mcommit 6f1ccc26512004d840a343c49eaff835c045b88a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Nov 18 12:09:02 2021 -0500
+
+    followed existing style conventions, fixed SQL queries, more readability
+
+[33mcommit ef33ee22554ebfa527e38762ada83b2226d988f0[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Nov 17 22:43:50 2021 -0500
+
+    simplified fetching current time
+
+[33mcommit e9c57f7473f71d99296af6c0dd7a6b390d0b562c[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Nov 17 22:30:08 2021 -0500
+
+    use SQL to fetch 3 most recent transactions, not java logic
+
+[33mcommit 969a3d321505e918f1c8b99d508cb500cf1db3a5[m
+Merge: 59f3c65 aea0fc3
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Sat Nov 13 16:48:43 2021 -0500
+
+    Merge pull request #43 from adithyasolai/rschmid4/transaction-history
+    
+    Rschmid4/transaction history
+
+[33mcommit aea0fc3e0e9d53b635332e6566be97c0354c316d[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Mon Nov 8 19:40:18 2021 -0500
+
+    added more descriptive variable names within updateAccountInfo
+
+[33mcommit d765992a9baa7fcf61207d5896fc4ac3fad2d29d[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Thu Nov 4 14:23:29 2021 -0400
+
+    Made constant for the max number of disputes before locking account
+
+[33mcommit c622fa6c180a08a88baf505bfce72cdb27df2322[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Wed Nov 3 19:49:42 2021 -0400
+
+    added more unit tests to test the dispute functionality
+
+[33mcommit 3209e4784b356ac2521b0d584937e45e2cc204eb[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Wed Nov 3 16:49:26 2021 -0400
+
+    fixed timestamp so its at the same time for overdraft logs and trnasaction history. modified all existing tests to pass correctly
+
+[33mcommit a92b4c6ed26fc11d74b86cfed63ba154313bbd46[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Wed Nov 3 11:48:58 2021 -0400
+
+    fixed dispute check to make sure dispute doesnt cause overdraft above 1000 dollars. Fixed account lock check for deposit and withdraw to lock is number of withdraw disuptes >= 2 instead of > 2
+
+[33mcommit baf76875d8f984cf9b3f0325d15d7e8dc98a6f4a[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Tue Nov 2 18:00:49 2021 -0400
+
+    fixed timestamp so proper time was added to overdraft logs and transaction history. Added edge cases for dispute, fixed check for number of disputes to only be increased for a dispute of a withdraw
+
+[33mcommit 5a838aa61ad756c3dcb995f4bcc54780c3800f0e[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Sun Oct 31 22:39:31 2021 -0400
+
+    fixed naming of a variable
+
+[33mcommit b6243ea5cc4bbad201c08ee7de412c4ef570fd7e[m
+Author: unknown <Robert301301@gmail.com>
+Date:   Sun Oct 31 20:05:35 2021 -0400
+
+    Basic implementation of transaction history and reversals
+
+[33mcommit 59f3c65bdc4c2be4593bd48803a8764aed93de05[m
+Merge: 0c10ebe 7d5d9f0
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Oct 28 16:16:46 2021 -0400
+
+    Merge pull request #42 from adithyasolai/ananyaramkumar-patch-1
+    
+    Added Dollar Input and Pennies storage clarification
+
+[33mcommit 7d5d9f00966078b049287131c0005e88ffa8c56e[m
+Author: ananyaramkumar <ananyaramkumar06@gmail.com>
+Date:   Thu Oct 28 16:08:29 2021 -0400
+
+    Added Dollar Input and Pennies storage clarification
+    
+    I added an extra 2 lines to specify that OverdraftBalance & Balance and OldOverBalance and NewOverBalance are all in pennies in the Customers and OverdraftLogs table
+
+[33mcommit 0c10ebe23a86cca27569184eb4482e6baf989d25[m
+Merge: 78a476d 98c821d
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Oct 28 15:58:41 2021 -0400
+
+    Merge pull request #41 from adithyasolai/ananyaramkumar-patch-2
+    
+    Replacing Spring MVC to reflect Assignment #3
+
+[33mcommit 78a476dcec84e6081eaa685e06f03d0afc927211[m
+Merge: 277a7d6 997794a
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Oct 28 15:58:29 2021 -0400
+
+    Merge pull request #40 from adithyasolai/ananyaramkumar-patch-1
+    
+    Replacing the old DDB Schema doc
+
+[33mcommit 98c821d9cbf5fafd6e41f9c39ba4c6ff1f9bd53f[m
+Author: ananyaramkumar <ananyaramkumar06@gmail.com>
+Date:   Thu Oct 28 01:11:26 2021 -0400
+
+    Replacing Spring MVC to reflect Assignment #3
+    
+    Added Assignment #3 DDB schema updates as well as updated format from pennies to dollars and cents.
+
+[33mcommit 997794a15bd633588673303d156609809c33028d[m
+Author: ananyaramkumar <ananyaramkumar06@gmail.com>
+Date:   Thu Oct 28 00:53:15 2021 -0400
+
+    Replacing the old DDB Schema doc
+    
+    Added TransactionHistory table to the schema and also added NumFraudReversals column to Customer table.
+
+[33mcommit 277a7d6a5708fdcabd7f61856931f12596f1ce5d[m
+Merge: 6309c42 2333f59
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Oct 26 16:24:38 2021 -0400
+
+    Merge pull request #39 from adithyasolai/adithya/transaction-history-prep
+    
+    transaction history feature prep
+
+[33mcommit 2333f5911f84e1548075445712bd2ee034c0f34a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 16:13:07 2021 -0400
+
+    create dispute form front-end
+
+[33mcommit 5ff6cfb3092dc923807b8b1a495383c3ffdff5a3[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 15:54:41 2021 -0400
+
+    updated design doc
+
+[33mcommit a5a18f890d298b0122e94e4833716d80fd1f4c81[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 15:53:54 2021 -0400
+
+    prepare DB schema for transaction history feature
+
+[33mcommit 903878e112067f3ec0c0b7ee3c701869d6bb65ca[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 15:37:51 2021 -0400
+
+    upload design doc
+
+[33mcommit 6309c42539e41ba8fe1fa844618fa67d2524d240[m
+Merge: 24d6298 3f58feb
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Oct 26 14:09:42 2021 -0400
+
+    Merge pull request #38 from adithyasolai/adithya/dollars-to-pennies
+    
+    dollars in front-end, pennies in back-end
+
+[33mcommit 3f58feb1cc9713be26c42fc1fe40110811001896[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 13:52:48 2021 -0400
+
+    make unit tests use dollars input, standardized test format
+
+[33mcommit 73b6e5465c8efea1e5b96f6d63533330e3ed4e69[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 12:43:49 2021 -0400
+
+    make password checking stubs future-proof
+
+[33mcommit e4a9d0a9ed27ec5b026d0040b4c1a66e9bcdfb9b[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Oct 26 02:09:40 2021 -0400
+
+    make user input in dollars + use pennies in backend (unit tests not fixed)
+
+[33mcommit 24d6298c219ff0f61c0279470c733a5e27315f30[m
+Merge: 84852fe 3cf549e
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Mon Oct 25 22:11:42 2021 -0400
+
+    Merge pull request #37 from malshehr/overdraftbalance-with-interest
+    
+    overdraft feature implementation
+
+[33mcommit 3cf549ee2e1a6b17fc6172433db5bfa91e2fa8df[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Oct 25 22:10:50 2021 -0400
+
+    code quality tweaks
+
+[33mcommit 0c142240521ce2c5580c786dfc54218af380239f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Oct 25 21:56:38 2021 -0400
+
+    restored mysql password filler text
+
+[33mcommit 1a1af584f7fe10a09b823745cb160a53feb6e0d0[m
+Author: Marwan <malshehr@terpmail.umd.edu>
+Date:   Sun Oct 17 23:18:59 2021 -0400
+
+    fix junit tests and allow overdraft withdraw with balance > 0
+
+[33mcommit d8ba213ef752548dd76d0724032e42b79dc907b3[m
+Author: Marwan <malshehr@terpmail.umd.edu>
+Date:   Sun Oct 17 21:10:08 2021 -0400
+
+    add junit tests and proper variable names
+
+[33mcommit 55ee468eacfba6db34b8a756a84dd4f569cce4ac[m
+Author: Marwan <malshehr@terpmail.umd.edu>
+Date:   Sun Oct 17 02:40:38 2021 -0400
+
+    fix interest fee on frontend
+
+[33mcommit dc4aa387406463199baff84a0cce755bf17f1b5d[m
+Author: Marwan <malshehr@terpmail.umd.edu>
+Date:   Sat Oct 16 15:36:23 2021 -0400
+
+    allowing customers to withdraw money with interest if their balance is $0
+
+[33mcommit efd27e14aa447f1d642db64ab6469b1c84725f2e[m
+Merge: eb80d85 84852fe
+Author: Marwan <malshehr@terpmail.umd.edu>
+Date:   Wed Oct 13 13:34:30 2021 -0400
+
+    Merge branch 'main' of https://github.com/adithyasolai/testudo-bank into malshehr/fixing-negative-withdraw-deposit
+
+[33mcommit 84852fe2a8d1bec2352f2a09b023c292f51f06bf[m
+Merge: 154f286 68e2282
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 30 11:34:11 2021 -0400
+
+    Merge pull request #36 from adithyasolai/aramkuma/unit-tests
+    
+    improve readability of updateAccountInfo helper stubbing
+
+[33mcommit 68e228262e0bc8ace925a4b51fc936ed39a54cf1[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 30 11:30:00 2021 -0400
+
+    improve readability of updateAccountInfo helper stubbing
+
+[33mcommit 154f286fc6315c3d3f1ebe52c04e7fe02883f96f[m
+Merge: 1f7aa6b 4470143
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 30 11:17:49 2021 -0400
+
+    Merge pull request #35 from adithyasolai/adithya/login+deposit+withdraw
+    
+    improve withdraw code quality by re-using helper method
+
+[33mcommit 44701434dc29d0e9c5f086f175abe65778438d3e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 29 21:38:58 2021 -0400
+
+    improve withdraw code quality by re-using helper method
+
+[33mcommit 1f7aa6b349ef334b3ac4137684416a61d2dd0887[m
+Merge: 101c131 e8a0d13
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Sep 29 21:27:35 2021 -0400
+
+    Merge pull request #34 from adithyasolai/aramkuma/unit-tests
+    
+    Withdraw Tests + Verify SQL Command Strings
+
+[33mcommit e8a0d138262ec744c3158da3282239f1b72bb9ab[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 29 21:18:13 2021 -0400
+
+    verify proper SQL commands run
+
+[33mcommit a67da0396ebc9f63bcb5b0d7d1f2ca5933e1668a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 29 19:22:33 2021 -0400
+
+    clarified user model checks
+
+[33mcommit 761cfa9b86ed59552a8937faef9f0dfbfe12ab73[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 29 19:19:47 2021 -0400
+
+    add Mockito verify tests to serve as an example
+
+[33mcommit 101c131b21a8bdb01de33043d821a2b4e2b609c8[m
+Merge: 9082e9d af92d96
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Sep 29 17:49:19 2021 -0400
+
+    Merge pull request #31 from adithyasolai/adithya/gitignore+re-organize
+    
+    add application.properties to gitignore
+
+[33mcommit af92d96d3e141786ab4ec0d7137af3b409911eeb[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 29 17:46:49 2021 -0400
+
+    add application.properties to gitignore
+
+[33mcommit 9082e9db013c7bdd1b01c4282e665ed19426c1e2[m
+Merge: 129b053 dbaf6a9
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Sep 28 17:45:21 2021 -0400
+
+    Merge pull request #29 from adithyasolai/aramkuma/unit-tests
+    
+    aramkuma/unit tests
+
+[33mcommit dbaf6a95b7b187352868cc822b3c89d7c831d30a[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 28 17:44:11 2021 -0400
+
+    remove dummy commit
+
+[33mcommit ffbe338fb619a3594a4cce092b8efcbf3de3ff97[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 28 17:42:53 2021 -0400
+
+    makes unit tests run without real DB
+
+[33mcommit 287c28cddddcb66e5a62bd4c21712243cddd46e3[m
+Merge: bfa460d bcd5fa5
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 28 15:53:30 2021 -0400
+
+    Merge branch 'aramkuma/unit-tests' of https://github.com/adithyasolai/testudo-bank into adithya/demo
+
+[33mcommit bcd5fa54dded24cbb189e187ca2caa3682d09bfc[m
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Tue Sep 28 00:55:48 2021 -0400
+
+    added unit tests and tweaked pom..xml and application.properties files to support mock testing for jdbc
+
+[33mcommit 7fabcece0c201068810be99eba2055e46010843e[m
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Fri Sep 24 13:26:50 2021 -0400
+
+    adding tests
+
+[33mcommit bfa460d385f5fa1e65af5cb134a750ffff3c9570[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 23 20:57:55 2021 -0400
+
+    random change
+
+[33mcommit 129b0531207beb532df6bccfaa2fdfc6459bbbd8[m
+Merge: 3fef32c 8f27675
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 23 20:20:33 2021 -0400
+
+    Merge pull request #27 from adithyasolai/ananyaramkumar-springdocumentation
+    
+    Added Spring Documentation pdf file
+
+[33mcommit 8f2767505a60c1af1c0d1e3c877199265f1601ca[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 23 20:19:33 2021 -0400
+
+    fixed formatting/grammer, added detail to Model
+
+[33mcommit 3fef32cf32e032d884d55118e549edda07449c63[m
+Merge: 9b3e9aa 8b5f1f3
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 23 20:13:54 2021 -0400
+
+    Merge pull request #28 from adithyasolai/adithya/db-schema-doc
+    
+    added interest rate details
+
+[33mcommit 8b5f1f3739c9b86d7128ee5f2f49ad93a7b46c23[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 23 20:13:23 2021 -0400
+
+    added interest rate details
+
+[33mcommit 2fc140b6b196d9f6637cab171d23445c5f41d5e0[m
+Author: ananyaramkumar <ananyaramkumar06@gmail.com>
+Date:   Thu Sep 23 17:52:06 2021 -0500
+
+    Add files via upload
+
+[33mcommit 9b3e9aa90c07099f3f323cc6feb461320904af05[m
+Merge: 0d2184b e246fb5
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 23 13:26:23 2021 -0400
+
+    Merge pull request #26 from adithyasolai/adithya/db-schema-doc
+    
+    add db schema doc
+
+[33mcommit e246fb52cf669c35ffc93ef97d24766e7e3b2c70[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 23 13:25:16 2021 -0400
+
+    db schema doc initial commit
+
+[33mcommit 0d2184be02fd38f0f75d9c3a708d089db475e55d[m
+Merge: a95bd0b 990fbdd
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 23 12:55:26 2021 -0400
+
+    Merge pull request #25 from adithyasolai/adithya/overdraft-design-doc
+    
+    switch to pdf to avoid fetching images via URL
+
+[33mcommit 990fbdddbe13465e24cb0056f2f74326ae786e8c[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 23 12:53:43 2021 -0400
+
+    switch to pdf to avoid fetching images via URL
+
+[33mcommit a95bd0b66de4e5819a17660fc0744692b8325408[m
+Merge: 9a97e31 b7c50f6
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Wed Sep 22 22:40:17 2021 -0400
+
+    Merge pull request #24 from adithyasolai/adithya/overdraft-design-doc
+    
+    overdraft feature design doc
+
+[33mcommit b7c50f61885e6797c2fbdfca1caee9a59f1a2598[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 22 22:39:11 2021 -0400
+
+    fix typos
+
+[33mcommit 0eb37865096665cc29eddc41451a897d2810cd4f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Wed Sep 22 22:30:00 2021 -0400
+
+    overdraft design doc initial commit
+
+[33mcommit 9a97e31e697b83ddd8097ba83dc4531911b9acd3[m
+Merge: 17d991d 6101b4e
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Sep 21 19:42:42 2021 -0400
+
+    Merge pull request #23 from adithyasolai/adithya/overdraft-db-schema
+    
+    add DB schema support for overdraft feature
+
+[33mcommit 6101b4e7f3913fb1c5bfaefda16b9f503fb66246[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 21 19:33:09 2021 -0400
+
+    add DB schema support for overdraft feature
+
+[33mcommit 17d991ddb46df484a9a2181745a426ddd014f24c[m
+Merge: 4f6dbd0 1cd9838
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Sep 21 19:22:39 2021 -0400
+
+    Merge pull request #22 from adithyasolai/adithya/central-python-credentials
+    
+    use mysql_endpoint in python scripts
+
+[33mcommit 1cd9838367c998c2b3e9b2598639400c6ffe2a4f[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 21 19:20:34 2021 -0400
+
+    use mysql_endpoint in scripts
+
+[33mcommit 4f6dbd0618a3b6ed1e80b4d7b08a07a774fc81e6[m
+Merge: 0d61f76 1641364
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Tue Sep 21 19:06:53 2021 -0400
+
+    Merge pull request #21 from adithyasolai/adithya/central-python-credentials
+    
+    centralize python script credentials
+
+[33mcommit 16413643417415e4f507109b2fff723e281562e2[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 21 19:04:30 2021 -0400
+
+    switch from rds to mysql endpoint variable name
+
+[33mcommit 5cc1f7d9df00e7e9325a67716f04d4a8a38c1b16[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Tue Sep 21 18:54:43 2021 -0400
+
+    centralize python script credentials
+
+[33mcommit eb80d85518cabb9096a93c2524518f6022074bb1[m
+Author: Marwan <malshehr@terpmail.umd.edu>
+Date:   Sat Sep 18 19:36:57 2021 -0400
+
+    fixing and handling negative deposit and negative withdraw input
+
+[33mcommit 3268b4385675cbdac5f8444f7e00f132d465eb07[m
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Fri Sep 17 14:25:44 2021 -0400
+
+    improved convention by adding enter after javadoc comment
+
+[33mcommit 0d61f76e3c7b2eb6eae6e4ba76a262104ab7f7b7[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Sep 10 16:42:37 2021 -0400
+
+    undo demo changes
+
+[33mcommit 1ceefa812e1e216e13f917b2d081843ac30d39db[m
+Merge: 5a299cb 847efa2
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Fri Sep 10 15:32:45 2021 -0400
+
+    Merge branch 'main' of https://github.com/adithyasolai/testudo-bank
+
+[33mcommit 847efa27891c0d8cae028650bcf467ec7856ca34[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Fri Sep 10 15:26:31 2021 -0400
+
+    demo changes
+
+[33mcommit 5a299cb0807497b1573df328d04a1d654824f7ce[m
+Merge: 465e5dd 4451bab
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Fri Sep 10 14:37:32 2021 -0400
+
+    Merge branch 'main' of https://github.com/adithyasolai/testudo-bank
+
+[33mcommit 4451baba395aed159f9108c12942e21f194db8bf[m
+Merge: 551b2d0 c627c03
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 21:19:41 2021 -0400
+
+    Merge pull request #6 from adithyasolai/adithya/gitignore+re-organize
+    
+    Re-organize folders + update gitignore
+
+[33mcommit c627c032cdd32c9a2f8ae8c2cafbd301b3d6eb92[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 9 21:14:39 2021 -0400
+
+    add CODEOWNERS + python sql scripts to gitignore
+
+[33mcommit 25838bd54659d209adfa84eafcf381cb9f8766b2[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 9 21:13:58 2021 -0400
+
+    put python sql scripts in a folder
+
+[33mcommit 551b2d078eef6f007f45ac8aedda87c0e21d3e73[m
+Merge: 0dab608 4ffa276
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 21:06:11 2021 -0400
+
+    Merge pull request #1 from adithyasolai/adisolai/mysqlpythonscripts
+    
+    adds python scripts that populate and delete local MySQL DB
+
+[33mcommit 0dab608c9178f08aafdcc0417a4d27dd54beeb99[m
+Merge: 6ec3393 5fb3136
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 21:05:29 2021 -0400
+
+    Merge pull request #5 from adithyasolai/adithya/login+deposit+withdraw
+    
+    implements login, deposit, and withdraw using local MySQL DB
+
+[33mcommit 6ec33939ffb0c0a569205c9ccff76a2cbabb0f51[m
+Merge: d535bf1 ea7b632
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 18:33:09 2021 -0400
+
+    Merge pull request #4 from adithyasolai/adithya/fix-code-owners
+    
+    Use * instead of / in CODEOWNERS file
+
+[33mcommit ea7b63290322393b9fa4d11728217b1466a93ab7[m
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 18:32:28 2021 -0400
+
+    Use * instead of / in CODEOWNERS file
+
+[33mcommit d535bf1bd3c32c9cc21f011153dddb2728066df2[m
+Merge: 0c65135 14f2018
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 18:26:24 2021 -0400
+
+    Merge pull request #3 from adithyasolai/adithya/code-owners
+    
+    makes adithya+ananya code owners of entire repo
+
+[33mcommit 14f20183518051e6ad85aeb454aea763e2849981[m
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Thu Sep 9 18:25:38 2021 -0400
+
+    makes adithya+ananya code owners of entire repo
+
+[33mcommit 5fb31367a4383fce61190f523bc0a53ce3b29a4e[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 9 17:42:20 2021 -0400
+
+    remove local DB password
+
+[33mcommit 260c8cd32fdcc3be54449ab9aab34d1816324743[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Thu Sep 9 17:38:27 2021 -0400
+
+    implements login, deposit, and withdraw using MySQL DB
+
+[33mcommit 465e5dd737fcf74bd5939d9f3d78bd8f3a797626[m
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Wed Sep 8 21:00:58 2021 -0400
+
+    dummy commit to test git push -f
+
+[33mcommit 997111fbfa87dfd9783fd50dd34d1ed1aa03ef6a[m
+Author: Ananya Ramkumar <aramkuma@terpmail.umd.edu>
+Date:   Tue Sep 7 11:15:06 2021 -0400
+
+    initial commit for Ananya's login form.
+
+[33mcommit 4ffa276c6928f9dcfcfd8fc4418704e09bf6e9d5[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Sep 6 23:45:42 2021 -0400
+
+    adds python scripts that populate and delete local MySQL DB
+
+[33mcommit 0c65135664650dcbead932ea814019220d8b6dd1[m
+Author: Adithya Solai <ppalanic@terpmail.umd.edu>
+Date:   Mon Sep 6 19:29:10 2021 -0400
+
+    empty Spring Web war packaging repo
+
+[33mcommit 43ccab2e7d6a70458a5eb80e9aab323f74abfb31[m
+Author: Adithya Solai <43101430+adithyasolai@users.noreply.github.com>
+Date:   Mon Sep 6 19:08:30 2021 -0400
+
+    Initial commit
