@@ -183,6 +183,22 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "statement_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input of desired statement's month and year.
+   * 
+   * @param model
+   * @return "statement_form" page
+   */
+  @GetMapping("/statement_form")
+  public String showStatementForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "statement_form";
+  }
+
+
   //// HELPER METHODS ////
 
   /**
