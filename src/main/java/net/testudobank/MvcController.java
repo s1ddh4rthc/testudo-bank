@@ -50,7 +50,6 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 0.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -81,8 +80,8 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-    model.addAttribute("user", user);
-
+		model.addAttribute("user", user);
+		
 		return "login_form";
 	}
 
@@ -180,6 +179,33 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  @GetMapping("/buyNFT")
+	public String showBuynftForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "buynft_form";
+	}
+
+  @GetMapping("/sellNFT")
+	public String showSellNFTForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "sellnft_form";
+	}
+
+  @GetMapping("/createNFT")
+	public String showCreatenftForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "createnft_form";
+	}
+
+  @GetMapping("/deleteNFT")
+	public String showDeleteNFTForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "deletenft_form";
+	}
   //// HELPER METHODS ////
 
   /**
@@ -213,7 +239,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -237,7 +263,6 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -325,10 +350,6 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
-
-    if (userDepositAmt >= 20){
-      user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
-    }
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -362,8 +383,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    updateAccountInfo(user);
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -803,24 +822,124 @@ public class MvcController {
     }
   }
 
-  /**
-   * 
-   * 
-   * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
-   */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  @PostMapping("/createNFT")
+  public String createNFT(@ModelAttribute("user") User user) {
 
-    if (user.getNumDepositsForInterest() != 5){
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
       return "welcome";
     }
 
-    user.setNumDepositsForInterest(0);
-    double currentBalance = user.getBalance();
-    double interestApplied = currentBalance*BALANCE_INTEREST_RATE;
-    user.setAmountToDeposit(interestApplied);
-    submitDeposit(user);
+    // must set a positive amount
+    double NFTPrice = user.getNFTPrice();
+    String NFTName = user.getNFTName();
+    if (NFTPrice <= 0) {
+      return "welcome";
+    }
+    // create an entry in NFTHoldings for the new NFT that is created
+    TestudoBankRepository.insertRowToNFTHoldingsTable(jdbcTemplate, NFTName, userID, NFTPrice);
+    updateAccountInfo(user);
+    return "account_info";
+  }
 
+  @PostMapping("/deleteNFT")
+  public String deleteNFT(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // customer must own the NFT they are attempting to sell
+    String NFTName = user.getNFTName();
+    if (TestudoBankRepository.doesCustomerOwnThisNFT(jdbcTemplate, userID, NFTName)){
+      return "welcome";
+    }
+
+    // create an entry in NFTHoldings for the new NFT that is created
+    TestudoBankRepository.deleteRowFromNFTHoldingsTable(jdbcTemplate, NFTName, userID);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  @PostMapping("/sellNFT")
+  public String sellNFT(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // must set a positive amount
+    double NFTPrice = user.getNFTPrice();
+    if (NFTPrice <= 0) {
+      return "welcome";
+    }
+
+    // customer must own the NFT they are attempting to sell
+    String NFTName = user.getNFTName();
+    if (TestudoBankRepository.doesCustomerOwnThisNFT(jdbcTemplate, userID, NFTName)){
+      return "welcome";
+    }
+
+    // move entry from NFTHoldings to NFTMarketplace for the sale
+    TestudoBankRepository.deleteRowFromNFTHoldingsTable(jdbcTemplate, NFTName, userID);
+    TestudoBankRepository.insertRowToNFTMarketplaceTable(jdbcTemplate, NFTName, userID, NFTPrice);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  @PostMapping("/buyNFT")
+  public String buyNFT(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    String NFTName = user.getNFTName();
+    double NFTPrice = user.getNFTPrice();
+    int NFTPriceInPennies = convertDollarsToPennies(NFTPrice);
+    double customerBalance = user.getBalance();
+
+    // customerBalance must be greater than or equal to price
+    if (customerBalance < NFTPrice) {
+      return "welcome";
+    }
+
+    // move entry from NFTHoldings to NFTMarketplace for the sale
+    TestudoBankRepository.deleteRowFromNFTMarketplaceTable(jdbcTemplate, NFTName, userID);
+    TestudoBankRepository.insertRowToNFTHoldingsTable(jdbcTemplate, NFTName, userID, NFTPrice);
+    String sellerAccount = TestudoBankRepository.getNFTOwner(jdbcTemplate, NFTName);
+    
+    // creates new user for recipient
+    String recipientUserID = sellerAccount;
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, recipientUserID, NFTPriceInPennies);
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, NFTPriceInPennies);
     return "account_info";
   }
 
