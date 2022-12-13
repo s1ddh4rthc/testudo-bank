@@ -1,11 +1,14 @@
 package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,8 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
+
+  private static java.text.SimpleDateFormat SQL_DATETIME_FORMATTER = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
   
   // Spins up small MySQL DB in local Docker container
   @Container
@@ -137,6 +142,41 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
   }
+
+/**
+   * Verifies that the date and balance changes when date is old for savings calculator.
+   * The goals's Balance in the Goals table should be changed to the balance,
+   * and the goal's date should be changed in the Goals table to today.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testDateAndOldBalanceUpdate() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES);
+
+    LocalDateTime newDate = LocalDateTime.now();
+    String sqlDate = SQL_DATETIME_FORMATTER.format(Date.from(newDate.atZone(ZoneId.systemDefault()).toInstant()));
+    
+    MvcControllerIntegTestHelpers.addCustomerGoalsToDB(dbDelegate, CUSTOMER1_ID, 5, sqlDate);
+
+    String updateSQL = String.format("UPDATE Customers SET Balance = %d WHERE CustomerID='%s';", 
+                                    0, CUSTOMER1_ID);
+    jdbcTemplate.update(updateSQL);
+
+
+    String verifyCustomersNoChange = String.format("SELECT Balance FROM testudo_bank.Customers Where CustomerID='%s';", CUSTOMER1_ID);
+    String verifyGoalsNoChange = String.format("SELECT LastSavingsCalculatedBalance FROM testudo_bank.Goals Where CustomerID='%s';", CUSTOMER1_ID);
+    // verify that there are no logs in TransactionHistory table before Deposit
+    assertEquals(0, jdbcTemplate.queryForObject(verifyCustomersNoChange, Integer.class));
+    assertNotEquals(jdbcTemplate.queryForObject(verifyGoalsNoChange, Integer.class), jdbcTemplate.queryForObject(verifyCustomersNoChange, Integer.class));
+
+  }
+
+
 
   /**
    * Verifies the simplest withdraw case.

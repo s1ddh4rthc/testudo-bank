@@ -41,6 +41,12 @@ public class MvcControllerIntegTestHelpers {
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
   }
 
+  // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
+  public static void addCustomerGoalsToDB(DatabaseDelegate dbDelegate, String ID, int LastSavingsCalculatedBalance, String SavingsPercentageDate) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Goals VALUES ('%s', '%d', '%s')", ID, LastSavingsCalculatedBalance, SavingsPercentageDate);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
+  }
+
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance) throws ScriptException {
     addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);

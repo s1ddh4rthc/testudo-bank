@@ -96,4 +96,12 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
 
+  //// Savings Percentage Fields ////
+
+  @Setter  @Getter @PositiveOrZero @ToString.Include
+	private double lastSavingsCalculatedBalance;
+
+  @Setter @Getter
+  private String savingsPercentageDate;
+
 }

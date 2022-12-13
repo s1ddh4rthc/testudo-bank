@@ -1,3 +1,4 @@
+import datetime
 import pymysql
 import names
 import random
@@ -68,6 +69,15 @@ CREATE TABLE TransferHistory (
 '''
 cursor.execute(create_transferhistory_table_sql)
 
+# Make empty Goals table
+create_goals_table_sql = '''
+CREATE TABLE Goals (
+  CustomerID varchar(255),
+  LastSavingsCalculatedBalance int,
+  SavingsPercentageDate DATETIME
+);
+'''
+cursor.execute(create_goals_table_sql)
 
 # Make empty CryptoHoldings table
 create_cryptoholdings_table_sql = '''
@@ -121,6 +131,9 @@ for i in range(num_customers_to_add):
     customer_first_name = names.get_first_name()
     customer_last_name = names.get_last_name()
     customer_balance = random.randint(100, 10000) * 100 # multiply by 100 to have a penny value of 0
+    customer_old_balance = random.randint(100, 10000) * 100 # multiply by 100 to have a penny value of 0
+    format = '%Y-%m-%d %H:%M:%S'
+    date = datetime.datetime(2020, 5, 17).strftime(format)
     customer_password = ''.join(random.choices(string.ascii_lowercase + string.ascii_uppercase + string.digits, k = 9))
     
     # add random customer ID, name, and balance to Customers table.
@@ -138,6 +151,18 @@ for i in range(num_customers_to_add):
                 0,
                 0)
     cursor.execute(insert_customer_sql)
+
+
+    # add random customer ID, old balance, and date to Goals table.
+    # the old balance columns represent the total dollar amount as pennies instead of dollars.
+    # date is MYSQL DATETIME
+    insert_customer_goals_sql = '''
+    INSERT INTO Goals
+    VALUES  ({0},{1},{2});
+    '''.format("'" + customer_id + "'",
+                customer_old_balance,
+                "'" + date + "'")
+    cursor.execute(insert_customer_goals_sql)
     
     # add customer ID and password to Passwords table
     insert_password_sql = '''

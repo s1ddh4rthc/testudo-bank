@@ -11,8 +11,10 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import java.util.Optional;
@@ -84,6 +86,23 @@ public class MvcController {
 		
 		return "login_form";
 	}
+
+    /**
+   * HTML GET request handler that serves the "login_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's login form input.
+   * 
+   * @param model
+   * @return "login_form" page
+   */
+  @GetMapping("/login_savings")
+	public String showLoginSavingsForm(Model model) {
+		User user = new User();
+		model.addAttribute("user", user);
+		
+		return "login_savings";
+	}
+
 
   /**
    * HTML GET request handler that serves the "deposit_form" page to the user.
@@ -226,6 +245,31 @@ public class MvcController {
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
+    String getUserGoalsSql = String.format("SELECT LastSavingsCalculatedBalance, SavingsPercentageDate FROM Goals WHERE CustomerID='%s';", user.getUsername());
+    List<Map<String,Object>> queryGoalsResults = jdbcTemplate.queryForList(getUserGoalsSql);
+    if(queryGoalsResults.size() > 0){
+      Map<String,Object> userGoalsData = queryGoalsResults.get(0);
+          DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd-yyyy");
+
+          // update info if the month is behind
+          if(((LocalDateTime) userGoalsData.get("SavingsPercentageDate")).getMonth() != LocalDateTime.now().getMonth() 
+                || ((LocalDateTime) userGoalsData.get("SavingsPercentageDate")).getYear() != LocalDateTime.now().getYear()){
+            user.setLastSavingsCalculatedBalance((int)userData.get("Balance")/100.0);
+            LocalDateTime newDate = LocalDateTime.now();
+            String formatDateTime = newDate.format(formatter);
+            user.setSavingsPercentageDate(formatDateTime);
+
+            //Also Update in the DB
+            String datetimeOfReversedDeposit = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(newDate));
+            String numOfReversalsUpdateSql = String.format("UPDATE Goals SET LastSavingsCalculatedBalance = %d, SavingsPercentageDate = '%s' WHERE CustomerID='%s';", 
+                                    (int)userData.get("Balance"), datetimeOfReversedDeposit, user.getUsername());
+            jdbcTemplate.update(numOfReversalsUpdateSql);
+          }else{
+            user.setLastSavingsCalculatedBalance((int)userGoalsData.get("LastSavingsCalculatedBalance")/100.0);
+            String formatDateTime = ((LocalDateTime) userGoalsData.get("SavingsPercentageDate")).format(formatter);
+            user.setSavingsPercentageDate(formatDateTime);
+          }
+    }
     // calculate total Crypto holdings balance by summing balance of each supported cryptocurrency
     double cryptoBalanceInDollars = 0;
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
@@ -295,6 +339,43 @@ public class MvcController {
     } else {
       return "welcome";
     }
+	}
+
+    /**
+   * HTML POST request handler that uses user input from Login Savings Form page to determine 
+   * login success or failure.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct, the "savings_percentage" page is served to the customer
+   * with all account details retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "savings_percentage" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/login_savings")
+	public String submitLoginSavingsForm(@ModelAttribute("user") User user) {
+    // Print user's existing fields for debugging
+		System.out.println(user);
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    updateAccountInfo(user);
+    
+    
+    return "savings_percentage";
 	}
 
   /**
@@ -473,6 +554,7 @@ public class MvcController {
     return "account_info";
 
   }
+
 
   /**
    * HTML POST request handler for the Dispute Form page.

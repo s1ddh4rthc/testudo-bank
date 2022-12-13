@@ -21,6 +21,12 @@ CREATE TABLE OverdraftLogs (
   NewOverBalance int
 );
 
+CREATE TABLE Goals (
+  CustomerID varchar(255),
+  LastSavingsCalculatedBalance int,
+  SavingsPercentageDate DATETIME
+);
+
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
