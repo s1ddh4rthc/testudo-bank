@@ -177,14 +177,14 @@ public class MvcController {
    * @return "sellcrypto_form" page
    */
   @GetMapping("/sellcrypto")
-	public String showSellCryptoForm(Model model) {
+  public String showSellCryptoForm(Model model) {
     User user = new User();
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-		model.addAttribute("user", user);
-		return "sellcrypto_form";
-	}
-
+    model.addAttribute("user", user);
+    return "sellcrypto_form";
+  }
+  
   /**
    * HTML GET request handler that serves the "statement_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
@@ -271,7 +271,7 @@ public class MvcController {
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
   }
-
+  
   // HTML POST HANDLERS ////
 
   /**
@@ -823,7 +823,7 @@ public class MvcController {
       return "welcome";
     }
   }
-
+  
   /**
    * HTML POST request handler that uses user input from Monthly Statement page to determine 
    * login success or failure and then serve the user with a monthly statement if a valid
@@ -865,6 +865,10 @@ public class MvcController {
       List<Map<String,Object>> transferLogs = TestudoBankRepository.getTransferLogsByMonth(jdbcTemplate, userID, year, month);
       List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogsByMonth(jdbcTemplate, userID, year, month);
 
+      int netCashFlow = TestudoBankRepository.getNetCashFlowInMonthInPennies(jdbcTemplate, userID, year, month);
+      Map<String, Double> netCryptoFlow = TestudoBankRepository.getNetCryptoInMonth(jdbcTemplate, userID, year, month);
+      int accruedInterest = TestudoBankRepository.getInterestInMonthInPennies(jdbcTemplate, userID, year, month);
+      
       String getFirstAndLastNameSql = String.format("SELECT FirstName, LastName FROM Customers WHERE CustomerID='%s';", userID);
       List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getFirstAndLastNameSql);
       Map<String,Object> userData = queryResults.get(0);
@@ -873,6 +877,9 @@ public class MvcController {
       user.setMonthlyTransferLogs(transferLogs);      
       user.setMonthlyCryptoLogs(cryptoLogs);
       user.setMonthlyTransactionLogs(transactionLogs);
+      user.setNetCash(netCashFlow);
+      user.setNetCryptoFlow(netCryptoFlow);
+      user.setMonthlyInterest(accruedInterest);
 
       user.setFirstName((String)userData.get("FirstName"));
       user.setLastName((String)userData.get("LastName"));

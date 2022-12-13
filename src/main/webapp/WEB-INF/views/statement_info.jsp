@@ -29,6 +29,11 @@
 		<h2><span>Statement for ${user.statementYear}-<fmt:formatNumber minIntegerDigits="2" value="${user.statementMonth}" /> - ${user.firstName}</span> <span>${user.lastName}</span></h2>
     <div class="summaryInfo" id="statementSummary">
       <span>Username: </span><span>${user.username}</span><br/>
+      <span>Interest Accrued: </span><span>${user.convertPenniesToDollars(user.monthlyInterest)}</span><br/>
+      <span>Net Cashflow: </span><span>${user.convertPenniesToDollars(user.netCash)}</span><br/>
+      <c:forEach var="currency" items="${user.netCryptoFlow}">
+        <span>Net ${currency.key}: </span><span>${currency.value}</span></br>
+      </c:forEach>
     </div>
     <table>
       <caption>Re-payment Logs</caption>

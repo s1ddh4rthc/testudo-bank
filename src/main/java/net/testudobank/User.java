@@ -110,6 +110,9 @@ public class User {
 
   @Setter @Getter @Positive
   private int statementYear;
+
+  @Setter  @Getter @PositiveOrZero
+  private double monthlyInterest;
   
   @Setter @Getter
   private List<Map<String, Object>> monthlyTransactionLogs;
@@ -122,6 +125,13 @@ public class User {
 
   @Setter @Getter
   private List<Map<String, Object>> monthlyOverdraftLogs;
+
+  @Setter  @Getter 
+  private int netCash;
+
+  @Setter @Getter
+  private Map<String, Double> netCryptoFlow;
+
   // Converts penny representation in backend MySQL DB to formatted dollar amount for frontend
   public static String convertPenniesToDollars(int pennyAmount) {
     String prefix = "$";

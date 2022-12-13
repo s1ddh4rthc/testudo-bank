@@ -2,6 +2,7 @@ package net.testudobank;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,7 +95,7 @@ public class TestudoBankRepository {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
   }
-
+  
   public static List<Map<String,Object>> getCryptoLogsByMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
     String getTransferHistorySql = String.format("Select * from CryptoHistory WHERE CustomerID=?  AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d ORDER BY Timestamp DESC", year, month);
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
@@ -202,5 +203,55 @@ public class TestudoBankRepository {
     } else {
       return false;
     }
+  }
+  
+  public static int getNetCashFlowInMonthInPennies(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getPositiveCashFlowInMonthSql = String.format(
+        "SELECT SUM(Amount) FROM transactionhistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND Action IN ('Deposit', 'Interest', 'CryptoSell', 'TransferReceive')",
+        customerID, year, month);
+    String getNegativeCashFlowInMonthSql = String.format(
+        "SELECT SUM(Amount) FROM transactionhistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND Action IN ('Withdraw', 'CryptoBuy', 'TransferSend')",
+        customerID, year, month);
+
+    Optional<Integer> positiveCashFlowResult = Optional.ofNullable(jdbcTemplate.queryForObject(getPositiveCashFlowInMonthSql, Integer.class));
+    Optional<Integer> negativeCashFlowResult = Optional.ofNullable(jdbcTemplate.queryForObject(getNegativeCashFlowInMonthSql, Integer.class));
+    int positiveCashFlow = positiveCashFlowResult.orElse(0);
+    int negativeCashFlow = negativeCashFlowResult.orElse(0);
+
+    return positiveCashFlow - negativeCashFlow;
+  }
+  
+  public static int getInterestInMonthInPennies(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    String getInterestInMonthSql = String.format(
+        "SELECT SUM(Amount) FROM transactionhistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND Action='Interest'",
+        customerID, year, month);
+
+    Optional<Integer> accruedInterestResult = Optional.ofNullable(jdbcTemplate.queryForObject(getInterestInMonthSql, Integer.class));
+    int accruedInterest = accruedInterestResult.orElse(0);
+
+    return accruedInterest;
+  }
+
+  public static Map<String, Double> getNetCryptoInMonth(JdbcTemplate jdbcTemplate, String customerID, int year, int month) {
+    Map<String, Double> netCryptoFlow = new LinkedHashMap<>();
+    
+    for (String currency : VALID_CRYPTOCURRENCIES) {
+      String getCryptoBuyInMonthSql = String.format(
+        "SELECT SUM(CryptoAmount) FROM cryptohistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND CryptoName = '%s' AND Action='Buy'",
+          customerID, year, month, currency);
+        String getCryptoSellInMonthSql = String.format(
+        "SELECT SUM(CryptoAmount) FROM cryptohistory WHERE CustomerID = '%s' AND YEAR(Timestamp) = %d AND MONTH(Timestamp) = %d AND CryptoName = '%s' AND Action='Sell'",
+            customerID, year, month, currency);
+        
+        Optional<Double> positiveCryptoFlowResult = Optional
+            .ofNullable(jdbcTemplate.queryForObject(getCryptoBuyInMonthSql, BigDecimal.class)).map(BigDecimal::doubleValue);
+        Optional<Double> negativeCryptoFlowResult = Optional
+            .ofNullable(jdbcTemplate.queryForObject(getCryptoSellInMonthSql, BigDecimal.class)).map(BigDecimal::doubleValue);
+      
+        Double netCryptoFlowResult = positiveCryptoFlowResult.orElse(0.0) - negativeCryptoFlowResult.orElse(0.0);
+        netCryptoFlow.put(currency, netCryptoFlowResult);
+    }
+
+    return netCryptoFlow;
   }
 }
