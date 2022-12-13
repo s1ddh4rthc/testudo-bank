@@ -113,6 +113,9 @@ public class User {
   @Setter @Getter @ToString.Include
   private String newCustomerID;
 
+  @Setter @Getter @ToString.Include
+  private String listOfSubAccounts;
+
   /*
    * Object to store first and last name of new customer
    * to make it easier to store in the mapping.
