@@ -34,6 +34,7 @@ CREATE TABLE Passwords (
 '''
 cursor.execute(create_password_table_sql)
 
+
 # Make empty OverdraftLogs table
 create_overdraftlogs_table_sql = '''
 CREATE TABLE OverdraftLogs (

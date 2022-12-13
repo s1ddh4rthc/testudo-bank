@@ -9,6 +9,7 @@ connection = pymysql.connect(host=mysql_endpoint, user=username, passwd = passwo
 cursor = connection.cursor()
 
 delete_testudo_bank_db_sql = '''
+
 DROP DATABASE {};
 '''.format(database_name)
 

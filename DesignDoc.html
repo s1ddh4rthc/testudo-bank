@@ -1,0 +1,160 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DesignDoc</title>
+    <link rel="stylesheet" href="https://stackedit.io/style.css" />
+  </head>
+
+  <body class="stackedit">
+    <div class="stackedit__html">
+      <h1 id="testudo-bank-cryptocurrency-feature">
+        Testudo Bank Frontend Redesign and Reimplementation
+      </h1>
+      <p><em>Owners: Jason Cavanaugh</em></p>
+      <h2 id="problem-statement">Problem Statement</h2>
+      <p>
+        Customers of Testudo Bank expect a clean and enjoyable user experience.
+        The current implementation of Testudo Bank does not provide that. While
+        the basic functionality is there, the user interface leaves much to be
+        desired. We want customers of Testudo Bank to feel like they are using
+        the banking software of the future, not the banking software of the
+        early 2000s. If we are going to support such forward-looking ventures
+        such as cryptocurrency, let our software also at least look the part.
+      </p>
+      <p>
+        This proposal is for an overhaul of the Testudo Bank frontend. The
+        current frontend is implemented with <code>.jsp</code>. I propose that
+        we redesign the frontend to use a modern UI framework. This will allow
+        for cleaner, more maintainable frontend code and will thus contribute to
+        the longevity of Testudo Bank.
+      </p>
+      <h2 id="solution-requirements">Solution Requirements</h2>
+      <ul>
+        <li>
+          The frontend of the application should use a modern UI framework (such
+          as React, Angular, Svelte, or Vue)
+        </li>
+        <li>
+          The various pages of the application should be redesigned to be more
+          visually appealing.
+        </li>
+        <li>
+          Our new frontend code should strive to keep the state management of
+          the frontend simple and straightforward. This will allow other
+          engineers to onboard into our codebase more quickly and allow for
+          changes to be made more quickly to our code.
+        </li>
+        <li>
+          We should pick a framework that is well-established and has been used
+          in other enterprise software.
+        </li>
+        <li>
+          We should pick a framework that will allow us to hire developers more
+          easily. For example, choosing React would mean that we have the
+          largest pool of frontend developers to hire from, since React is so
+          widely used. In contrast, choosing something like
+          <a href="https://yew.rs/" target="_blank">Yew</a>, while perhaps
+          bringing performance benefits, would not be easy to hire for and would
+          not be as battle-tested.
+        </li>
+      </ul>
+      <h2 id="proposed-solution">Proposed Solution</h2>
+      <p>
+        The proposed solution would be to use some kind of modern frontend
+        framework to reimplement the frontend of the application. Here are a few
+        potential options.
+      </p>
+      <h3>React</h3>
+      <h4>Pros</h4>
+      <ul>
+        <li>Our current team of developers is already familiar</li>
+        <li>Many developers to hire from</li>
+        <li>Widely used throughout the industry and in enterprise software</li>
+        <li>
+          Many, many, many libraries and packages to help us with whatever we
+          need to build
+        </li>
+        <li>
+          By far the most documentation and resources out of all the frameworks
+          due to its popularity
+        </li>
+        <li>Fairly easy to pick up</li>
+      </ul>
+      <h4>Cons</h4>
+      <ul>
+        <li>
+          Less opinionated than other frameworks. It might be difficult to
+          figure out what set of technologies is best suited to our particular
+          use-case
+        </li>
+        <li>Less performant than other options</li>
+        <li>
+          Easier to build out bad patterns due to the fact that it is a library
+          and not a framework
+        </li>
+        <li>Many bad React developers out there since it is so widely used</li>
+        <li>useEffect can be difficult</li>
+        <li>Will have to install many other packages</li>
+      </ul>
+      <h3>Angular</h3>
+      <h4>Pros</h4>
+      <ul>
+        <li>
+          More opinionated than React, meaning that it will try to steer us
+          towards good design patterns
+        </li>
+        <li>
+          Comes with many useful tools by default (e.g. TypeScript, a router,
+          etc.)
+        </li>
+        <li>Also used widely in enterprise software</li>
+      </ul>
+      <h4>Cons</h4>
+      <ul>
+        <li>More difficult to hire for than React</li>
+        <li>Steep learning curve</li>
+        <li>Fewer options about how to build due to its opinionated nature</li>
+        <li>Many developers dislike it</li>
+        <li>Our developers are unfamiliar with it</li>
+      </ul>
+      <h3>Svelte</h3>
+      <h4>Pros</h4>
+      <ul>
+        <li>The simplest option out of the three</li>
+        <li>Developers love it</li>
+        <li>Least amount of boilerplate</li>
+        <li>Tiny bundle sizes</li>
+        <li>Our developers are eager to use it on a project</li>
+      </ul>
+      <h4>Cons</h4>
+      <ul>
+        <li>
+          Not nearly as widely used as Angular and React, so it will be harder
+          to hire for
+        </li>
+        <li>Not used in enterprise nearly as much as Angular and React</li>
+        <li>
+          Not as much OSS software built for it. Fewer libraries and packages to
+          choose from
+        </li>
+        <li>Smaller community</li>
+        <li>Our developers are unfamiliar with it</li>
+      </ul>
+      <h2 id="flowchart-diagram">Flowchart Diagram</h2>
+      <p><img src="https://i.ibb.co/DCjNzb6/flowstuff.png" alt="Jason" /></p>
+      <h2 id="db-schema">DB Schema</h2>
+      <p>
+        <img
+          src="https://i.ibb.co/5LZnchT/Testudo-Bank-Crypto-Feature.png"
+          alt=""
+        />
+      </p>
+      <p>
+        The db schema would not change for this particular feature
+        implementation because this is a purely frontend feature.
+      </p>
+    </div>
+  </body>
+</html>
