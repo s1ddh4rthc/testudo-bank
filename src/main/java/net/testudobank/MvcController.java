@@ -422,9 +422,16 @@ public class MvcController {
     String newCustomerPassword = user.getNewCustomerPassword();
 
     String newCustomerID = "123456789"; //TODO: Randomize and ensure is different from existing usernames
+    user.setNewCustomerID(newCustomerID);
 
     TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);
     TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
+
+    //user.setNewCustomerFirstName(null);
+    //user.setNewCustomerLastName(null);
+    //user.setNewCustomerPassword(null);
+
+    //updateAccountInfo(user);
 
     //String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
     
@@ -439,7 +446,7 @@ public class MvcController {
     //String theNewCustomerName = user.getNewCustomerName();
 
 
-    return "account_info"; //TODO: return account confirmation page with account details
+    return "login_form"; //TODO: return account confirmation page with account details
   }
 	
   /**

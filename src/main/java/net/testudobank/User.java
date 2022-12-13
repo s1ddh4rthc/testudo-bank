@@ -109,4 +109,7 @@ public class User {
   @Setter @Getter @ToString.Include
   private String newCustomerPassword;
 
+  @Setter @Getter @ToString.Include
+  private String newCustomerID;
+
 }
