@@ -37,9 +37,10 @@ cursor.execute(create_password_table_sql)
 # Make empty SubAccounts table
 create_subaccounts_table_sql = '''
 CREATE TABLE SubAccounts (
+  CustomerID varchar(255),
   CustomerFirstName varchar(255),
   CustomerLastName varchar(255),
-  CustomerID varchar(255),
+  SubCustomerID varchar(255),
   Password varchar(255)
 );
 '''

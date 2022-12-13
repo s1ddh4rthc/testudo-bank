@@ -228,6 +228,12 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
+    List<Map<String, Object>> subAccounts = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
+    StringBuilder subAccountListOutput = new StringBuilder(HTML_LINE_BREAK);
+    for (Map<String, Object> subAccount : subAccounts) {
+      subAccountListOutput.append(subAccount).append(HTML_LINE_BREAK);
+    }
+
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
@@ -238,7 +244,7 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
-    user.setListOfSubAccounts(user.showSubAccounts());
+    //user.setListOfSubAccounts(user.showSubAccounts()); //toRemove
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -429,7 +435,9 @@ public class MvcController {
     TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);
     TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
 
-    user.linkNewSubAccount();
+    TestudoBankRepository.insertRowToSubAccountsTable(jdbcTemplate, user.getUsername(), newCustomerFirstName, newCustomerLastName, newCustomerID, newCustomerPassword);
+
+    //user.linkNewSubAccount();
     //System.out.println(user.showSubAccounts());
 
     //user.setNewCustomerFirstName(null);

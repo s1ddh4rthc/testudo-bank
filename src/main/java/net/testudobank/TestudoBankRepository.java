@@ -69,6 +69,12 @@ public class TestudoBankRepository {
     return overdraftLogs;
   }
 
+  public static List<Map<String,Object>> getSubAccountsList(JdbcTemplate jdbcTemplate, String customerID){
+    String getSubAccountsListSql = String.format("SELECT * FROM SubAccounts");
+    List<Map<String,Object>> subAccountList = jdbcTemplate.queryForList(getSubAccountsListSql);
+    return subAccountList;
+  }
+
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
@@ -196,5 +202,15 @@ public class TestudoBankRepository {
                                                         newCustomerID,
                                                         newCustomerPassword);
     jdbcTemplate.update(insertRowToPasswordsSql);                              
+  }
+
+  public static void insertRowToSubAccountsTable(JdbcTemplate jdbcTemplate, String customerID, String newCustomerFirstName, String newCustomerLastName, String newCustomerID, String newCustomerPassword) {
+    String insertRowToSubAccountsSql = String.format("INSERT INTO SubAccounts VALUES ('%s', '%s', '%s', '%s', '%s')",
+                                                        customerID,
+                                                        newCustomerFirstName,
+                                                        newCustomerLastName,
+                                                        newCustomerID,
+                                                        newCustomerPassword);
+    jdbcTemplate.update(insertRowToSubAccountsSql);                                                   
   }
 }
