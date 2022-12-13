@@ -18,6 +18,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -180,6 +185,27 @@ public class MvcController {
 	}
 
   //// HELPER METHODS ////
+  //// hash helper methods ////
+  public String toHexString(byte[] hashBytes) {
+    // Convert byte array into signum representation
+    BigInteger number = new BigInteger(1, hashBytes);
+    // Convert message digest into hex value
+    StringBuilder hexString = new StringBuilder(number.toString(16));
+    // Pad with leading zeros
+    while (hexString.length() < 64)
+    {
+        hexString.insert(0, '0');
+    }
+    return hexString.toString();
+  }
+
+  public boolean hasAuthenticCredentials(User user) {
+    String actualPasswordHash = TestudoBankRepository.getHashedCustomerPassword(jdbcTemplate, user.getUsername());
+    String attemptPasswordHash = user.getPassword();
+
+    return actualPasswordHash.equals(attemptPasswordHash);
+    
+  }
 
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
@@ -275,13 +301,7 @@ public class MvcController {
     // Print user's existing fields for debugging
 		System.out.println(user);
 
-    String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-
-    // Retrieve correct password for this customer.
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
-    if (userPasswordAttempt.equals(userPassword)) {
+    if (hasAuthenticCredentials(user)) {
       updateAccountInfo(user);
 
       return "account_info";
@@ -311,7 +331,7 @@ public class MvcController {
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
-    if (userPasswordAttempt.equals(userPassword) == false) {
+    if (!hasAuthenticCredentials(user)) {
       return "welcome";
     }
 
@@ -381,13 +401,10 @@ public class MvcController {
   @PostMapping("/withdraw")
   public String submitWithdraw(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
-    if (userPasswordAttempt.equals(userPassword) == false) {
+    if (!hasAuthenticCredentials(user)) {
       return "welcome";
     }
 
@@ -474,7 +491,7 @@ public class MvcController {
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
     // unsuccessful login
-    if (userPasswordAttempt.equals(userPassword) == false) {
+    if (!hasAuthenticCredentials(user)) {
       return "welcome";
     }
 
@@ -585,7 +602,7 @@ public class MvcController {
     /// Invalid Input/State Handling ///
 
     // unsuccessful login
-    if (senderPasswordAttempt.equals(senderPassword) == false) {
+    if (!hasAuthenticCredentials(sender)) {
       return "welcome";
     }
 
@@ -647,13 +664,10 @@ public class MvcController {
   public String buyCrypto(@ModelAttribute("user") User user) {
 
     String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
-    if (!userPasswordAttempt.equals(userPassword)) {
+    if (!hasAuthenticCredentials(user)) {
       return "welcome";
     }
 
@@ -747,7 +761,7 @@ public class MvcController {
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
-    if (!userPasswordAttempt.equals(userPassword)) {
+    if (!hasAuthenticCredentials(user)) {
       return "welcome";
     }
 

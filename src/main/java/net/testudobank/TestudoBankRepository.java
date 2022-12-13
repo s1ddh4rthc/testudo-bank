@@ -8,6 +8,11 @@ import java.util.Optional;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+ 
 public class TestudoBankRepository {
   public static String getCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
     String getCustomerPasswordSql = String.format("SELECT Password FROM Passwords WHERE CustomerID='%s';", customerID);
@@ -15,6 +20,30 @@ public class TestudoBankRepository {
     return customerPassword;
   }
 
+  public static String toHexString(byte[] hashBytes) {
+    // Convert byte array into signum representation
+    BigInteger number = new BigInteger(1, hashBytes);
+    // Convert message digest into hex value
+    StringBuilder hexString = new StringBuilder(number.toString(16));
+    // Pad with leading zeros
+    while (hexString.length() < 64)
+    {
+        hexString.insert(0, '0');
+    }
+    return hexString.toString();
+  }
+
+  public static String getHashedCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
+    String plaintextPassword = getCustomerPassword(jdbcTemplate, customerID);
+    try {
+      MessageDigest hasher = MessageDigest.getInstance("SHA-256");
+      return toHexString(hasher.digest(plaintextPassword.getBytes(StandardCharsets.UTF_8)));
+    }
+    catch(NoSuchAlgorithmException e) {
+      return plaintextPassword;
+    }
+    
+  }
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
     int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);

@@ -7,15 +7,44 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 @ToString(onlyExplicitlyIncluded = true)
 public class User {
+
+  //// Password Helper Methods ////
+  public static String toHexString(byte[] hashBytes) {
+    // Convert byte array into signum representation
+    BigInteger number = new BigInteger(1, hashBytes);
+    // Convert message digest into hex value
+    StringBuilder hexString = new StringBuilder(number.toString(16));
+    // Pad with leading zeros
+    while (hexString.length() < 64)
+    {
+        hexString.insert(0, '0');
+    }
+    return hexString.toString();
+  }
   //// General Customer Fields ////
 
   @Setter @Getter @ToString.Include
 	private String username;
 
-  @Setter @Getter @ToString.Include
+  @Getter @ToString.Include
 	private String password;
+
+  public void setPassword(String password) {
+    try {
+      MessageDigest hasher = MessageDigest.getInstance("SHA-256");
+      this.password = toHexString(hasher.digest(password.getBytes(StandardCharsets.UTF_8)));
+    }
+    catch(NoSuchAlgorithmException e) {
+      this.password = password;
+    }
+  }
 
   @Setter @Getter
   private String firstName;
