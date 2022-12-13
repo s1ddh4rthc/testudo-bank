@@ -34,6 +34,17 @@ CREATE TABLE Passwords (
 '''
 cursor.execute(create_password_table_sql)
 
+# Make empty SubAccounts table
+create_subaccounts_table_sql = '''
+CREATE TABLE SubAccounts (
+  CustomerFirstName varchar(255),
+  CustomerLastName varchar(255),
+  CustomerID varchar(255),
+  Password varchar(255)
+);
+'''
+cursor.execute(create_subaccounts_table_sql)
+
 # Make empty OverdraftLogs table
 create_overdraftlogs_table_sql = '''
 CREATE TABLE OverdraftLogs (
