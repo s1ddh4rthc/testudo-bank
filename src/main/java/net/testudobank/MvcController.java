@@ -19,6 +19,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+
 
 @Controller
 public class MvcController {
@@ -180,6 +187,18 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  /**
+   * HTML GET request handler that sends the "contact" page to the user.
+   * @param model
+   * @return "contact" page
+   */
+  @RequestMapping(value = "/contact", method = RequestMethod.GET)
+  public String contact() {
+    return "contact";
+  }
+  
+
+
   //// HELPER METHODS ////
 
   /**
@@ -249,6 +268,20 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+  /**
+   * Helper method for applyInterest()
+   * Applies BALANCE_INTEREST_RATE to an input penny amount.
+   * Rounds to the nearest penny.
+   * @param pennyAmount
+   * @return
+   */
+  private int applyBalanceInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * BALANCE_INTEREST_RATE);
   }
 
   // HTML POST HANDLERS ////
@@ -798,6 +831,37 @@ public class MvcController {
     }
   }
 
+   /**
+   * HTML POST request handler for the contact form 
+   * @param user
+   * @return "contact" page if successful. 
+   */
+  @RequestMapping(value = "/contact", method = RequestMethod.POST)
+  public String contact(@ModelAttribute("contact") Contact contact, BindingResult result) {
+    if (result.hasErrors()) {
+      return HttpStatus.BAD_REQUEST.toString();
+    }
+    System.out.println("Name: " + contact.getName());
+    System.out.println("Email: " + contact.getEmail());
+    System.out.println("Phone: " + contact.getPhone());
+    return "contact";
+  }
+  
+   /**
+   * HTML POST request handler for the contact_success form 
+   * @param user
+   * @return "contact_success" page if successful. 
+   */
+  @PostMapping("/contact_success")
+public String submitForm(@ModelAttribute("contact") Contact contact, BindingResult result) {
+  if (result.hasErrors()) {
+    return HttpStatus.BAD_REQUEST.toString();
+  }
+  System.out.println(contact);
+   
+  return "contact_success";
+}
+
   /**
    * 
    * 
@@ -805,9 +869,35 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
 
-    return "welcome";
+    int currNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
+    // if number of deposits is a multiple of 5 then apply interest
+    if (((currNumDepositsForInterest + 1) % 5 == 0) && currNumDepositsForInterest != 0) {
+      // apply interest to account balance
+      int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int balanceToAddInPennies = applyBalanceInterestRateToPennyAmount(currentBalanceInPennies);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceToAddInPennies);
+
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+
+      // Adds deposit to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceToAddInPennies);
+
+      // Increment the number of deposits for interest
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      return "account_info";
+    }
+    // otherwise just increment number of deposits for interest  
+    else {
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currNumDepositsForInterest + 1);
+      return "welcome";
+    }
   }
 
-}
+  
+   
+    
+  }
+ 
