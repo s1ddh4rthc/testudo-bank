@@ -96,7 +96,15 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
 
+  //// Interest Fields ////
+
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Monthly Statement Fields ////
+  @Setter @Getter @Positive
+  private int statementMonth;
+
+  @Setter @Getter @Positive
+  private int statementYear;
 }
