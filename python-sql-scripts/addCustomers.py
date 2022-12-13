@@ -19,8 +19,7 @@ create_customer_table_sql = '''
     LastName varchar(255),
     Balance int,
     OverdraftBalance int,
-    NumFraudReversals int,
-    NumDepositsForInterest int
+    NumFraudReversals int
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -92,6 +91,25 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty NFTHoldings table
+create_nft_holdings_table = '''
+  CREATE TABLE NFTHoldings (
+    NftID varchar(255)
+    CustomerID varchar(255),
+    Value float
+  );
+  '''
+cursor.execute(create_nft_holdings_table)
+
+# Make empty NFTMarketplace table
+create_nft_marketplace_table = '''
+  CREATE TABLE NFTMarketplace (
+    NftID varchar(255)
+    CustomerID varchar(255),
+    Price float
+  );
+  '''
+cursor.execute(create_nft_marketplace_table)
 
 
 # The two sets created below are used to ensure that this
@@ -129,12 +147,11 @@ for i in range(num_customers_to_add):
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
+    VALUES  ({0},{1},{2},{3},{4},{5});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",
                 "'" + customer_last_name + "'",
                 customer_balance,
-                0,
                 0,
                 0)
     cursor.execute(insert_customer_sql)
