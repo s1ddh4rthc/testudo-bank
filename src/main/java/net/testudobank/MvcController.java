@@ -54,6 +54,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static int MIN_YEAR_SUPPORTED = 2021;
+  private static int MAX_YEAR_SUPPORTED = 2023;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -821,6 +823,52 @@ public class MvcController {
       return "welcome";
     }
   }
+
+  /**
+   * HTML POST request handler that uses user input from Monthly Statement page to determine 
+   * login success or failure and then serve the user with a monthly statement if a valid
+   * selection was made.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct and a valid month and year is selected
+   * (currently, any month in in 2021-2023), the "statement_info" page is served to the customer
+   * with a listing of transactions for that month as well as some summary information
+   * retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "statement_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/statement")
+	public String showStatementInfo(@ModelAttribute("user") User user) {
+    int year = user.getStatementYear();
+    int month = user.getStatementMonth();
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    int monthJanuary = 1;
+    int monthDecember = 12;
+
+    if (userPasswordAttempt.equals(userPassword)
+        && month >= monthJanuary && month <= monthDecember
+        && year >= MIN_YEAR_SUPPORTED && year <= MAX_YEAR_SUPPORTED) {
+      user.setFirstName((String)userData.get("FirstName"));
+      user.setLastName((String)userData.get("LastName"));
+      
+      return "statement_info";
+    }
+    else {
+      // This branch is only reached if someone attempts to inject arbitrary values,
+      // so we kick them back to the welcome page.
+      return "welcome";
+    }
+	}
 
   /**
    * Handles all interest logic with the exception of tallying interest-qualifying deposits, which
