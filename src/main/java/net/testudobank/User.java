@@ -1,4 +1,5 @@
 package net.testudobank;
+import java.util.*;
 
 import javax.validation.constraints.Positive;
 import javax.validation.constraints.PositiveOrZero;
@@ -111,5 +112,52 @@ public class User {
 
   @Setter @Getter @ToString.Include
   private String newCustomerID;
+
+  /*
+   * Object to store first and last name of new customer
+   * to make it easier to store in the mapping.
+   */
+  public class FullName {
+    private String firstName;
+    private String lastName;
+    public FullName(String firstName, String lastName) {
+      firstName = this.firstName;
+      lastName = this.lastName;
+    }
+  }
+
+  private Map <String, String> subAccountLoginInfoMap;
+  private Map <String, FullName> subAccountNamesMap;
+
+  /*
+   * Creates new sub account mappings for all users.
+   */
+  public User() {
+    subAccountLoginInfoMap = new HashMap <String, String> ();
+    subAccountNamesMap = new HashMap <String, FullName> ();
+  }
+
+  /*
+   * Saves current new customer name and password.
+   */
+  public void linkNewSubAccount() {
+    FullName newSubAccountName = new FullName(newCustomerFirstName, newCustomerLastName);
+    subAccountLoginInfoMap.put(newCustomerID, newCustomerPassword);
+    subAccountNamesMap.put(newCustomerID, newSubAccountName);
+  }
+
+  /*
+   * Returns a String containing listed linked sub accounts.
+   */
+  public String showSubAccounts() {
+    String toReturn = "";
+    for (String userID : subAccountLoginInfoMap.keySet()) {
+      toReturn += "UserID: ";
+      toReturn += userID;
+      toReturn += "\n";
+    }
+    toReturn += "\n";
+    return toReturn;
+  }
 
 }

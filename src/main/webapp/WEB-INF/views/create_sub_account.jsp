@@ -35,13 +35,7 @@
 </head>
 <body>
 	<div align="center">
-		<form:form action="createSub" method="post" modelAttribute="user">  
-<!--             <form:label path="newCustomerFirstName">New Customer First Name:</form:label>
-			<form:input path="newCustomerFirstName"/><br/> 
-            
-            <form:label path="newCustomerPassword">New Customer Password:</form:label>
-			<form:password path="newCustomerPassword"/><br/>	 -->
-        
+		<form:form action="createSub" method="post" modelAttribute="user">         
             <form:label path="newCustomerFirstName">New Customer First Name:</form:label>
 			<form:input path="newCustomerFirstName"/><br/>
 

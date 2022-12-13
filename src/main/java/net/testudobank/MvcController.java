@@ -427,6 +427,9 @@ public class MvcController {
     TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);
     TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
 
+    user.linkNewSubAccount();
+    //System.out.println(user.showSubAccounts());
+
     //user.setNewCustomerFirstName(null);
     //user.setNewCustomerLastName(null);
     //user.setNewCustomerPassword(null);
