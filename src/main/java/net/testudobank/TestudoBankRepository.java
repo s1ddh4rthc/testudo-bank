@@ -69,10 +69,18 @@ public class TestudoBankRepository {
     return overdraftLogs;
   }
 
-  public static List<Map<String,Object>> getSubAccountsList(JdbcTemplate jdbcTemplate, String customerID){
+  /* public static List<Map<String,Object>> getSubAccountsList(JdbcTemplate jdbcTemplate, String customerID){
     String getSubAccountsListSql = String.format("SELECT * FROM SubAccounts");
     List<Map<String,Object>> subAccountList = jdbcTemplate.queryForList(getSubAccountsListSql);
     return subAccountList;
+  } */
+
+  /*
+   * Returns list of sub accounts that have the input customerID as parent account.
+   */
+  public static List<Map<String,Object>> getSubAccounts(JdbcTemplate jdbcTemplate, String customerID) {
+    String getSubAccountsSql = String.format("SELECT CustomerFirstName, CustomerLastName, SubCustomerID FROM SubAccounts WHERE CustomerID = '%s' ORDER BY CustomerLastName", customerID);
+    return jdbcTemplate.queryForList(getSubAccountsSql);
   }
 
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
@@ -213,4 +221,7 @@ public class TestudoBankRepository {
                                                         newCustomerPassword);
     jdbcTemplate.update(insertRowToSubAccountsSql);                                                   
   }
+
+  //TODO: use sql to iterate through SubAccounts for subaccounts owned by input account customerID
+  //public static 
 }

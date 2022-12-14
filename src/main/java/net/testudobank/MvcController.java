@@ -228,10 +228,10 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    List<Map<String, Object>> subAccounts = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
-    StringBuilder subAccountListOutput = new StringBuilder(HTML_LINE_BREAK);
+    List<Map<String, Object>> subAccounts = TestudoBankRepository.getSubAccounts(jdbcTemplate, user.getUsername());
+    String subAccountListOutput = HTML_LINE_BREAK;
     for (Map<String, Object> subAccount : subAccounts) {
-      subAccountListOutput.append(subAccount).append(HTML_LINE_BREAK);
+      subAccountListOutput += subAccount + HTML_LINE_BREAK; //subAccountListOutput.append(subAccount).append(HTML_LINE_BREAK);
     }
 
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
@@ -244,7 +244,6 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
-    //user.setListOfSubAccounts(user.showSubAccounts()); //toRemove
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -261,6 +260,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setListOfSubAccounts(subAccountListOutput);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
