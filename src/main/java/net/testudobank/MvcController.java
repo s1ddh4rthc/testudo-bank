@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import java.util.Optional;
+import java.util.Random;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -294,6 +295,20 @@ public class MvcController {
   private int applyBalanceInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * BALANCE_INTEREST_RATE);
   }
+
+  /*
+   * Helper method to return unique customer ID
+   * Compares against existing customers in database
+   */
+  private String generateNewAccountNumber() {
+    Random random = new Random();
+    String newCustomerID = String.format("%09d", random.nextInt(1000000000));
+
+    while (TestudoBankRepository.doesAccountNumberExist(jdbcTemplate, newCustomerID) == 1) {
+      newCustomerID = String.format("%09d", random.nextInt(1000000000));
+    }
+    return newCustomerID;
+  }
   // HTML POST HANDLERS ////
 
   /**
@@ -442,7 +457,7 @@ public class MvcController {
     String newCustomerLastName = user.getNewCustomerLastName();
     String newCustomerPassword = user.getNewCustomerPassword();
 
-    String newCustomerID = "123456789"; //TODO: Randomize and ensure is different from existing usernames
+    String newCustomerID = generateNewAccountNumber();
     user.setNewCustomerID(newCustomerID);
 
     TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);

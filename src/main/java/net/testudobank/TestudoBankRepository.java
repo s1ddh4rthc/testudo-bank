@@ -83,6 +83,12 @@ public class TestudoBankRepository {
     return jdbcTemplate.queryForList(getSubAccountsSql);
   }
 
+  public static int doesAccountNumberExist(JdbcTemplate jdbcTemplate, String accountNumber) {
+    String query = String.format("SELECT EXISTS (SELECT * FROM Customers WHERE CustomerID = '%s')", accountNumber);
+    return jdbcTemplate.queryForObject(query, Integer.class);
+  }
+
+
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
