@@ -41,7 +41,8 @@ CREATE TABLE SubAccounts (
   CustomerFirstName varchar(255),
   CustomerLastName varchar(255),
   SubCustomerID varchar(255),
-  Password varchar(255)
+  Password varchar(255),
+  CustomerMinimumBalance int
 );
 '''
 cursor.execute(create_subaccounts_table_sql)

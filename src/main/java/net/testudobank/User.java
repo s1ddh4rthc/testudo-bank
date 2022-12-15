@@ -127,7 +127,7 @@ public class User {
   private List<Customer> listOfSubAccountCustomers;
 
   @Setter @Getter
-  private int minimumBalanceInPennies = 2000; //TODO: MAKE ADJUSTABLE
+  private double newCustomerMinimumBalanceInDollars;
   
 
   /*
@@ -211,11 +211,11 @@ public class User {
     String toReturn = HTML_LINE_BREAK;
     if (listOfSubAccountCustomers != null) {
       for (Customer subAccount : listOfSubAccountCustomers) {
-        if (subAccount.getBalanceInPennies() >= minimumBalanceInPennies) {
-          toReturn += String.format("Sub Account %s | %s %s | Balance: $%.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getBalanceInDollars());
+        if (subAccount.getBalanceInPennies() >= subAccount.getMinimumBalanceInPennies()) {
+          toReturn += String.format("Sub Account %s | %s %s | Minimum Balance: %.2f | Balance: $%.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getMinimumBalanceInDollars(), subAccount.getBalanceInDollars());
         }
         else {
-          toReturn += String.format("Sub Account %s | %s %s | Balance: ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName());
+          toReturn += String.format("Sub Account %s | %s %s | Minimum Balance: %.2f | Balance: ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getMinimumBalanceInDollars());
           toReturn += HTML_BEGIN_RED_FONT + String.format("$%.2f", subAccount.getBalanceInDollars()) + HTML_END_RED_FONT;
         }
         toReturn += HTML_LINE_BREAK;

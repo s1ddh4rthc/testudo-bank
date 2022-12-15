@@ -471,11 +471,14 @@ public class MvcController {
     String newCustomerID = generateNewAccountNumber();
     user.setNewCustomerID(newCustomerID);
 
+    double newCustomerMinimumBalanceInDollars = user.getNewCustomerMinimumBalanceInDollars();
+    
+
     
     TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);
     TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
 
-    TestudoBankRepository.insertRowToSubAccountsTable(jdbcTemplate, user.getUsername(), newCustomerFirstName, newCustomerLastName, newCustomerID, newCustomerPassword);
+    TestudoBankRepository.insertRowToSubAccountsTable(jdbcTemplate, user.getUsername(), newCustomerFirstName, newCustomerLastName, newCustomerID, newCustomerPassword, convertDollarsToPennies(newCustomerMinimumBalanceInDollars));
 
     
 

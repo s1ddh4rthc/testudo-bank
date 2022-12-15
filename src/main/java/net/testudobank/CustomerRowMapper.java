@@ -11,6 +11,7 @@ public class CustomerRowMapper implements RowMapper<Customer> {
         customer.setLastName(rs.getString("CustomerLastName"));
         customer.setCustomerID(rs.getString("SubCustomerID"));
         customer.setPassword(rs.getString("Password"));
+        customer.setMinimumBalanceInPennies(rs.getInt("CustomerMinimumBalance"));
 
         return customer;
     }

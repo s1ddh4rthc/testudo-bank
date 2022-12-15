@@ -49,7 +49,10 @@
 			<form:input path="newCustomerLastName"/><br/>
 
             <form:label path="newCustomerPassword">New Customer Password:</form:label>
-			<form:password path="newCustomerPassword"/><br/>	
+			<form:password path="newCustomerPassword"/><br/>
+            
+            <form:label path="newCustomerMinimumBalanceInDollars">Alert if balance falls below ($):</form:label>
+			<form:input path="newCustomerMinimumBalanceInDollars"/><br/>	
 				
 			<form:button>Submit</form:button>
 		</form:form>

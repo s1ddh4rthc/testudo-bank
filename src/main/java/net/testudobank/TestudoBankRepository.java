@@ -236,13 +236,14 @@ public class TestudoBankRepository {
     jdbcTemplate.update(insertRowToPasswordsSql);                              
   }
 
-  public static void insertRowToSubAccountsTable(JdbcTemplate jdbcTemplate, String customerID, String newCustomerFirstName, String newCustomerLastName, String newCustomerID, String newCustomerPassword) {
-    String insertRowToSubAccountsSql = String.format("INSERT INTO SubAccounts VALUES ('%s', '%s', '%s', '%s', '%s')",
+  public static void insertRowToSubAccountsTable(JdbcTemplate jdbcTemplate, String customerID, String newCustomerFirstName, String newCustomerLastName, String newCustomerID, String newCustomerPassword, int newCustomerMinimumBalanceInPennies) {
+    String insertRowToSubAccountsSql = String.format("INSERT INTO SubAccounts VALUES ('%s', '%s', '%s', '%s', '%s', '%d')",
                                                         customerID,
                                                         newCustomerFirstName,
                                                         newCustomerLastName,
                                                         newCustomerID,
-                                                        newCustomerPassword);
+                                                        newCustomerPassword,
+                                                        newCustomerMinimumBalanceInPennies);
     jdbcTemplate.update(insertRowToSubAccountsSql);                                                   
   }
 

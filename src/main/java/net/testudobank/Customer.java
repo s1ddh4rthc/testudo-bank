@@ -6,6 +6,7 @@ public class Customer {
     private String customerID;
     private String password;
     private int balanceInPennies;
+    private int minimumBalanceInPennies;
 
     public Customer(String firstName, String lastName, String customerID, String password) {
         this.firstName = firstName;
@@ -13,6 +14,7 @@ public class Customer {
         this.customerID = customerID;
         this.password = password;
         this.balanceInPennies = 0;
+        this.minimumBalanceInPennies = 0;
     }
 
     public Customer() {
@@ -21,6 +23,7 @@ public class Customer {
         this.customerID = null;
         this.password = null;
         this.balanceInPennies = 0;
+        this.minimumBalanceInPennies = 0;
     }
 
     public String getFirstName() {
@@ -65,5 +68,17 @@ public class Customer {
 
     public double getBalanceInDollars() {
         return (balanceInPennies / 100);
+    }
+
+    public void setMinimumBalanceInPennies(int minimumBalanceInPennies) {
+        this.minimumBalanceInPennies = minimumBalanceInPennies;
+    } 
+    
+    public int getMinimumBalanceInPennies() {
+        return minimumBalanceInPennies;
+    }
+
+    public double getMinimumBalanceInDollars() {
+        return (minimumBalanceInPennies / 100);
     }
 }
