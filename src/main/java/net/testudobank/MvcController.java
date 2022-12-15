@@ -477,6 +477,11 @@ public class MvcController {
 
     //// Complete Sub Account Creation //// 
 
+    // checks to see if account is eligible to create sub accounts (sub accounts are ineligible)
+    if (TestudoBankRepository.doesSubAccountExist(jdbcTemplate, user.getUsername()) == 1) {
+      return "welcome";
+    }
+
     String newCustomerFirstName = user.getNewCustomerFirstName();
     String newCustomerLastName = user.getNewCustomerLastName();
     String newCustomerPassword = user.getNewCustomerPassword();
