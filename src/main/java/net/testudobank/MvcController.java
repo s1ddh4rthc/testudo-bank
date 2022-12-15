@@ -232,10 +232,8 @@ public class MvcController {
     List<Map<String, Object>> subAccounts = TestudoBankRepository.getSubAccounts(jdbcTemplate, user.getUsername());
     String subAccountListOutput = HTML_LINE_BREAK;
     for (Map<String, Object> subAccount : subAccounts) {
-      subAccountListOutput += subAccount + HTML_LINE_BREAK; //subAccountListOutput.append(subAccount).append(HTML_LINE_BREAK);
+      subAccountListOutput += subAccount + HTML_LINE_BREAK;
     }
-
-    
 
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
@@ -272,7 +270,7 @@ public class MvcController {
     user.setListOfSubAccountCustomers(subAccountCustomers);
 
     user.setStringListOfSubAccounts(user.showSubAccounts());
-    //user.linkSubAccounts(subAccountCustomers);
+
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -479,29 +477,6 @@ public class MvcController {
     TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
 
     TestudoBankRepository.insertRowToSubAccountsTable(jdbcTemplate, user.getUsername(), newCustomerFirstName, newCustomerLastName, newCustomerID, newCustomerPassword, convertDollarsToPennies(newCustomerMinimumBalanceInDollars));
-
-    
-
-    //user.linkNewSubAccount();
-    //System.out.println(user.showSubAccounts());
-
-    //user.setNewCustomerFirstName(null);
-    //user.setNewCustomerLastName(null);
-    //user.setNewCustomerPassword(null);
-
-    //updateAccountInfo(user);
-
-    //String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-    
-    //// Invalid Input/State Handling ////
-
-    // unsuccessful login
-    /*if (userPasswordAttempt.equals(userPassword) == false) {
-      return "welcome";
-    }*/
-
-    //// Complete Sub Account Creation ////
-    //String theNewCustomerName = user.getNewCustomerName();
 
     updateAccountInfo(user);
     return "account_info"; //TODO: return account confirmation page with account details

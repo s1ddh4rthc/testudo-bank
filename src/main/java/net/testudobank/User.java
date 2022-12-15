@@ -165,45 +165,6 @@ public class User {
     }
   }
 
-
-
-  /* public void linkSubAccounts(JdbcTemplate jdbcTemplate) {
-    listOfSubAccounts = TestudoBankRepository.getSubAccounts(jdbcTemplate, username);
-    // Iterate on all sub accounts
-    for (Map<String, Object> row : listOfSubAccounts) {
-      String firstName = "";
-      String lastName = "";
-      String subCustomerID = "";
-      String subCustomerPassword = "";
-      // Extract information for sub account
-      if (row != null) {
-        Object[] columns = row.entrySet().toArray();
-        if (columns != null) {
-           firstName = row.get(columns[0]).toString();
-           lastName = row.get(columns[1]).toString();
-           subCustomerID = row.get(columns[2]).toString();
-           subCustomerPassword = row.get(columns[3]).toString();
-        }
-
-        // Add sub account information to mappings
-        FullName subAccountCustomerName = new FullName(firstName, lastName);
-        subAccountLoginInfoMap.put(subCustomerID, subCustomerPassword);
-        subAccountNamesMap.put(subCustomerID, subAccountCustomerName);
-      }
-    }
-
-    //DEBUG:
-    System.out.println("subAccountLoginInfoMap");
-    for (String key : subAccountLoginInfoMap.keySet()) {
-      System.out.println(subAccountLoginInfoMap.get(key).toString());
-    }
-    System.out.println("subAccountNamesMap");
-    for (String key : subAccountNamesMap.keySet()) {
-      System.out.println(subAccountNamesMap.get(key).toString());
-    }
-
-  } */
-
   /*
    * Returns a String containing listed linked sub accounts.
    */
@@ -223,16 +184,5 @@ public class User {
     }
     return toReturn;
   }
-  
-   /* public String showSubAccounts() {
-    String toReturn = "";
-    for (String userID : subAccountLoginInfoMap.keySet()) {
-      toReturn += "UserID: ";
-      toReturn += userID;
-      toReturn += "\n";
-    }
-    toReturn += "\n";
-    return toReturn;
-  } */
 
 }

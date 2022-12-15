@@ -216,7 +216,6 @@ public class TestudoBankRepository {
     }
   }
 
-  /*TODO */
   public static void insertRowToCustomersTable(JdbcTemplate jdbcTemplate, String newCustomerID, String newCustomerFirstName, String newCustomerLastName, int newCustomerBalance, int newCustomerOverdraftBalance, int newCustomerNumFraudReversals, int newCustomerNumDepositsForInterest) {
     String insertRowToCustomersSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d);", 
                                                         newCustomerID,
@@ -247,6 +246,4 @@ public class TestudoBankRepository {
     jdbcTemplate.update(insertRowToSubAccountsSql);                                                   
   }
 
-  //TODO: use sql to iterate through SubAccounts for subaccounts owned by input account customerID
-  //public static 
 }
