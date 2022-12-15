@@ -11,6 +11,8 @@ import lombok.ToString;
 @ToString(onlyExplicitlyIncluded = true)
 public class User {
   private final static String HTML_LINE_BREAK = "<br/>";
+  private final static String HTML_BEGIN_RED_FONT = "<p style=\"background-color:red\">";
+  private final static String HTML_END_RED_FONT = "</p>";
 
   //// General Customer Fields ////
 
@@ -123,6 +125,9 @@ public class User {
 
   @Setter @Getter @ToString.Include
   private List<Customer> listOfSubAccountCustomers;
+
+  @Setter @Getter
+  private int minimumBalanceInPennies = 2000; //TODO: MAKE ADJUSTABLE
   
 
   /*
@@ -206,7 +211,13 @@ public class User {
     String toReturn = HTML_LINE_BREAK;
     if (listOfSubAccountCustomers != null) {
       for (Customer subAccount : listOfSubAccountCustomers) {
-        toReturn += String.format("Sub Account %s | %s %s | Balance: %.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getBalanceInDollars());
+        if (subAccount.getBalanceInPennies() >= minimumBalanceInPennies) {
+          toReturn += String.format("Sub Account %s | %s %s | Balance: $%.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getBalanceInDollars());
+        }
+        else {
+          toReturn += String.format("Sub Account %s | %s %s | Balance: ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName());
+          toReturn += HTML_BEGIN_RED_FONT + String.format("$%.2f", subAccount.getBalanceInDollars()) + HTML_END_RED_FONT;
+        }
         toReturn += HTML_LINE_BREAK;
       }
     }
