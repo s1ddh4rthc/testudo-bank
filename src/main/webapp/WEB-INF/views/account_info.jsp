@@ -49,6 +49,7 @@
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
     <a href='/createSubAccount'>Create New Sub Account</a>
+    <a href='/manageSubAccount'>Manage Balance of Sub Account</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

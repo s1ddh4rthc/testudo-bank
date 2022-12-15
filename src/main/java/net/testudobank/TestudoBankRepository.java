@@ -106,6 +106,11 @@ public class TestudoBankRepository {
     return jdbcTemplate.queryForObject(query, Integer.class);
   }
 
+  public static int doesSubAccountExist(JdbcTemplate jdbcTemplate, String subAccountNumber) {
+    String query = String.format("SELECT EXISTS (SELECT * FROM SubAccounts WHERE SubCustomerID = '%s')", subAccountNumber);
+    return jdbcTemplate.queryForObject(query, Integer.class);
+  }
+
 
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";

@@ -173,10 +173,10 @@ public class User {
     if (listOfSubAccountCustomers != null) {
       for (Customer subAccount : listOfSubAccountCustomers) {
         if (subAccount.getBalanceInPennies() >= subAccount.getMinimumBalanceInPennies()) {
-          toReturn += String.format("Sub Account %s | %s %s | Minimum Balance: %.2f | Balance: $%.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getMinimumBalanceInDollars(), subAccount.getBalanceInDollars());
+          toReturn += String.format("Sub Account %s | %s %s | Minimum Balance: $%.2f | Balance: $%.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getMinimumBalanceInDollars(), subAccount.getBalanceInDollars());
         }
         else {
-          toReturn += String.format("Sub Account %s | %s %s | Minimum Balance: %.2f | Balance: ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getMinimumBalanceInDollars());
+          toReturn += String.format("Sub Account %s | %s %s | Minimum Balance: $%.2f | Balance: ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getMinimumBalanceInDollars());
           toReturn += HTML_BEGIN_RED_FONT + String.format("$%.2f", subAccount.getBalanceInDollars()) + HTML_END_RED_FONT;
         }
         toReturn += HTML_LINE_BREAK;

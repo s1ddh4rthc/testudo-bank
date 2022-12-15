@@ -105,16 +105,31 @@ public class MvcController {
   /**
    * HTML GET request handler that serves the "create_sub_account" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
-   * the user's deposit form input.
+   * the user's information.
    * 
    * @param model
-   * @return "deposit_form" page
+   * @return "create_sub_account" page
    */
   @GetMapping("/createSubAccount")
 	public String showAccountCreationForm(Model model) {
     User user = new User();
 		model.addAttribute("user", user);
 		return "create_sub_account";
+	}
+
+  /**
+   * HTML GET request handler that serves the "manage_sub_account" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's information.
+   * 
+   * @param model
+   * @return "manage_sub_account" page
+   */
+  @GetMapping("/manageSubAccount")
+	public String showManageSubAccountForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "manage_sub_account";
 	}
 
   /**
@@ -479,7 +494,7 @@ public class MvcController {
     TestudoBankRepository.insertRowToSubAccountsTable(jdbcTemplate, user.getUsername(), newCustomerFirstName, newCustomerLastName, newCustomerID, newCustomerPassword, convertDollarsToPennies(newCustomerMinimumBalanceInDollars));
 
     updateAccountInfo(user);
-    return "account_info"; //TODO: return account confirmation page with account details
+    return "account_info";
   }
 	
   /**
@@ -680,6 +695,92 @@ public class MvcController {
    */
   @PostMapping("/transfer")
   public String submitTransfer(@ModelAttribute("user") User sender) {
+
+    // checks to see the customer you are transfering to exists
+    if (!TestudoBankRepository.doesCustomerExist(jdbcTemplate, sender.getTransferRecipientID())){
+      return "welcome";
+    }
+
+    String senderUserID = sender.getUsername();
+    String senderPasswordAttempt = sender.getPassword();
+    String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
+
+    // creates new user for recipient
+    User recipient = new User();
+    String recipientUserID = sender.getTransferRecipientID();
+    String recipientPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, recipientUserID);
+    recipient.setUsername(recipientUserID);
+    recipient.setPassword(recipientPassword);
+
+    // sets isTransfer to true for sender and recipient
+    sender.setTransfer(true);
+    recipient.setTransfer(true);
+
+    /// Invalid Input/State Handling ///
+
+    // unsuccessful login
+    if (senderPasswordAttempt.equals(senderPassword) == false) {
+      return "welcome";
+    }
+
+    // case where customer already has too many reversals
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, senderUserID);
+    if (numOfReversals >= MAX_DISPUTES) {
+      return "welcome";
+    }
+
+    // case where customer tries to send money to themselves
+    if (sender.getTransferRecipientID().equals(senderUserID)){
+      return "welcome";
+    }
+
+    // initialize variables for transfer amount
+    double transferAmount = sender.getAmountToTransfer();
+    int transferAmountInPennies = convertDollarsToPennies(transferAmount);
+
+    // negative transfer amount is not allowed
+    if (transferAmount < 0) {
+      return "welcome";
+    } 
+  
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this transfer
+
+    // withdraw transfer amount from sender and deposit into recipient's account
+    sender.setAmountToWithdraw(transferAmount);
+    submitWithdraw(sender);
+
+    recipient.setAmountToDeposit(transferAmount);
+    submitDeposit(recipient);
+
+    // Inserting transfer into transfer history for both customers
+    TestudoBankRepository.insertRowToTransferLogsTable(jdbcTemplate, senderUserID, recipientUserID, currentTime, transferAmountInPennies);
+    updateAccountInfo(sender);
+
+    return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for the Manage Sub Account page.
+   * 
+   * The same username+password handling from the login page is used.
+   * 
+   * If the password attempt is correct, the new user is created
+   * if it is a valid user. New customer has 0 balance.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/manageSub")
+  public String manageSubAccount(@ModelAttribute("user") User sender) {
+    updateAccountInfo(sender);
+
+    // checks to see if account is eligible to transfer (sub accounts are ineligible)
+    if (TestudoBankRepository.doesSubAccountExist(jdbcTemplate, sender.getUsername()) == 1) {
+      return "welcome";
+    }
 
     // checks to see the customer you are transfering to exists
     if (!TestudoBankRepository.doesCustomerExist(jdbcTemplate, sender.getTransferRecipientID())){
