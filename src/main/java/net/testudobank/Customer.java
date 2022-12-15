@@ -5,12 +5,14 @@ public class Customer {
     private String lastName;
     private String customerID;
     private String password;
+    private int balanceInPennies;
 
     public Customer(String firstName, String lastName, String customerID, String password) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.customerID = customerID;
         this.password = password;
+        this.balanceInPennies = 0;
     }
 
     public Customer() {
@@ -18,6 +20,7 @@ public class Customer {
         this.lastName = null;
         this.customerID = null;
         this.password = null;
+        this.balanceInPennies = 0;
     }
 
     public String getFirstName() {
@@ -50,5 +53,17 @@ public class Customer {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public void setBalanceInPennies(int balanceInPennies) {
+        this.balanceInPennies = balanceInPennies;
+    }
+
+    public int getBalanceInPennies() {
+        return balanceInPennies;
+    }
+
+    public double getBalanceInDollars() {
+        return (balanceInPennies / 100);
     }
 }

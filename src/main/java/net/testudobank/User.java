@@ -10,6 +10,8 @@ import lombok.ToString;
 
 @ToString(onlyExplicitlyIncluded = true)
 public class User {
+  private final static String HTML_LINE_BREAK = "<br/>";
+
   //// General Customer Fields ////
 
   @Setter @Getter @ToString.Include
@@ -119,6 +121,10 @@ public class User {
   @Setter @Getter @ToString.Include
   private List<Map<String,Object>> listOfSubAccounts;
 
+  @Setter @Getter @ToString.Include
+  private List<Customer> listOfSubAccountCustomers;
+  
+
   /*
    * Object to store first and last name of new customer
    * to make it easier to store in the mapping.
@@ -197,6 +203,17 @@ public class User {
    * Returns a String containing listed linked sub accounts.
    */
   public String showSubAccounts() {
+    String toReturn = HTML_LINE_BREAK;
+    if (listOfSubAccountCustomers != null) {
+      for (Customer subAccount : listOfSubAccountCustomers) {
+        toReturn += String.format("Sub Account %s | %s %s | Balance: %.2f ", subAccount.getCustomerID(), subAccount.getFirstName(), subAccount.getLastName(), subAccount.getBalanceInDollars());
+        toReturn += HTML_LINE_BREAK;
+      }
+    }
+    return toReturn;
+  }
+  
+   /* public String showSubAccounts() {
     String toReturn = "";
     for (String userID : subAccountLoginInfoMap.keySet()) {
       toReturn += "UserID: ";
@@ -205,6 +222,6 @@ public class User {
     }
     toReturn += "\n";
     return toReturn;
-  }
+  } */
 
 }

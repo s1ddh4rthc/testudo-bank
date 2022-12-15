@@ -263,12 +263,16 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
-    user.setStringListOfSubAccounts(subAccountListOutput);
+
+    
 
     user.setListOfSubAccounts(subAccounts);
 
     List<Customer> subAccountCustomers = TestudoBankRepository.getSubAccountsInfo(jdbcTemplate, user.getUsername());
-    user.linkSubAccounts(subAccountCustomers);
+    user.setListOfSubAccountCustomers(subAccountCustomers);
+
+    user.setStringListOfSubAccounts(user.showSubAccounts());
+    //user.linkSubAccounts(subAccountCustomers);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
