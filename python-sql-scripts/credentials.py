@@ -1,5 +1,5 @@
 # MySQL DB Connection Config Values
 mysql_endpoint='localhost'
 username='root'
-password='REPLACETHISTEXT'
+password='nothingtoseehere'
 database_name = 'testudo_bank'

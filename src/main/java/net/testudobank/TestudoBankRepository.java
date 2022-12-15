@@ -83,6 +83,14 @@ public class TestudoBankRepository {
     return jdbcTemplate.queryForList(getSubAccountsSql);
   }
 
+  /*
+   * Returns a mapped list of sub accounts under input customerID to fields within Customer class.
+   */
+  public static List<Customer> getSubAccountsInfo(JdbcTemplate jdbcTemplate, String customerID) {
+    String getSubAccountsInfoSql = String.format("SELECT * FROM SubAccounts WHERE CustomerID = '%s' ORDER BY CustomerLastName", customerID);
+    return jdbcTemplate.query(getSubAccountsInfoSql, new CustomerRowMapper());
+  }
+
   public static int doesAccountNumberExist(JdbcTemplate jdbcTemplate, String accountNumber) {
     String query = String.format("SELECT EXISTS (SELECT * FROM Customers WHERE CustomerID = '%s')", accountNumber);
     return jdbcTemplate.queryForObject(query, Integer.class);

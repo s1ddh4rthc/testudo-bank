@@ -235,6 +235,8 @@ public class MvcController {
       subAccountListOutput += subAccount + HTML_LINE_BREAK; //subAccountListOutput.append(subAccount).append(HTML_LINE_BREAK);
     }
 
+    
+
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
@@ -261,7 +263,12 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
-    user.setListOfSubAccounts(subAccountListOutput);
+    user.setStringListOfSubAccounts(subAccountListOutput);
+
+    user.setListOfSubAccounts(subAccounts);
+
+    List<Customer> subAccountCustomers = TestudoBankRepository.getSubAccountsInfo(jdbcTemplate, user.getUsername());
+    user.linkSubAccounts(subAccountCustomers);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -460,10 +467,13 @@ public class MvcController {
     String newCustomerID = generateNewAccountNumber();
     user.setNewCustomerID(newCustomerID);
 
+    
     TestudoBankRepository.insertRowToCustomersTable(jdbcTemplate, newCustomerID, newCustomerFirstName, newCustomerLastName, 0, 0, 0, 0);
     TestudoBankRepository.insertRowToPasswordsTable(jdbcTemplate, newCustomerID, newCustomerPassword);
 
     TestudoBankRepository.insertRowToSubAccountsTable(jdbcTemplate, user.getUsername(), newCustomerFirstName, newCustomerLastName, newCustomerID, newCustomerPassword);
+
+    
 
     //user.linkNewSubAccount();
     //System.out.println(user.showSubAccounts());

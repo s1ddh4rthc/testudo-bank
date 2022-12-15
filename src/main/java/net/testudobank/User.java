@@ -114,7 +114,10 @@ public class User {
   private String newCustomerID;
 
   @Setter @Getter @ToString.Include
-  private String listOfSubAccounts;
+  private String stringListOfSubAccounts;
+
+  @Setter @Getter @ToString.Include
+  private List<Map<String,Object>> listOfSubAccounts;
 
   /*
    * Object to store first and last name of new customer
@@ -143,11 +146,52 @@ public class User {
   /*
    * Saves current new customer name and password.
    */
-  public void linkNewSubAccount() {
-    FullName newSubAccountName = new FullName(newCustomerFirstName, newCustomerLastName);
-    subAccountLoginInfoMap.put(newCustomerID, newCustomerPassword);
-    subAccountNamesMap.put(newCustomerID, newSubAccountName);
+  public void linkSubAccounts(List<Customer> subAccounts) {
+    for (Customer subAccount : subAccounts) {
+      FullName subAccountCustomerName = new FullName(subAccount.getFirstName(), subAccount.getLastName());
+      subAccountLoginInfoMap.put(subAccount.getCustomerID(), subAccount.getPassword());
+      subAccountNamesMap.put(subAccount.getCustomerID(), subAccountCustomerName);
+    }
   }
+
+
+
+  /* public void linkSubAccounts(JdbcTemplate jdbcTemplate) {
+    listOfSubAccounts = TestudoBankRepository.getSubAccounts(jdbcTemplate, username);
+    // Iterate on all sub accounts
+    for (Map<String, Object> row : listOfSubAccounts) {
+      String firstName = "";
+      String lastName = "";
+      String subCustomerID = "";
+      String subCustomerPassword = "";
+      // Extract information for sub account
+      if (row != null) {
+        Object[] columns = row.entrySet().toArray();
+        if (columns != null) {
+           firstName = row.get(columns[0]).toString();
+           lastName = row.get(columns[1]).toString();
+           subCustomerID = row.get(columns[2]).toString();
+           subCustomerPassword = row.get(columns[3]).toString();
+        }
+
+        // Add sub account information to mappings
+        FullName subAccountCustomerName = new FullName(firstName, lastName);
+        subAccountLoginInfoMap.put(subCustomerID, subCustomerPassword);
+        subAccountNamesMap.put(subCustomerID, subAccountCustomerName);
+      }
+    }
+
+    //DEBUG:
+    System.out.println("subAccountLoginInfoMap");
+    for (String key : subAccountLoginInfoMap.keySet()) {
+      System.out.println(subAccountLoginInfoMap.get(key).toString());
+    }
+    System.out.println("subAccountNamesMap");
+    for (String key : subAccountNamesMap.keySet()) {
+      System.out.println(subAccountNamesMap.get(key).toString());
+    }
+
+  } */
 
   /*
    * Returns a String containing listed linked sub accounts.
