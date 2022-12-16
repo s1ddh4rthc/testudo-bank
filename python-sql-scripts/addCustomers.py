@@ -25,6 +25,24 @@ create_customer_table_sql = '''
   '''
 cursor.execute(create_customer_table_sql)
 
+create_alertlog_table_sql = '''
+  CREATE TABLE AlertLog (
+    CustomerID varchar(255),
+    alert_type varchar(255),
+    sent_at DATETIME,
+    device varchar(255)
+  );
+  '''
+cursor.execute(create_alertlog_table_sql)
+
+create_customer_contactinfo_table = '''
+  CREATE TABLE ContactInfo (
+    CustomerID varchar(255),
+    phone_number varchar(255)
+  );
+  '''
+cursor.execute(create_customer_contactinfo_table)
+
 # Make empty Passwords table
 create_password_table_sql = '''
 CREATE TABLE Passwords (
@@ -116,6 +134,14 @@ for i in range(num_customers_to_add):
 
   # don't add row if someone already has this ID (really unlikely)
   if (customer_id not in ids_in_db and customer_id not in ids_just_added):
+    # add a contact info row for this customer
+    customer_phone_number = ''.join(random.choices(string.digits, k = 10))
+    insert_contactinfo_sql = '''
+    INSERT INTO ContactInfo
+    VALUES  ({0},{1});
+    '''.format("'" + customer_id + "'", "'" + customer_phone_number + "'")
+    cursor.execute(insert_contactinfo_sql)
+
 
     # generate random name, balance, and password
     customer_first_name = names.get_first_name()

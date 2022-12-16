@@ -18,6 +18,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.twilio.rest.api.v2010.account.Message;
+import com.twilio.Twilio;
+import com.twilio.rest.api.v2010.account.Call;
+import com.twilio.type.PhoneNumber;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -444,6 +449,8 @@ public class MvcController {
   
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
+    // Let the user know the transaction was successful
+    sendTextMessage(user, "+15139518342", "Hi, "+ user.getFirstName() + ", you have successfully withdrawn $" + userWithdrawAmt + " from your Testudo Bank account. Please visit Testudo Bank to view your account information.");
     return "account_info";
 
   }
@@ -823,4 +830,21 @@ public class MvcController {
     return "welcome";
   }
 
+
+
+/*
+ * Function that makes a call to Twillio API to send a text message to the user
+ */
+public void sendTextMessage(User user, String phoneNumber, String message) {
+  Twilio.init("AC170ce6ac7aa2128d61b57c92f22fe874","b11a5742862a693b7554bb0342305120");
+
+  Message messageToUser = 
+    Message.creator(
+        new PhoneNumber("2405431492"), 
+        new PhoneNumber(phoneNumber), 
+        message).create();
+
+        System.out.println("Customer alerted! Twillio message ID:" + messageToUser.getSid());
+
+}
 }
