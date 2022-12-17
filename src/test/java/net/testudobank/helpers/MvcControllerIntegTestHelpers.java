@@ -94,7 +94,7 @@ public class MvcControllerIntegTestHelpers {
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   public static int convertDollarsToPennies(double dollarAmount) {
-    return (int) (dollarAmount * 100);
+    return (int) Math.round(dollarAmount * 100);
   }
 
   // Applies overdraft interest rate to a dollar amount in pennies, and returns an int penny result
