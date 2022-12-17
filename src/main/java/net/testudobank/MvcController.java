@@ -51,6 +51,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double MIN_DEPOSIT_AMOUNT_FOR_INTEREST = 20;
+  private static int NUM_TIMES_UNTIL_INTEREST = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -240,6 +242,27 @@ public class MvcController {
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
+    /**
+   * Helper method that applies interest if it is a fifth deposit
+   * 
+   * @param user
+   */
+  private void applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    // Applies interest if it is a fifth deposit
+    int userNumberofDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    userNumberofDepositsForInterest += 1;
+    // Checks if it's been five times
+    if (userNumberofDepositsForInterest % NUM_TIMES_UNTIL_INTEREST == 0) {
+      int userBalanceInPennis = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int userBalanceAfterInterest = (int) (userBalanceInPennis * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterest);
+    }
+    else {
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberofDepositsForInterest);
+    }
+  }
+
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
     return (int) (dollarAmount * 100);
@@ -358,7 +381,9 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (userDepositAmtInPennies >= convertDollarsToPennies(MIN_DEPOSIT_AMOUNT_FOR_INTEREST)) {
+      applyInterest(user);
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -797,17 +822,4 @@ public class MvcController {
       return "welcome";
     }
   }
-
-  /**
-   * 
-   * 
-   * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
-   */
-  public String applyInterest(@ModelAttribute("user") User user) {
-
-    return "welcome";
-
-  }
-
 }
