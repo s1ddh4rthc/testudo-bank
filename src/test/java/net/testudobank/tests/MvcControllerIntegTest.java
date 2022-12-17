@@ -1582,4 +1582,169 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+    /**
+     *  Testing user flow, a customer who doesn't have pre-existing crypto
+     *  Buys ETH, Buys SOL, Sells SOL
+     */
+  @Test
+  public void testCryptoUserFlow() throws ScriptException {
+    double initialBalanceInDollars = 12000;
+    double initialBalanceETH = 0.0;
+    CryptoTransactionTester cryptoTransactionTesterBuyETH = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(initialBalanceInDollars)
+            .initialCryptoBalance(Collections.singletonMap("ETH", initialBalanceETH))
+            .build();
+
+    cryptoTransactionTesterBuyETH.initialize();
+
+    double endingCryptoBalanceETH = 0.2;
+    double cryptoAmountToTransactETH = 0.2;
+    double ethValue = cryptoPriceClient.getCurrentEthValue();
+    double endingBalanceInDollars = initialBalanceInDollars - cryptoAmountToTransactETH * ethValue;
+
+    CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(endingBalanceInDollars)
+        .expectedEndingCryptoBalance(endingCryptoBalanceETH)
+        .cryptoPrice(ethValue)
+        .cryptoAmountToTransact(cryptoAmountToTransactETH)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTesterBuyETH.test(cryptoTransactionBuyETH);
+    initialBalanceInDollars = endingBalanceInDollars;
+    double initialBalanceSOL = 0.0;
+  
+    CryptoTransactionTester cryptoTransactionTesterBuySOL = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(initialBalanceInDollars)
+            .initialCryptoBalance(Collections.singletonMap("ETH", initialBalanceSOL))
+            .build();
+
+    cryptoTransactionTesterBuyETH.initialize();
+
+    double endingCryptoBalanceSOL = 0.3;
+    double cryptoAmountToTransactSOL = 0.3;
+    double solValue = cryptoPriceClient.getCurrentSolValue();
+    endingBalanceInDollars = initialBalanceInDollars - cryptoAmountToTransactSOL * solValue;
+
+    CryptoTransaction endingCryptoBalanceBuySOL = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(endingBalanceInDollars)
+        .expectedEndingCryptoBalance(endingCryptoBalanceSOL)
+        .cryptoPrice(solValue)
+        .cryptoAmountToTransact(cryptoAmountToTransactSOL)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    //cryptoTransactionTesterBuySOL.test(endingCryptoBalanceBuySOL);
+    
+    initialBalanceInDollars = endingBalanceInDollars;
+    initialBalanceSOL = 0.3;
+  
+    CryptoTransactionTester cryptoTransactionTesterSellSOL = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(initialBalanceInDollars)
+            .initialCryptoBalance(Collections.singletonMap("ETH", initialBalanceSOL))
+            .build();
+
+    cryptoTransactionTesterSellSOL.initialize();
+
+    endingCryptoBalanceSOL = 0.1;
+    cryptoAmountToTransactSOL = 0.2;
+    endingBalanceInDollars = initialBalanceInDollars + cryptoAmountToTransactSOL * solValue;
+
+    CryptoTransaction endingCryptoBalanceSellSOL = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(endingBalanceInDollars)
+        .expectedEndingCryptoBalance(endingCryptoBalanceSOL)
+        .cryptoPrice(solValue)
+        .cryptoAmountToTransact(cryptoAmountToTransactSOL)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTesterSellSOL.test(endingCryptoBalanceSellSOL);
+  }
+
+  /**
+   * Tests that welcome screen appears if an unsupported cryptocurrency
+   * Is typed in for buying crypto
+   */
+  @Test
+  public void testBTCInvalidBuy() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .validPassword(true)
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    User user = new User();
+      user.setUsername(CUSTOMER1_ID);
+      if (cryptoTransaction.validPassword) {
+        user.setPassword(CUSTOMER1_PASSWORD);
+      } else {
+        user.setPassword("wrong_password");
+      }
+      user.setWhichCryptoToBuy(cryptoTransaction.cryptoName);
+
+
+      // Mock the price of the cryptocurrency
+      Mockito.when(cryptoPriceClient.getCurrentCryptoValue(cryptoTransaction.cryptoName)).thenReturn(cryptoTransaction.cryptoPrice);
+
+      // attempt transaction
+      LocalDateTime cryptoTransactionTime = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      String returnedPage;
+      user.setAmountToBuyCrypto(cryptoTransaction.cryptoAmountToTransact);
+      returnedPage = controller.buyCrypto(user);
+      assertEquals("welcome", returnedPage);
+  }
+
+  /**
+   * Tests that welcome screen appears if an unsupported cryptocurrency
+   * Is typed in for selling crypto
+   */
+  @Test
+  public void testBTCInvalidSell() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .validPassword(true)
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    User user = new User();
+      user.setUsername(CUSTOMER1_ID);
+      if (cryptoTransaction.validPassword) {
+        user.setPassword(CUSTOMER1_PASSWORD);
+      } else {
+        user.setPassword("wrong_password");
+      }
+      user.setWhichCryptoToBuy(cryptoTransaction.cryptoName);
+
+
+      // Mock the price of the cryptocurrency
+      Mockito.when(cryptoPriceClient.getCurrentCryptoValue(cryptoTransaction.cryptoName)).thenReturn(cryptoTransaction.cryptoPrice);
+
+      // attempt transaction
+      LocalDateTime cryptoTransactionTime = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      String returnedPage;
+      user.setAmountToSellCrypto(cryptoTransaction.cryptoAmountToTransact);
+      returnedPage = controller.sellCrypto(user);
+      assertEquals("welcome", returnedPage);
+    }
 }
