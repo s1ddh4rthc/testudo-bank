@@ -177,4 +177,33 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static double getWithdrawPercentChange(JdbcTemplate jdbcTemplate, String customerID) {
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s'", customerID);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+    double newWithdrawAvg = 1.25;
+    double oldWithdrawAvg = 1;
+    double withdrawPercentChange = (newWithdrawAvg / oldWithdrawAvg - 1) * 100;
+    return withdrawPercentChange;
+  }
+
+  public static double getDepositPercentChange(JdbcTemplate jdbcTemplate, String customerID) {
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s'", customerID);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+
+    double newDepositAvg = 0.75;
+    double oldDepositAvg = 1;
+    double depositPercentChange = (newDepositAvg / oldDepositAvg - 1) * 100;
+    return depositPercentChange;
+  }
+
+  public static void setWithdrawPercentChange(JdbcTemplate jdbcTemplate, String customerID, double withdrawPercentChange) {
+    String withdrawPercentChangeUpdateSql = String.format("UPDATE Customers SET WithdrawPercentChange = %d WHERE CustomerID='%s';", withdrawPercentChange, customerID);
+    jdbcTemplate.update(withdrawPercentChangeUpdateSql);
+  }
+
+  public static void setDepositPercentChange(JdbcTemplate jdbcTemplate, String customerID, double depositPercentChange) {
+    String depositPercentChangeUpdateSql = String.format("UPDATE Customers SET DepositPercentChange = %d WHERE CustomerID='%s';", depositPercentChange, customerID);
+    jdbcTemplate.update(depositPercentChangeUpdateSql);
+  }
 }
