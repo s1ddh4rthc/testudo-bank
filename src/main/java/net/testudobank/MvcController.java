@@ -325,7 +325,7 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
-    
+
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
@@ -355,6 +355,15 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+    }
+
+    // Add this transaction to be considered for interest application
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (userDepositAmtInPennies >= 2000 && // only deposits over $20 will be eligible for APY earnings
+        userOverdraftBalanceInPennies <= 0 && // if the user has a balance and is not in overdraft
+        userCashBalanceInPennies > 0) { 
+      int userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDepositsForInterest + 1);
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -799,15 +808,44 @@ public class MvcController {
   }
 
   /**
+   * Updates the user's cash balance to include an interest application of 
+   * 1.5% APY after every 5 transactions with a dolloar amount of $20 or greater.
    * 
+   * The interest application will be logged to the TransactionHistory table
+   * as a deposit. 
+   * 
+   * If the user is currently in overdraft or has a cash balance of $0, they 
+   * will not receive interest for any transactions. 
+   * 
+   * After interest is applied, the user's number of transactions for interest
+   * counter will be reset. 
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    String userID = user.getUsername();
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    return "welcome";
-
+    // Adding interest on the 5th transaction
+    if (userNumDepositsForInterest == 5) {
+      int userCashBalanceAfterInterestInPennies = (int) (BALANCE_INTEREST_RATE * userCashBalanceInPennies);
+      int increaseAmtInPennies = userCashBalanceAfterInterestInPennies - userCashBalanceInPennies;
+      // Adding interest to the user's account balance
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, increaseAmtInPennies);
+      // Updating the transaction history table
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, increaseAmtInPennies);
+      // Resetting the user's number of interest-applicable deposits
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      return "welcome";
+      
+    }
   }
 
 }

@@ -1582,4 +1582,179 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Verifies simple interest application. 
+   *  
+   * The customer's Balance in the Customers table should be increased by the
+   * transaction amount after every transaction. 
+   * 
+   * After the 5th transaction of $20 or more, the account should be applied
+   * 1.5% APY.
+   * 
+   * The APY should be visible in the TransactionHistory table and the Balance
+   * in the Customers table should be by the interest amount.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleApplyInterest() throws SQLException, ScriptException {    
+    // initialize customer1 with a balance of $1000.50 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1000.50;
+    int CUSTOMER1_NUM_DEPOSITS_FOR_INTEREST = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+  
+    // Verify that 4 Deposits will increment the number of deposits for interest counter, but not apply the interest
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT; 
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = 0;
+    int CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST;
+    double amountsToDeposit[] = new double[]{20.01, 25.47, 500.00, 30.02}; // user input is in dollar amount, not pennies.
+    for (int i = 0; i < amountsToDeposit.length; i++) {
+      CUSTOMER1_AMOUNT_TO_DEPOSIT = amountsToDeposit[i]; 
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+      
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      // verify the balance and number of deposits for interest was accurately updated, without interest being applied
+      CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+      CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = CUSTOMER1_NUM_DEPOSITS_FOR_INTEREST + 1;
+      MvcControllerIntegTestHelpers.checkSingularDepositTowardsInterest(jdbcTemplate, CUSTOMER1_EXPECTED_FINAL_BALANCE, CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST);
+      
+      // update customer balance for next iteration
+      CUSTOMER1_BALANCE = CUSTOMER1_EXPECTED_FINAL_BALANCE;
+      CUSTOMER1_NUM_DEPOSITS_FOR_INTEREST = CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST;
+    }
+
+    // Verify that the 5th deposit of $20 or more will earn interest
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; 
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    // capture time to verify TransactionHistory table 
+    LocalDateTime timeWhenInterestIsApplied = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify that balance was updated with deposit amount and interest and the number of deposits for interest counter was reset
+    double BALANCE_INTEREST_RATE = 1.015;
+    double CUSTOMER1_EXPECTED_BALANCE_BEFORE_INTEREST = (CUSTOMER1_EXPECTED_FINAL_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    CUSTOMER1_EXPECTED_FINAL_BALANCE =  CUSTOMER1_EXPECTED_BALANCE_BEFORE_INTEREST * BALANCE_INTEREST_RATE;
+    CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = 0;
+    MvcControllerIntegTestHelpers.checkSingularDepositTowardsInterest(jdbcTemplate, CUSTOMER1_EXPECTED_FINAL_BALANCE, CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST);
+
+    // fetch transactionHistory data from DB
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    
+    // verify that the interest application was accurately logged to the TransactionHistory table
+    assertEquals(6, transactionHistoryTableData.size());
+    Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(5);
+    double CUSTOMER1_INTEREST_AMT = CUSTOMER1_EXPECTED_FINAL_BALANCE - CUSTOMER1_EXPECTED_BALANCE_BEFORE_INTEREST;
+    int CUSTOMER1_INTEREST_AMT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_INTEREST_AMT);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenInterestIsApplied, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_INTEREST_AMT_IN_PENNIES);
+  }
+
+  /**
+   * Verifies interest application on purchases below the minimum eligible
+   * amount ($20).
+   * 
+   * The customer's Balance in the Customers table should be increased by the
+   * transaction amount, but the transaction will not increment numDepositsForInterest. 
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestOnTransactionBelowMinimum() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $23.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 23.45;
+    int CUSTOMER1_NUM_DEPOSITS_FOR_INTEREST = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // Verify that a deposit of $19.99 is not eligible for interest
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99;
+
+    // fixing overflow in convertDollarsToPennies()
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT) / 100.0;
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify customer balance was increased by the deposit amount, but interest is not applied and the numDepositsForInterest is not updated
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    int CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = CUSTOMER1_NUM_DEPOSITS_FOR_INTEREST;
+    MvcControllerIntegTestHelpers.checkSingularDepositTowardsInterest(jdbcTemplate, CUSTOMER1_EXPECTED_FINAL_BALANCE, CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST);
+  }
+  
+  /**
+   * Verifies interest application to an account that is in overdraft or has
+   * no balance. 
+   * 
+   * Transactions should function normally, but the deposits for interest counter
+   * should not be incremented until the user has no overdraft balance and 
+   * a balance greater than $0. 
+   * 
+   * Assumes that the customer's account is not frozen. 
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestToOverdraftOrNoMoney() throws SQLException, ScriptException {
+    // initialize customer1 with 0 balance and an overdraft balance.
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE = 15050;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE, 0, 0);
+
+    // Prepare Deposit Form to Deposit to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setOverDraftBalance(CUSTOMER1_OVERDRAFT_BALANCE);
+  
+    // Verify that 5 deposit requests will not increment the number of deposits for interest counter, since the account will remain in overdraft
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 30.10; // 5 deposits of 30.10 to reach $0 overdraft and regular balance
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = 0; // balance remains $0 until overdraft balance is paid
+    int CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = 0;
+    for (int i = 1; i <= 5; i++) {
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+      
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      // verify that no changes are being made to the balance or interest deposits counter until the overdraft balance is paid
+      MvcControllerIntegTestHelpers.checkSingularDepositTowardsInterest(jdbcTemplate, CUSTOMER1_EXPECTED_FINAL_BALANCE, CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST);
+    }
+
+    // Verify that the interest counter begins once the customer bas a balance greater than $0
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 25.25; 
+    CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT; 
+    CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = 1;
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    MvcControllerIntegTestHelpers.checkSingularDepositTowardsInterest(jdbcTemplate, CUSTOMER1_EXPECTED_FINAL_BALANCE, CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST);
+  }
 }
