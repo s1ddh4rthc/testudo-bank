@@ -42,8 +42,9 @@ public class MvcControllerIntegTestHelpers {
   }
 
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
+  // *BUGGGG* Thanks for the hour and half debug session 
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
-    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, interestDeposits);
   }
 
   // Set crypto balance to specified amount
