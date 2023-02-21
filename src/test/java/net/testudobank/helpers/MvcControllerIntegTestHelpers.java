@@ -143,11 +143,4 @@ public class MvcControllerIntegTestHelpers {
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) {
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
   }
-
-  // Returns number of occurences of a type of action
-  public static int getTotalNumberOfActions(Map<String, Object> transactionLog, String expectedCustomerID,
-      String expectedAction) {
-    assertEquals(expectedAction, (String) transactionLog.get("Action"));
-    return 0;
-  }
 }
