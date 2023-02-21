@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double MIN_DEPOSIT_FOR_INTEREST = 20;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -356,9 +357,17 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
+    
+    // Determine if deposited amount should have interest applied
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
+    // customers who have an overdraft or no money in bank will be excluded from gaining interest
+    // deposited amount must also be atleast MIN_DEPOSIT_FOR_INTEREST
+    
+    if (userDepositAmtInPennies >= convertDollarsToPennies(MIN_DEPOSIT_FOR_INTEREST) && userCashBalanceInPennies > 0 && userOverdraftBalanceInPennies <= 0 ){
+      applyInterest(user);
+    }
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -799,15 +808,42 @@ public class MvcController {
   }
 
   /**
+   * Applies interest amount based off the BALANCE_INTEREST_RATE to the user's account only there is a total
+   * of 5 deposits to the user's account that are atleast MIN_DEPOSIT_FOR_INTEREST.
+   * Conditions that were checked prior to the count increment were: The deposit was atleast MIN_DEPOSIT_FOR_INTEREST,
+   * user has no overdraft, and user does not have 0 balance in their account
    * 
+   * Once interest has been applied and deposited into the user's account, the count resets to zero.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+      
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // timestamp for deposit of interest amount
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDepositsForInterest + 1); // increment deposit interest account
+    userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    
+    // applies interest once 5 deposits with said conditions are met
+    if (userNumberOfDepositsForInterest == 5){
 
+      int userCashBalanceAfterInterestAppliedInPennies = (int) (BALANCE_INTEREST_RATE * userCashBalanceInPennies);
+      int userAppliedInterestIncreaseAmountInPennies = userCashBalanceAfterInterestAppliedInPennies - userCashBalanceInPennies;
+
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userAppliedInterestIncreaseAmountInPennies); // increases the user's cash balance
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userAppliedInterestIncreaseAmountInPennies); // records interest deposit in transaction history table
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0); // resets deposit interest counter to 0
+      
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
   }
 
 }
