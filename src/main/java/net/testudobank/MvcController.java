@@ -807,25 +807,17 @@ public class MvcController {
    * If the user is in overdraft, the interest is not applied.
    * 
    * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   * @return "account_info" after interest applied.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
-    // increment number of deposits for interest by 1
-    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
+    double userDepositAmt = user.getAmountToDeposit();
+    int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt);
 
-    if (numberOfDepositsForInterest % 5 == 0) {
-      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-      int userBalanceAfterInterestInPennies = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterestInPennies);
+    int depositAmtAfterInterestInPennies = (int)(userDepositAmtInPennies * BALANCE_INTEREST_RATE);
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, depositAmtAfterInterestInPennies);
 
-      return "account_info";
-
-    } else {
-      return "welcome";
-    }
-
+    return "account_info";
   }
 
 }
