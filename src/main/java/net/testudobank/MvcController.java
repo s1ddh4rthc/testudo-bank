@@ -799,14 +799,32 @@ public class MvcController {
   }
 
   /**
+   * Applies interest after every 5 deposits made by user
    * 
+   * If the user is currently not in overdraft and the deposit amount is greater than $20, 
+   * the balance interest is applied to the deposit amount and added to the user's main balance.
+   * 
+   * If the user is in overdraft, the interest is not applied.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    // increment number of deposits for interest by 1
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
 
-    return "welcome";
+    if (numberOfDepositsForInterest % 5 == 0) {
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int userBalanceAfterInterestInPennies = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterestInPennies);
+
+      return "account_info";
+
+    } else {
+      return "welcome";
+    }
 
   }
 
