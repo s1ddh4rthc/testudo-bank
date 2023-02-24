@@ -378,9 +378,12 @@ public class MvcController {
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
+
+    int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
     // update number of deposits for interest if deposit amount is greater than or
     // equal to $20
-    if (userDepositAmtInPennies - userOverdraftBalanceInPennies >= 2000) {
+    if (currentBalance > 0 && userDepositAmtInPennies - userOverdraftBalanceInPennies >= 2000) {
       int currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
           userID);
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
@@ -390,7 +393,6 @@ public class MvcController {
           userID);
       // if deposit number is multiple of 5, accrued interest is applied
       if (currentNumDepositsForInterest != 0 && currentNumDepositsForInterest % 5 == 0) {
-        int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
         applyInterestForDeposit(user, jdbcTemplate, currentBalance); // log to transaction history
         TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
             TRANSACTION_HISTORY_DEPOSIT_ACTION, (int) (userDepositAmtInPennies * BALANCE_INTEREST_RATE));
