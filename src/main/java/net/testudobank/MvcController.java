@@ -49,8 +49,11 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  public final static double BALANCE_INTEREST_RATE = 1.015;
+  private static int MIN_INTEREST_DEPOSIT_IN_PENNIES = 2000;
+  private static int NUM_DEPOSITS_WHEN_INTEREST_APPLIED = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -814,9 +817,36 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    // Deposits of $20 or over increment our number of deposits for interest
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
 
-    return "welcome";
+    double userDepositAmt = user.getAmountToDeposit();
+    int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt);
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
+    if (userDepositAmtInPennies >= MIN_INTEREST_DEPOSIT_IN_PENNIES) {
+      numberOfDepositsForInterest += 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
+    }
+
+    // Number of deposits must be equal to 5 for interest to be applied
+    if (numberOfDepositsForInterest != NUM_DEPOSITS_WHEN_INTEREST_APPLIED) {
+      return "welcome";
+    }
+    
+    //// Apply interest to current balance ////
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userBalanceInterestInPennies = (int) (userBalanceInPennies * (BALANCE_INTEREST_RATE - 1.0));
+
+    // Add the interest amount to the user's account
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userBalanceInterestInPennies);
+
+    // Reset interest count to zero
+    numberOfDepositsForInterest = 0;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
+
+    return "account_info";
   }
 
 }
