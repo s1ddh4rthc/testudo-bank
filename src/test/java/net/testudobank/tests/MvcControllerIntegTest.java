@@ -1797,7 +1797,13 @@ public class MvcControllerIntegTest {
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
-  // Test that checks that the interest is applied every 5 transactions
+  /*
+   * Test that checks that the interest is applied every 5 transactions
+   * Customer balance starts at $100 and then 5 equal deposits of $20 are made
+   * After the 5th deposit the balance is checked to make sure that it is $200 +
+   * $3 (interest). Then another 5 successive deposits are made and the balance is
+   * rechecked to ensure that interest is paid out correctly.
+   */
   @Test
   public void testInterestAppliedEvery5Transactions() throws ScriptException {
     // initialize customer1 with a balance of $100.00 (to make sure this works for
@@ -1884,10 +1890,18 @@ public class MvcControllerIntegTest {
     CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + 5 * CUSTOMER1_AMOUNT_TO_DEPOSIT
         + CUSTOMER1_INTEREST_PAYMENT;
     CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers
-        .convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
-    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance") + 1);
+        .convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE) - 1;
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
   }
 
+  /*
+   * Test that checks that the interest is applied every 5 transactions and not
+   * for each subsequent transaction after.
+   * Customer balance starts at $100 and then 5 equal deposits of $20 are made
+   * After the 5th deposit the balance is checked to make sure that it is $200 +
+   * $3 (interest). Then a simple $10 deposit is made to see that the balance
+   * increases to $213 and no additional interest is paid.
+   */
   @Test
   public void testInterestAppliedAfter5OrMoreTransactions() throws ScriptException {
     // initialize customer1 with a balance of $100.00 (to make sure this works for
@@ -1939,8 +1953,8 @@ public class MvcControllerIntegTest {
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
 
     CUSTOMER1_BALANCE = CUSTOMER1_EXPECTED_FINAL_BALANCE;
-
-    // The 6th deposit should only be a simple $20 addition to the balance with no
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 10.00;
+    // The 6th deposit should only be a simple $10 addition to the balance with no
     // additional interest applied
     // Deposit #6
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
@@ -1956,6 +1970,10 @@ public class MvcControllerIntegTest {
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
   }
 
+  /*
+   * Customer starts out at 4 qualified deposits towards interest and then the $25
+   * deposited next causes interest to be paid on the balance
+   */
   @Test
   public void testInterestAppliedWhenDepositIs20OrMore() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $1000.00 (to make sure this works for
@@ -2015,6 +2033,10 @@ public class MvcControllerIntegTest {
         MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
   }
 
+  /*
+   * Customer starts out at 4 qualified deposits towards interest and then the $20
+   * deposited next causes interest to be paid on the balance
+   */
   @Test
   public void testInterestAppliedWhenDepositIsExactly20() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $80.00 (to make sure this works for

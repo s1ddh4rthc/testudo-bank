@@ -887,6 +887,11 @@ public class MvcController {
 
   /**
    * 
+   * If the password attempt is incorrect or the balance is 0 or the user has an
+   * overdraft balance, the user is redirected to the "welcome" page.
+   * Otherwise, if the number of qualified deposits towards interest payout is 5
+   * then calculate the interest payout based on the rate and add it to the user's
+   * balance
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome"
