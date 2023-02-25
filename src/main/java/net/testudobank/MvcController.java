@@ -42,6 +42,7 @@ public class MvcController {
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
+  public static String TRANSACTION_HISTORY_DEPOSIT_INTEREST_ACTION = "DepositInterest";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -343,7 +344,24 @@ public class MvcController {
       }
 
     } else { // simple deposit case
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      if (userDepositAmtInPennies >= 2000) {
+        int newNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+        user.setNumDepositsForInterest(newNumDepositsForInterest);
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, newNumDepositsForInterest);
+
+        // add account balance then apply interest, if applicable
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+        if (newNumDepositsForInterest % 5 == 0) {
+          // int amtInterestApplied = (int)((BALANCE_INTEREST_RATE - 1) * (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID)));
+          // TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_INTEREST_ACTION, amtInterestApplied);
+          int newCashBalanceInPennies = (int)(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) * BALANCE_INTEREST_RATE);
+          user.setBalance(newCashBalanceInPennies);
+          TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCashBalanceInPennies);
+        }
+      } else {
+        user.setNumDepositsForInterest(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID));
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -355,6 +373,11 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      if (numDepositsForInterest != 0 && numDepositsForInterest % 5 == 0) {
+        int customerBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_INTEREST_ACTION, (int)(customerBalance - (customerBalance / BALANCE_INTEREST_RATE)));
+      }
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
