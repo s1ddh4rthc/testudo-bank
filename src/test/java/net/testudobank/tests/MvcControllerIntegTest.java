@@ -1582,4 +1582,67 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Verifies that interest rate is applied after the 5th transaction.
+   * The customer's Balance in the Customers table should be increased.
+   * 
+   * Assumes that the customer's account has a balance greater than zero, is
+   * not in overdraft, account is not frozen due to too many transaction disputes, etc...
+   * Additionally assumes that all deposits are greater than $20.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestAppliedAfter5thTransaction() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $100.55 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 100.55;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // initialize interest rate of 1.5% APY
+    double BALANCE_INTEREST_RATE = 1.015;
+
+    // Prepare Deposit Form to Deposit $21.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 21.00; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    // Make 4 deposits to customer 1's account and verify that no interest was applied subsequent to each deposit
+    for (int depositNumber = 1; depositNumber < 5; depositNumber++) {
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      // fetch updated data from the DB
+      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      Map<String,Object> customer1Data = customersTableData.get(0);
+
+      // verify no interest was applied and customer balance was increased by $21.00
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+      assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+      // verify the count for number of deposits necessary for interest increased by 1
+
+      // update customer 1's balance to verify the next deposit
+      CUSTOMER1_BALANCE = CUSTOMER1_EXPECTED_FINAL_BALANCE;
+    }
+
+    // send the 5th request to the Deposit Form's POST handler in MvcController to make sure interest rate will be applied
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify interest rate was applied and customer balance was increased by $21.00 plus an additional 1.5% APY
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_BEFORE_INTEREST = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_AFTER_INTEREST = CUSTOMER1_EXPECTED_FINAL_BALANCE_BEFORE_INTEREST * BALANCE_INTEREST_RATE;
+    int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE_AFTER_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
 }
