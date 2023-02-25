@@ -303,6 +303,9 @@ public class MvcController {
    * If the user is in overdraft, the deposit amount first pays off the overdraft balance,
    * and any excess deposit amount is added to the main balance.
    * 
+   * If the amount that is added to the main balance is greater than or equal to $20, 
+   * we count that as a deposit for interest
+   * 
    * @param user
    * @return "account_info" page if valid deposit request. Otherwise, redirect to "welcome" page.
    */
@@ -345,10 +348,20 @@ public class MvcController {
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
+        // increase deposit for interest by 1 if mainBalanceIncreaseAmtInPennies >= 2000
+        if(mainBalanceIncreaseAmtInPennies >= 2000) {
+          int customerDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, customerDepositsForInterest + 1);
+        }
       }
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+       // increase deposit for interest by 1 if userDepositAmtInPennies >= 2000
+      if(userDepositAmtInPennies >= 2000) {
+        int customerDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, customerDepositsForInterest + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -804,13 +817,32 @@ public class MvcController {
   }
 
   /**
+   * Adds interest to the customer's bank balance if the customer's deposits for interest is 5
+   * and resets it to 0
    * 
+   * If the customer's deposts for interest is between 0 and 4 inclusive, no interest is applied
+   * 
+   * If the customer's deposts for interest is greater than 5 or less than 0, something is wrong
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int customerDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
+    //Applies interest to user bank balance and resets deposits for interest to 0
+    if(customerDepositsForInterest == 5) {
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int newBalanceInPenniesAfterInterest = (int) (userBalanceInPennies*INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalanceInPenniesAfterInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      return "account_info";
+
+    // Error Case
+    } else if (customerDepositsForInterest > 5 || customerDepositsForInterest < 0) {
+      // Something is wrong with our implementation
+    }
     return "welcome";
 
   }
