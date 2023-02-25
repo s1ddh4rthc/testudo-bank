@@ -119,7 +119,7 @@ public class MvcControllerIntegTest {
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
     List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
   
-    // verify that customer1's data is still the only data populated in Customers table
+    // verify that customer1's data is still the only data populated in Customers table  jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
     assertEquals(1, customersTableData.size());
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
@@ -1114,6 +1114,69 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
+  }
+
+
+
+  /*
+   * This test creates a customer then adds 5 transactions over $20. It then checks to see if "applyInterest" will add the correct amount of interest to
+   * the customer's account. 
+   *
+   */
+   
+  @Test
+  public void testApplyingInterestSuccessfully() throws SQLException, ScriptException { 
+        double CUSTOMER_BALANCE = 123.45;
+        double EXPECTED_BALANCE = 226.85;
+        int CUSTOMER_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER_BALANCE);
+        int EXPECTED_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(EXPECTED_BALANCE);
+        MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER_BALANCE_IN_PENNIES, 0);
+    
+        double CUSTOMER_AMOUNT_TO_DEPOSIT = 20.01;
+        User customer = new User();
+        customer.setUsername(CUSTOMER1_ID);
+        customer.setPassword(CUSTOMER1_PASSWORD);
+        customer.setAmountToDeposit(CUSTOMER_AMOUNT_TO_DEPOSIT);
+
+        for(int i = 0; i < 5; i++) {
+          controller.submitDeposit(customer);
+        }
+
+        controller.applyInterest(customer);
+
+        Map<String, Object> customerData = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+        assertEquals(EXPECTED_BALANCE_IN_PENNIES, (int) customerData.get("Balance"));
+  }
+
+   /*
+   * This test creates a customer then adds 4 transactions over $20, and one under $20. It then checks to see if "applyInterest" will correctly NOT add interest to the 
+   * customer's account. 
+   */
+  @Test
+  public void testApplyingInterestUnsuccessfully() throws SQLException, ScriptException { 
+        double CUSTOMER_BALANCE = 123.45;
+        double EXPECTED_BALANCE = 223.47;
+        int CUSTOMER_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER_BALANCE);
+        int EXPECTED_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(EXPECTED_BALANCE);
+        MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER_BALANCE_IN_PENNIES, 0);
+    
+        double CUSTOMER_AMOUNT_TO_DEPOSIT = 20.01;
+        User customer = new User();
+        customer.setUsername(CUSTOMER1_ID);
+        customer.setPassword(CUSTOMER1_PASSWORD);
+        customer.setAmountToDeposit(CUSTOMER_AMOUNT_TO_DEPOSIT);
+
+        for(int i = 0; i < 4; i++) {
+          controller.submitDeposit(customer);
+        }
+
+        customer.setAmountToDeposit(19.99);
+        controller.submitDeposit(customer);
+
+        controller.applyInterest(customer);
+
+        Map<String, Object> customerData = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+        assertEquals(EXPECTED_BALANCE_IN_PENNIES, (int) customerData.get("Balance"));
   }
 
   /**
