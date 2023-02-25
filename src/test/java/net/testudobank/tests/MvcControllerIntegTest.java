@@ -1644,5 +1644,4 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
 
   }
-
 }
