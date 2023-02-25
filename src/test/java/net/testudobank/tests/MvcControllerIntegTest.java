@@ -1636,7 +1636,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
 
     /**
-  * Verifies less than or equal to 20 dollars increments the numDepositsForInterest
+  * Verifies less than or equal to 19.99 dollars increments the numDepositsForInterest
   * @throws SQLException
   * @throws ScriptException
   */
@@ -1649,7 +1649,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
     int CUSTOMER1_NUM_INTEREST_DEPOSITS = 0;
     // Prepare Deposit Form to Deposit $100 to customer 1's account.
-    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.0; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
     User customer1DepositFormInputs = new User();
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
@@ -1662,7 +1662,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     // send request to the Deposit Form's POST handler in MvcController
     controller.submitDeposit(customer1DepositFormInputs);
-
     // fetch updated data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
     List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
@@ -1672,15 +1671,17 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
-    // verify customer balance was increased by $20
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    // verify customer balance was increased by $19.99
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = CUSTOMER1_BALANCE_IN_PENNIES + MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    // double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
 
     customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
     customer1Data = customersTableData.get(0);
+    // verify numDepositsForInterest is not incremented when depositing amount <= 20 dollars
     assertEquals(CUSTOMER1_NUM_INTEREST_DEPOSITS, customer1Data.get("NumDepositsForInterest"));
+    System.out.println(customer1Data.get("Balance"));
     assertEquals((int) (CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES), (int)customer1Data.get("Balance"));
-    // verify that the Deposit(Since numDeposit when adding customer is 4, use 2) is the only log in TransactionHistory table
+    // verify that the Deposit is the only log in TransactionHistory table
     assertEquals(1, transactionHistoryTableData.size());
 
     
