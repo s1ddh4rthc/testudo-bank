@@ -325,6 +325,12 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
+
+    int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    if (userDepositAmt >= 20.00) {
+      int updatedDeposits = numOfDepositsForInterest + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, updatedDeposits);
+    }
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -805,8 +811,24 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    int currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    double balanceInDollars = currBalance / 100.0;
 
-    return "welcome";
+    // interest will only be applied if the number of deposits is 5 and currenct balance is greater than or equal to 0
+    if (balanceInDollars >= 20.0 && numOfDepositsForInterest == 5) {
+      double balanceWithInterest = balanceInDollars * BALANCE_INTEREST_RATE;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, convertDollarsToPennies(balanceWithInterest));
+
+      // resets the numDepositsForInterest count to 0 to ensure that interest is applied for every 5th deposit
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      return "welcome";
+    }
 
   }
 
