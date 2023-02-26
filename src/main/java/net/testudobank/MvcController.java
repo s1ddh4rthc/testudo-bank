@@ -335,6 +335,7 @@ public class MvcController {
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    
     if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
       // update overdraft balance in Customers table, and log the repayment in OverdraftLogs table.
       int newOverdraftBalanceInPennies = Math.max(userOverdraftBalanceInPennies - userDepositAmtInPennies, 0);
@@ -349,6 +350,13 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+    }
+
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    // Adds the users deposit as a valid deposit of interest 
+    if (userBalanceInPennies > 0 && userDepositAmtInPennies >= convertDollarsToPennies(20) && userOverdraftBalanceInPennies == 0) {
+      int userNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDeposits + 1);
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -804,14 +812,40 @@ public class MvcController {
   }
 
   /**
-   * 
+   * An interest rate of 1.5% APY will be applied to users main balance
+   * if the user has a positive balance, is not in overdraft, and has made
+   * 5 deposits into their account of over $20.
+   * <p>
+   * The deposit will not count towards the 5 deposits necessary to apply interest
+   * if the user is in overdraft or does not have a positive balance.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new Date());
+    int userNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
-    return "welcome";
+    if (userNumberOfDeposits == 5) {
+      // Calculate interest rate and update user balance
+      int userBalanceAfterInterest = (int) (userCashBalanceInPennies * BALANCE_INTEREST_RATE);
+      int userAmtOfInterest = userBalanceAfterInterest - userCashBalanceInPennies;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterest);
+
+      // Record transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userAmtOfInterest);
+
+      // Reset user deposit count
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+      // Update account info and return account page
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      return "welcome";
+    }
 
   }
 
