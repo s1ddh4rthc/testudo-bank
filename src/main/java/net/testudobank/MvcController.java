@@ -362,6 +362,12 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
   }
+  
+  //Helper method by benjamin
+  //Done for code reusability
+  public int applyInterestRateToPennyAmount(int pennyAmount){
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
 	
   /**
    * HTML POST request handler for the Withdraw Form page.
@@ -407,7 +413,7 @@ public class MvcController {
     int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    int userOverdraftBalanceInPennies = applyInterestRateToPennyAmount(userBalanceInPennies);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
       int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
@@ -805,6 +811,25 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int amountToDepositInPennies=convertDollarsToPennies(user.getAmountToDeposit());
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    if(!(userOverdraftBalanceInPennies>0) && amountToDepositInPennies >= convertDollarsToPennies(20)){
+      user.setNumDepositsForInterest((user.getNumDepositsForInterest())+1);
+
+      //Now checking if we need to award interest to balance
+      if(user.getNumDepositsForInterest()==5){
+        
+        //updating user fields
+        user.setNumDepositsForInterest(0);
+        user.setBalance(userBalanceInPennies*BALANCE_INTEREST_RATE);
+        
+        return "account_info";
+      }
+    }
 
     return "welcome";
 
