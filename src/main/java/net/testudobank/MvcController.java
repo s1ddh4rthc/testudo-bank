@@ -811,6 +811,25 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int amountToDepositInPennies=convertDollarsToPennies(user.getAmountToDeposit());
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    if(!(userOverdraftBalanceInPennies>0) && amountToDepositInPennies >= convertDollarsToPennies(20)){
+      user.setNumDepositsForInterest((user.getNumDepositsForInterest())+1);
+
+      //Now checking if we need to award interest to balance
+      if(user.getNumDepositsForInterest()==5){
+        
+        //updating user fields
+        user.setNumDepositsForInterest(0);
+        user.setBalance(userBalanceInPennies*BALANCE_INTEREST_RATE);
+        
+        return "account_info";
+      }
+    }
 
     return "welcome";
 
