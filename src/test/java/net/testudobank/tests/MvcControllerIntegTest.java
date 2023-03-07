@@ -1838,9 +1838,9 @@ public class MvcControllerIntegTest {
 
     // store timestamp of when Deposit request is sent to verify timestamps in the
     // TransactionHistory table later
+    controller.submitDeposit(customer1DepositFormInputs);
     LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers
         .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
-    controller.submitDeposit(customer1DepositFormInputs);
 
     // Submit 6th Deposit
     controller.submitDeposit(customer1DepositFormInputs);
@@ -1851,7 +1851,7 @@ public class MvcControllerIntegTest {
 
     // verify that the Deposit's details are accurately logged in the
     // TransactionHistory table
-    Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(5);
+    Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(4);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID,
         MvcController.TRANSACTION_HISTORY_INTEREST_APPLY, INTEREST_AMOUNT);
 
@@ -1860,12 +1860,11 @@ public class MvcControllerIntegTest {
   }
 
   /**
-   * Verifies interest only applied on 5th deposit.
+   * Verifies interest only applies on transactions of 20 or more.
    * 
-   * Shows 6th deposit does not give additional interest.
-   * 
-   * The customer's Balance in the Customers table should be increased,
-   * and the InterestApply should be logged in the TransactionHistory table.
+   * The customer's Balance in the Customers table should be increased and
+   * numDepositsForInterest increments only 2 times since only 2 transactions
+   * were 20 or more.
    * 
    * Assumes that the customer's account is in the simplest state
    * (not in overdraft, account is not frozen due to too many transaction
@@ -1912,5 +1911,65 @@ public class MvcControllerIntegTest {
     controller.submitDeposit(customer1DepositFormInputs);
     assertEquals(2, jdbcTemplate.queryForObject(numDepositsForInterestQuery, Integer.class));
 
+  }
+
+  /**
+   * Verifies interest only applied on 5th deposit.
+   * 
+   * Shows 6th deposit does not give additional interest even if below 20 dollars.
+   * 
+   * The customer's Balance in the Customers table should be increased,
+   * and the InterestApply should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction
+   * disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestApplyAmountLessThanTwentyAfterFiveDeposits() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $0
+    double CUSTOMER1_BALANCE = 0.0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    double CUSTOMER1_UNDER_TWENTY_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_TWENTY_DEPOSIT = 20.00; // user input is in dollar amount, not pennies.
+
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // verify that there are no logs in TransactionHistory table before Deposit
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    String numDepositsForInterestQuery = String
+        .format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID);
+
+    // 5 20 dollar deposits
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // Should be 5 deposits for interest
+    assertEquals(5, jdbcTemplate.queryForObject(numDepositsForInterestQuery, Integer.class));
+
+    // NumDeposits stays 5 since deposit under twenty
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_UNDER_TWENTY_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputs);
+    assertEquals(5, jdbcTemplate.queryForObject(numDepositsForInterestQuery, Integer.class));
+
+    // Should be a total of 7 transactions (6 deposits, 1 interest apply)
+    assertEquals(7, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
   }
 }

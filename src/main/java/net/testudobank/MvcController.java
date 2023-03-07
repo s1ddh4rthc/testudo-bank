@@ -372,12 +372,14 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
-      // If deposit is larger than 20, update number of deposits for interest
+      // If deposit is greater than or equal to20, update number of deposits for
+      // interest
       if (userDepositAmt >= 20) {
         // Get number of deposits for interest
         int userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
             userID);
-        // Set number of deposits for interest to be one more than current number
+
+        // Increment numDepositsForInterest
         if (userNumberOfDepositsForInterest == 5) {
           // If deposits is at 5, reset to 0 then add one for current deposit
           TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
@@ -387,6 +389,7 @@ public class MvcController {
           TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
               userNumberOfDepositsForInterest + 1);
         }
+        applyInterest(user); // Apply interest only if deposit greater than or equal to 20
       }
 
       // only adds deposit to transaction history if is not transfer
@@ -406,7 +409,6 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
