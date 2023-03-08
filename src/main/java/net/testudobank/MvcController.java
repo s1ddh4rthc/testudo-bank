@@ -258,10 +258,26 @@ public class MvcController {
     return (int) (dollarAmount * 100);
   }
 
-  // apply interest to customer's account
+  // apply's interest to customer's account if they meet the criteria
   private static void applyInterestForDeposit(User user, JdbcTemplate template, int balance) {
-    TestudoBankRepository.setCustomerCashBalance(template, user.getUsername(),
-        (int) (Math.round(balance * BALANCE_INTEREST_RATE)));
+    int currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(template,
+        user.getUsername()); // get current number of deposits for interest
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int userDepositAmtInPennies = convertDollarsToPennies(user.getAmountToDeposit());
+    String userID = user.getUsername();
+
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(template, userID,
+        currentNumDepositsForInterest + 1);
+    currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(template,
+        userID); // get updated number of deposits for interest
+
+    // if deposit number is multiple of 5, accrued interest is applied
+    if (currentNumDepositsForInterest != 0 && currentNumDepositsForInterest % 5 == 0) {
+      TestudoBankRepository.setCustomerCashBalance(template, userID,
+          (int) (Math.round(balance * BALANCE_INTEREST_RATE)));
+      TestudoBankRepository.insertRowToTransactionHistoryTable(template, userID, currentTime,
+          TRANSACTION_HISTORY_DEPOSIT_ACTION, (int) (userDepositAmtInPennies * BALANCE_INTEREST_RATE));
+    }
   }
 
   // Converts LocalDateTime to Date variable
@@ -384,20 +400,8 @@ public class MvcController {
     // update number of deposits for interest if deposit amount is greater than or
     // equal to $20
     if (currentBalance > 0 && userDepositAmtInPennies - userOverdraftBalanceInPennies >= 2000) {
-      int currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
-          userID);
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
-          currentNumDepositsForInterest + 1);
-      // get updated number of deposits for interest
-      currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate,
-          userID);
       // if deposit number is multiple of 5, accrued interest is applied
-      if (currentNumDepositsForInterest != 0 && currentNumDepositsForInterest % 5 == 0) {
-        applyInterestForDeposit(user, jdbcTemplate, currentBalance); // log to transaction history
-        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
-            TRANSACTION_HISTORY_DEPOSIT_ACTION, (int) (userDepositAmtInPennies * BALANCE_INTEREST_RATE));
-      }
-
+      applyInterestForDeposit(user, jdbcTemplate, currentBalance); // log to transaction history
     }
 
     // only adds deposit to transaction history if is not transfer
