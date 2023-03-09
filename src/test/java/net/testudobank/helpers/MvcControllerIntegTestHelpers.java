@@ -116,13 +116,11 @@ public class MvcControllerIntegTestHelpers {
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
   }
 
-  // Verifies the customerData reflects the expected final balance and number of deposits for interests
+  // Fetches customerData and verifies it reflects the expected final balance and number of deposits for interests
   public static void checkSingularDepositTowardsInterest(JdbcTemplate jdbcTemplate, double CUSTOMER_EXPECTED_FINAL_BALANCE_IN_DOLLARS, int CUSTOMER_EXPECT_NUM_DEPOSITS_FOR_INTEREST) {
-    // fetch updated data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
     Map<String,Object> customerData = customersTableData.get(0);
 
-    // verify DB data matches parameter expected values
     double CUSTOMER_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER_EXPECTED_FINAL_BALANCE_IN_DOLLARS);
     assertEquals(CUSTOMER_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customerData.get("Balance"));
     assertEquals(CUSTOMER_EXPECT_NUM_DEPOSITS_FOR_INTEREST, (int)customerData.get("NumDepositsForInterest"));

@@ -360,7 +360,7 @@ public class MvcController {
     // Add this transaction to be considered for interest application
     int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     if (userDepositAmtInPennies >= 2000 && // only deposits over $20 will be eligible for APY earnings
-        userOverdraftBalanceInPennies <= 0 && // if the user has a balance and is not in overdraft
+        userOverdraftBalanceInPennies <= 0 &&
         userCashBalanceInPennies > 0) { 
       int userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDepositsForInterest + 1);
@@ -829,13 +829,11 @@ public class MvcController {
     int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int userNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    // Adding interest on the 5th transaction
     if (userNumDepositsForInterest == 5) {
+      // Adding interest to balance and showing application in TransactionHistory
       int userCashBalanceAfterInterestInPennies = (int) (BALANCE_INTEREST_RATE * userCashBalanceInPennies);
       int increaseAmtInPennies = userCashBalanceAfterInterestInPennies - userCashBalanceInPennies;
-      // Adding interest to the user's account balance
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, increaseAmtInPennies);
-      // Updating the transaction history table
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, increaseAmtInPennies);
       // Resetting the user's number of interest-applicable deposits
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
