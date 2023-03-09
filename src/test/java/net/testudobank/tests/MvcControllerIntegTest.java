@@ -1733,11 +1733,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     customer1DepositFormInputs.setOverDraftBalance(CUSTOMER1_OVERDRAFT_BALANCE);
   
     // Verify that 5 deposit requests will not increment the number of deposits for interest counter, since the account will remain in overdraft
-    double CUSTOMER1_AMOUNT_TO_DEPOSIT = CUSTOMER1_OVERDRAFT_BALANCE / 5;
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = CUSTOMER1_OVERDRAFT_BALANCE / 5; // 5 deposits of 30.10 to reach $0 overdraft and regular balance
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_DOLLARS = CUSTOMER1_AMOUNT_TO_DEPOSIT / 100;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = 0; // balance remains $0 until overdraft balance is paid
     int CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = 0;
     for (int depositIdx = 1; depositIdx <= 5; depositIdx++) {
-      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_DOLLARS); 
       
       // send request to the Deposit Form's POST handler in MvcController
       controller.submitDeposit(customer1DepositFormInputs);
@@ -1747,10 +1748,10 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
 
     // Verify that the interest counter begins once the customer bas a balance greater than $0
-    CUSTOMER1_AMOUNT_TO_DEPOSIT = 25.25; 
-    CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT; 
+    CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_DOLLARS = 25.25; 
+    CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_DOLLARS; 
     CUSTOMER1_EXPECTED_NUM_DEPOSITS_FOR_INTEREST = 1;
-    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_DOLLARS); 
     
     // send request to the Deposit Form's POST handler in MvcController
     controller.submitDeposit(customer1DepositFormInputs);
