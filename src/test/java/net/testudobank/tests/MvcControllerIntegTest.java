@@ -1621,7 +1621,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
     int CUSTOMER1_EXPECTED_FIRST_BALANCE_IN_PENNIES = CUSTOMER1_BALANCE_IN_PENNIES + (CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES * 4) + (int)(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES * 1.015);
     assertEquals(CUSTOMER1_EXPECTED_FIRST_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-    assertEquals(5, (int)customer1Data.get("NumDepositsForInterest"));
+    assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
 
     // make another deposit in customer1's account
     controller.submitDeposit(customer1DepositFormInputs);
@@ -1633,7 +1633,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     // verify interest was not applied to deposit amount
     int CUSTOMER1_EXPECTED_SECOND_BALANCE_IN_PENNIES = CUSTOMER1_EXPECTED_FIRST_BALANCE_IN_PENNIES + CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES;
     assertEquals(CUSTOMER1_EXPECTED_SECOND_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-    assertEquals(6, (int)customer1Data.get("NumDepositsForInterest"));
+    assertEquals(1, (int)customer1Data.get("NumDepositsForInterest"));
 
     // Prepare Deposit Form to Deposit $19.99 to customer 1's account.
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
@@ -1653,7 +1653,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
     int CUSTOMER1_EXPECTED_THIRD_BALANCE_IN_PENNIES = CUSTOMER1_EXPECTED_SECOND_BALANCE_IN_PENNIES + CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES;
     assertEquals(CUSTOMER1_EXPECTED_THIRD_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-    assertEquals(6, (int)customer1Data.get("NumDepositsForInterest"));
+    assertEquals(1, (int)customer1Data.get("NumDepositsForInterest"));
 
     // Prepare Deposit Form to Deposit $20.01 to customer 1's account.
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01; // user input is in dollar amount, not pennies.
@@ -1670,7 +1670,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     customer1Data = customersTableData.get(0);
 
     // verify number of deposits for interest increased by 1
-    assertEquals(7, (int)customer1Data.get("NumDepositsForInterest"));
+    assertEquals(2, (int)customer1Data.get("NumDepositsForInterest"));
   }
 
 }
