@@ -1582,4 +1582,95 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Verifies that interest rate is applied to balance only after every 5 deposits
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testAppliedInterest() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $20.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // verify that the number of deposits for interest is 0
+    assertEquals(0, (int)jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0).get("NumDepositsForInterest"));
+
+    // send request to the Deposit Form's POST handler in MvcController for 5 deposits
+    for(int i=0; i<5; i++) {
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer balance was increased by deposit and interest amount
+    int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    int CUSTOMER1_EXPECTED_FIRST_BALANCE_IN_PENNIES = CUSTOMER1_BALANCE_IN_PENNIES + (CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES * 4) + (int)(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES * 1.015);
+    assertEquals(CUSTOMER1_EXPECTED_FIRST_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+    assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+
+    // make another deposit in customer1's account
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated data from the DB
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+    customer1Data = customersTableData.get(0);
+
+    // verify interest was not applied to deposit amount
+    int CUSTOMER1_EXPECTED_SECOND_BALANCE_IN_PENNIES = CUSTOMER1_EXPECTED_FIRST_BALANCE_IN_PENNIES + CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES;
+    assertEquals(CUSTOMER1_EXPECTED_SECOND_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+    assertEquals(1, (int)customer1Data.get("NumDepositsForInterest"));
+
+    // Prepare Deposit Form to Deposit $19.99 to customer 1's account.
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
+    customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    // make another deposit in customer1's account
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated data from the DB
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+    customer1Data = customersTableData.get(0);
+
+    // verify number of deposits for interest did not go up and interest wasn't applied
+    CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    int CUSTOMER1_EXPECTED_THIRD_BALANCE_IN_PENNIES = CUSTOMER1_EXPECTED_SECOND_BALANCE_IN_PENNIES + CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES;
+    assertEquals(CUSTOMER1_EXPECTED_THIRD_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+    assertEquals(1, (int)customer1Data.get("NumDepositsForInterest"));
+
+    // Prepare Deposit Form to Deposit $20.01 to customer 1's account.
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01; // user input is in dollar amount, not pennies.
+    customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    // make another deposit in customer1's account
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated data from the DB
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+    customer1Data = customersTableData.get(0);
+
+    // verify number of deposits for interest increased by 1
+    assertEquals(2, (int)customer1Data.get("NumDepositsForInterest"));
+  }
+
 }
