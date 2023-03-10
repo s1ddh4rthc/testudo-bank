@@ -1582,4 +1582,253 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+/**
+   * Verifies interest is only applied every 5 transaction
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestEveryFiveTransactions() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $1000.00 represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $20.00 to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD); 
+
+    // send 6 requests to the Deposit Form's POST handler in MvcController
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    // verify that their 6 transactions in the TransactionHistory table (5 deposits, 1 interest)
+    assertEquals(6, transactionHistoryTableData.size());
+
+    // verify that interest is applied on the 5th transaction 
+    Map<String,Object> customer1TransactionLogInterest = transactionHistoryTableData.get(5); //(index 5 because 0,1,2,3,4 are deposits) 
+    assertEquals("Interest", (String) customer1TransactionLogInterest.get("Action"));
+
+    // verify that the final deposit of 19.99 did not contribute to numDepositsForInterest
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(5, (int)customer1Data.get("numDepositsForInterest"));
+  }
+
+  /**
+   * Verifies interest is not applied after 5 transactions
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestNotAppliedAfterFiveTransactions() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $1000.00 represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $20.00 to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD); 
+
+    // send 9 requests to the Deposit Form's POST handler in MvcController
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(20.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    // verify that their 10 transactions in the TransactionHistory table (9 deposits, 1 interest)
+    assertEquals(10, transactionHistoryTableData.size());
+
+    // verify that interest is applied on the 5th transaction 
+    Map<String,Object> customer1TransactionLogInterest = transactionHistoryTableData.get(5); //(index 5 because 0,1,2,3,4 are deposits) 
+    assertEquals("Interest", (String) customer1TransactionLogInterest.get("Action"));
+  }
+
+    /**
+   * Verifies interest works with all deposits greater than twenty dollars
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestWorksWithMoreThanTwentyDollars() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $1000.00 represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit more than $20.00 to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD); 
+
+    // send 9 requests to the Deposit Form's POST handler in MvcController
+    customer1DepositFormInputs.setAmountToDeposit(20.01); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(50.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(100.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(1000.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(10000.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    // verify that their 6 transactions in the TransactionHistory table (5 deposits, 1 interest)
+    assertEquals(6, transactionHistoryTableData.size());
+
+    // verify that interest is applied on the 5th transaction 
+    Map<String,Object> customer1TransactionLogInterest = transactionHistoryTableData.get(5); //(index 5 because 0,1,2,3,4 are deposits) 
+    assertEquals("Interest", (String) customer1TransactionLogInterest.get("Action"));
+  }
+
+  /**
+   * Verifies the simplest interest case (and interest works with 20 dollar deposits).
+   * The customer's Balance in the Customers table should be increased,
+   * and the Deposit and Interest should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestWorksWithTwentyDollars() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $980.00 represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 980.00;
+    // 15 dollars interest on 1000 dollars
+    int CUSTOMER1_INTEREST = 15;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 4);
+
+    // Prepare Deposit Form to Deposit $20.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; // user input is in dollar amount, not pennies
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance was increased by $35.00 (20 dollar deposit, 15 dollars interest)
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_INTEREST;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // verify that the Deposit and Interest is the only log in TransactionHistory table
+    assertEquals(2, transactionHistoryTableData.size());
+    
+    // verify that the Deposit's details are accurately logged in the TransactionHistory table
+    Map<String,Object> customer1TransactionLogDeposit = transactionHistoryTableData.get(0);
+    int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLogDeposit, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+     // verify that the Interests's details are accurately logged in the TransactionHistory table
+     Map<String,Object> customer1TransactionLogInterest = transactionHistoryTableData.get(1);
+     int CUSTOMER1_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_INTEREST);
+     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLogInterest, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_INTEREST_ACTION, CUSTOMER1_INTEREST_IN_PENNIES);
+  }
+
+  /**
+   * Verifies interest is not applied for deposits under twenty dollars
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestDoesNotWorksWithLessThanTwentyDollars() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $1000.00 represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 1000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit less than or equal to $19.99 to customer 1's account.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD); 
+
+    // send 9 requests to the Deposit Form's POST handler in MvcController
+    customer1DepositFormInputs.setAmountToDeposit(19.99); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(19.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(15.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(10.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(1.00); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    // verify that their 5 transactions in the TransactionHistory table (5 deposits)
+    assertEquals(5, transactionHistoryTableData.size());
+  }
 }
+
