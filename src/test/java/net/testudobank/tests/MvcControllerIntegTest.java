@@ -262,6 +262,46 @@ public class MvcControllerIntegTest {
                 assertEquals(40039, userBalanceInPennies);
         }
 
+        @Test
+        public void interestNotAppliedOnInvalidBalance() throws ScriptException {
+                // initialize customer1 with a balance of $123.45 (to make sure this works for
+                // non-whole dollar amounts). represented as pennies in the DB.
+                double CUSTOMER1_BALANCE = 0;
+                int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers
+                                .convertDollarsToPennies(CUSTOMER1_BALANCE);
+                MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
+                                CUSTOMER1_FIRST_NAME,
+                                CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+                // Prepare Deposit Form to Deposit $22.34 to customer 1's account.
+                User customer1DepositFormInputs = new User();
+                customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+                customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+                // send request to the Deposit Form's POST handler in MvcController
+                // deposit 5 times
+                double deposits[] = { 22.34, 23.34, 24.34, 25.34 };
+
+                MvcControllerIntegTestHelpers.makeDeposits(controller, customer1DepositFormInputs, deposits);
+                customer1DepositFormInputs.setAmountToWithdraw(101.71); // withdraw more than current balance
+                controller.submitWithdraw(customer1DepositFormInputs);
+                customer1DepositFormInputs.setAmountToDeposit(26.34);
+                controller.submitDeposit(customer1DepositFormInputs);
+
+                // verify that number of interest deposits is equal to 4
+                String getCustomerNumberOfDepositsForInterestSql = String
+                                .format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';",
+                                                CUSTOMER1_ID);
+                int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql,
+                                Integer.class);
+                assertEquals(4, numberOfDepositsForInterest); //
+                // make sure that the customer's balance is correct
+                String CustomerBalanceSql = String.format("SELECT Balance FROM Customers WHERE CustomerID='%s';",
+                                CUSTOMER1_ID);
+                int userBalanceInPennies = jdbcTemplate.queryForObject(CustomerBalanceSql, Integer.class);
+                assertEquals(1987, userBalanceInPennies);
+        }
+
         /**
          * Verifies the simplest withdraw case.
          * The customer's Balance in the Customers table should be decreased,

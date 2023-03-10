@@ -260,11 +260,11 @@ public class MvcController {
 
   // apply's interest to customer's account if they meet the criteria
   private static void applyInterestForDeposit(User user, JdbcTemplate template, int balance) {
-    int currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(template,
-        user.getUsername()); // get current number of deposits for interest
-    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-    int userDepositAmtInPennies = convertDollarsToPennies(user.getAmountToDeposit());
     String userID = user.getUsername();
+
+    int currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(template,
+        userID); // get current number of deposits for interest
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
     TestudoBankRepository.setCustomerNumberOfDepositsForInterest(template, userID,
         currentNumDepositsForInterest + 1);
@@ -396,9 +396,11 @@ public class MvcController {
     }
 
     int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-
+    System.out.print("current balance is: " + currentBalance);
     // update number of deposits for interest if deposit amount is greater than or
     // equal to $20
+    System.out.print("user deposit amount is: " + userDepositAmtInPennies + " over draft amount is: "
+        + userOverdraftBalanceInPennies);
     if (currentBalance > 0 && userDepositAmtInPennies - userOverdraftBalanceInPennies >= 2000) {
       // if deposit number is multiple of 5, accrued interest is applied
       applyInterestForDeposit(user, jdbcTemplate, currentBalance); // log to transaction history
@@ -481,6 +483,7 @@ public class MvcController {
         userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into
                                                            // overdraft with interest fee
+      System.out.print("Got here " + userWithdrawAmtInPennies + " " + userBalanceInPennies + " ");
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
       int newOverdraftIncreaseAmtAfterInterestInPennies = (int) (excessWithdrawAmtInPennies * INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
