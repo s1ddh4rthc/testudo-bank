@@ -821,17 +821,19 @@ public class MvcController {
     if (userDepositAmtInPennies >= MIN_DEPOSIT_FOR_INTEREST && userOverdraftBalanceInPennies == 0) {
       // increment number of deposits for interest by 1
       int numberOfDepositsForInterest = 1 + TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
-  
-      if (numberOfDepositsForInterest % 5 == 0) {
+      if (numberOfDepositsForInterest == 5) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
         int depositAmtAfterInterestInPennies = (int)(userDepositAmtInPennies * BALANCE_INTEREST_RATE);
         int addedInterestAmtInPennies = depositAmtAfterInterestInPennies - userDepositAmtInPennies;
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, addedInterestAmtInPennies);
         
         TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, addedInterestAmtInPennies);
         return "account_info";
-      
+      } else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
       }
+  
     }
     return "welcome";
   }
