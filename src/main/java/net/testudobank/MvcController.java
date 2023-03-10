@@ -276,7 +276,7 @@ public class MvcController {
       TestudoBankRepository.setCustomerCashBalance(template, userID,
           (int) (Math.round(balance * BALANCE_INTEREST_RATE)));
       TestudoBankRepository.insertRowToTransactionHistoryTable(template, userID, currentTime,
-          TRANSACTION_HISTORY_DEPOSIT_ACTION, (int) (userDepositAmtInPennies * BALANCE_INTEREST_RATE));
+          TRANSACTION_HISTORY_DEPOSIT_ACTION, (int) (balance * BALANCE_INTEREST_RATE));
     }
   }
 

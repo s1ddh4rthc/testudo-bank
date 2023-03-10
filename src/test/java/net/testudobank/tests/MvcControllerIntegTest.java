@@ -206,35 +206,55 @@ public class MvcControllerIntegTest {
          */
 
         @Test
-        public void testInterestNotApplied() throws ScriptException {
+        public void testInterestNotAppliedAndApplied() throws ScriptException {
                 // initialize customer1 with a balance of $123.45 (to make sure this works for
                 // non-whole dollar amounts). represented as pennies in the DB.
                 double CUSTOMER1_BALANCE = 300.45;
+                double CUSTOMER2_BALANCE = 200.56;
+
+                int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers
+                                .convertDollarsToPennies(CUSTOMER2_BALANCE);
                 int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers
                                 .convertDollarsToPennies(CUSTOMER1_BALANCE);
                 MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
                                 CUSTOMER1_FIRST_NAME,
                                 CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+                MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD,
+                                CUSTOMER1_FIRST_NAME,
+                                CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
 
                 // Prepare Deposit Form to Deposit $22.34 to customer 1's account.
-                double CUSTOMER1_AMOUNT_TO_DEPOSIT = 22.34; // user input is in dollar amount, not pennies.
                 User customer1DepositFormInputs = new User();
                 customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
                 customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
 
+                User customer2DepositFormInputs = new User();
+                customer2DepositFormInputs.setUsername(CUSTOMER2_ID);
+                customer2DepositFormInputs.setPassword(CUSTOMER2_PASSWORD);
+
                 // send request to the Deposit Form's POST handler in MvcController
                 // deposit 5 times
-                double deposits[] = { 19.99, 19.99, 20, 19.99, 20 };
+                double customer1Deposits[] = { 19.99, 19.99, 20, 19.99, 20 };
+                double customer2Deposits[] = { 20.01, 20.01, 20.01, 20.01, 20.01 };
 
-                MvcControllerIntegTestHelpers.makeDeposits(controller, customer1DepositFormInputs, deposits);
+                MvcControllerIntegTestHelpers.makeDeposits(controller, customer1DepositFormInputs, customer1Deposits);
+                MvcControllerIntegTestHelpers.makeDeposits(controller, customer2DepositFormInputs, customer2Deposits);
 
-                // verify that number of interest deposits is equal to 2
+                // verify that number of interest deposits is correct for customer 1
                 String getCustomerNumberOfDepositsForInterestSql = String
                                 .format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';",
                                                 CUSTOMER1_ID);
                 int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql,
                                 Integer.class);
                 assertEquals(2, numberOfDepositsForInterest);
+
+                getCustomerNumberOfDepositsForInterestSql = String
+                                .format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';",
+                                                CUSTOMER2_ID);
+                numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql,
+                                Integer.class);
+                assertEquals(5, numberOfDepositsForInterest);
+
                 // make sure that the customer's balance is correct
                 String CustomerBalanceSql = String.format("SELECT Balance FROM Customers WHERE CustomerID='%s';",
                                 CUSTOMER1_ID);
