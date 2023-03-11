@@ -40,6 +40,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_NUM_TRANSACTIONS_FOR_INTEREST = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -344,6 +345,15 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+    }
+
+    // checks if user's overdraft balance is 0, have a positive cash balance, and 
+    // if deposit amount meets the minimum requirment to count towards number of deposits for interest
+    // if requirements are met, increase the number of deposits for interest 
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID); 
+    if (userOverdraftBalanceInPennies == 0 && userCashBalanceInPennies > 0 && userDepositAmtInPennies >= convertDollarsToPennies(20.0)) {
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numOfDepositsForInterest+1);
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -799,15 +809,30 @@ public class MvcController {
   }
 
   /**
-   * 
+   * If number of deposits for interest is 5, then apply the balance interest rate on the user's 
+   * current cash balance and add the interest deposit to transaction history 
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); 
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    return "welcome";
+    if (numOfDepositsForInterest == MIN_NUM_TRANSACTIONS_FOR_INTEREST) { 
+      int newCashBalanceInPennies = (int) (userCashBalanceInPennies * BALANCE_INTEREST_RATE);
+      int userInterestAmtInPennies = newCashBalanceInPennies - userCashBalanceInPennies;
 
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCashBalanceInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userInterestAmtInPennies);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0); // resets numDepositsForInterest to 0
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
   }
 
 }
