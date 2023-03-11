@@ -40,6 +40,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int NUM_DEPOSITS_REQUIRED_FOR_INTEREST = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -356,9 +357,15 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
+    
+    // will only apply interest if the deposit amount is over $20, the user is not in overdraft, and the user has money with the bank
+    int userCashBalanceAmtInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int TWENTY_DOLLARS_IN_PENNIES = 2000;
+    if(userDepositAmtInPennies > TWENTY_DOLLARS_IN_PENNIES && userOverdraftBalanceInPennies <= 0 && userCashBalanceAmtInPennies > 0) {
+      applyInterest(user);
+    }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -799,14 +806,50 @@ public class MvcController {
   }
 
   /**
+   * If the user is not in overdraft, has a positive balance, and 
+   * makes 5 deposits into their account of over $20, an interest rate
+   * of 1.5% APY will be applied to user's main balance.
    * 
+   * If the user is in overdraft or does not have a positive balance,
+   * the deposit will not count towards the 5 deposits necessary to
+   * apply interest on user's main balance.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    final int RESET_NUM_DEPOSITS_REQUIRED_FOR_INTEREST = 0;
 
-    return "welcome";
+    String userID = user.getUsername();
+
+    // Retrieves and updates user's deposit's necessary to apply interest, also retrieves user's main balance
+    int userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDepositsForInterest);
+    int userCashBalanceAmtInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // Only applies interest if the user has made 5 deposits to their main balance of over $20
+    if (userNumberOfDepositsForInterest == NUM_DEPOSITS_REQUIRED_FOR_INTEREST) {
+      // Resets the number of deposits required for interest to 0
+      userNumberOfDepositsForInterest = RESET_NUM_DEPOSITS_REQUIRED_FOR_INTEREST;
+
+      // Apply interest rate to user's main balance
+      int userNewBalanceAmtInPennies = (int) (userCashBalanceAmtInPennies * BALANCE_INTEREST_RATE);
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int balanceIncreaseAmtDueToInterest = userNewBalanceAmtInPennies - userCashBalanceAmtInPennies;
+      
+      // Update user's balance and user's deposit's necessary to apply interest, also adds balance increase amount due to interest to transaction history
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, balanceIncreaseAmtDueToInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDepositsForInterest);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceIncreaseAmtDueToInterest);
+
+      updateAccountInfo(user);
+      return "account_info";
+
+    } else { // User does not have the 5 deposits necessary to apply interest to their main balance
+
+      return "welcome";
+
+    }
 
   }
 
