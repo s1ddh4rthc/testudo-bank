@@ -178,19 +178,4 @@ public class TestudoBankRepository {
     }
   }
 
-  public static void insertRowToAppliedInterestHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int amtInPennies, int userAmtPlusInterestInPennies) {
-    String insertRowToAppliedInterestHistorySql = String.format("INSERT INTO appliedinteresthistory VALUES ('%s', '%s', '%d', %d);",
-                                                              customerID,
-                                                              timestamp,
-                                                              amtInPennies,
-                                                              userAmtPlusInterestInPennies);
-    jdbcTemplate.update(insertRowToAppliedInterestHistorySql);
-  }
-
-  public static List<Map<String,Object>> getRecentInterestApplications(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
-    String getInterestHistorySql = String.format("Select * from appliedinteresthistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
-    List<Map<String,Object>> interestLogs = jdbcTemplate.queryForList(getInterestHistorySql);
-    return interestLogs;
-  }
-
 }

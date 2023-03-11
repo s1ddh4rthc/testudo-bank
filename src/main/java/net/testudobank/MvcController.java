@@ -46,6 +46,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Applied Interest";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
@@ -224,11 +225,7 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
-    List<Map<String,Object>> interestLogs = TestudoBankRepository.getRecentInterestApplications(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSACTIONS_DISPLAYED);
-    String appliedInterestOutput = HTML_LINE_BREAK;
-    for(Map<String, Object> interestLog : interestLogs){
-      appliedInterestOutput += interestLog + HTML_LINE_BREAK;
-    }
+
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -245,7 +242,6 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
-    user.setAppliedInterestHist(appliedInterestOutput);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -829,8 +825,9 @@ public class MvcController {
 
       int userAmtPlusInterestInPennies = (int)(userAmtInPennies*BALANCE_INTEREST_RATE);
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userAmtPlusInterestInPennies);
-      TestudoBankRepository.insertRowToAppliedInterestHistoryTable(jdbcTemplate, userID, currentTime, userAmtInPennies, userAmtPlusInterestInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, userAmtPlusInterestInPennies);
       updateAccountInfo(user);
+      numDeposits = 0;
       return "account_info";
     }
     

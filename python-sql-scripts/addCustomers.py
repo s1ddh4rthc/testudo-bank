@@ -51,7 +51,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'Applied Interest', 'CryptoBuy', 'CryptoSell')),
   Amount int
 );
 '''
@@ -92,16 +92,7 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
-# Make empty appliedinteresthistory table
-create_appliedinteresthistory_table_sql = '''
-CREATE TABLE appliedinteresthistory (
-  CustomerID varchar(255),
-  Timestamp DATETIME,
-  AmountBeforeInterest int,
-  AmountAfterInterest int
-);
-'''
-cursor.execute(create_appliedinteresthistory_table_sql)
+
 
 
 # The two sets created below are used to ensure that this
