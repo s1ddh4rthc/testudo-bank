@@ -40,6 +40,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_NUM_TRANSACTIONS_FOR_INTEREST = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -820,7 +821,7 @@ public class MvcController {
     int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    if (numOfDepositsForInterest == 5) { 
+    if (numOfDepositsForInterest == MIN_NUM_TRANSACTIONS_FOR_INTEREST) { 
       int newCashBalanceInPennies = (int) (userCashBalanceInPennies * BALANCE_INTEREST_RATE);
       int userInterestAmtInPennies = newCashBalanceInPennies - userCashBalanceInPennies;
 
