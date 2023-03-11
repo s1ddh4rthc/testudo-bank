@@ -1658,7 +1658,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
 
     // repeat the same deposit 5 times
-    for (int i = 0; i < 5; i++) {
+    for (int depositNumber = 1; depositNumber <= 5; depositNumber++) {
       // verify that the customer's deposits are as expected
       int interestDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID);
       assertEquals(i, interestDeposits);
