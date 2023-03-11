@@ -326,6 +326,7 @@ public class MvcController {
       return "welcome";
     }
 
+    // When making a deposit with a valid amount, >= $20, the count for NumDepositsForInterest will increase, as this will count towards interest
     int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
     if (userDepositAmt >= 20.00) {
       int updatedDeposits = numOfDepositsForInterest + 1;
@@ -813,13 +814,24 @@ public class MvcController {
   public String applyInterest(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
     int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     int currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     double balanceInDollars = currBalance / 100.0;
 
-    // interest will only be applied if the number of deposits is 5 and currenct balance is greater than or equal to 0
-    if (balanceInDollars >= 20.0 && numOfDepositsForInterest == 5) {
+    /*
+     * interest will only be applied if the number of deposits is 5, current balance is greater than or equal to 0,
+     * and if the user currently does not have any overdraft balance
+     */
+    if (balanceInDollars >= 20.0 && numOfDepositsForInterest == 5 && userOverdraftBalanceInPennies == 0) {
       double balanceWithInterest = balanceInDollars * BALANCE_INTEREST_RATE;
+      double addedAmount = balanceWithInterest - balanceInDollars;
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+      // updated the customer's current balance with newly added interest
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, convertDollarsToPennies(balanceWithInterest));
+
+      // adding to the transaction table when interest was added to the customer's account
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, convertDollarsToPennies(addedAmount));
 
       // resets the numDepositsForInterest count to 0 to ensure that interest is applied for every 5th deposit
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
