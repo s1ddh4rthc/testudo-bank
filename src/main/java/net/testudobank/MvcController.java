@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -45,6 +46,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Applied Interest";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
@@ -223,6 +225,8 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+
+
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
@@ -357,8 +361,11 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+  int userBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     // update Model so that View can access new main balance, overdraft balance, and logs
+  if (userDepositAmtInPennies >= 2000 && userBalance > 0){ // Apply Interest if deposit amount is greater than $20, inner method will check if it is a multiple of 5 to properly apply itnerest. 
     applyInterest(user);
+   }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -806,8 +813,28 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDeposits+1);
+    int userAmtInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    
 
+    if (numDeposits % 5 == 0 && numDeposits > 0) {
+
+      int userAmtPlusInterestInPennies = (int)(userAmtInPennies*BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userAmtPlusInterestInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, userAmtPlusInterestInPennies);
+      updateAccountInfo(user);
+      numDeposits = 0;
+      return "account_info";
+    }
+    
+    return "welcome";
   }
 
 }
+
+
+
