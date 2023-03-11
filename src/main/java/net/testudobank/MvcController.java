@@ -339,10 +339,17 @@ public class MvcController {
       // add any excess deposit amount to main balance in Customers table
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
+        if(mainBalanceIncreaseAmtInPennies >= 2000){
+          user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+        }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
     } else { // simple deposit case
+      if(userDepositAmtInPennies >= 2000){
+        user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+      }
+
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 
@@ -808,6 +815,18 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    //implement interest feature
+    if(user.getNumDepositsForInterest() >= 5){
+      String userID = user.getUsername();
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); 
+      user.setNumDepositsForInterest(0);
+      double interestIncreaseInPennies = (int)(user.getBalance() * BALANCE_INTEREST_RATE);
+      //user.setBalance(interestIncreaseInPennies + user.getBalance());
+
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestIncreaseInPennies);
+
+      return "account_info";
+    }
 
     return "welcome";
 
