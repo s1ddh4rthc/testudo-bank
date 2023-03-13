@@ -28,6 +28,7 @@ CREATE TABLE TransactionHistory (
   Amount int
 );
 
+
 CREATE TABLE TransferHistory (
   TransferFrom varchar(255),
   TransferTo varchar(255),

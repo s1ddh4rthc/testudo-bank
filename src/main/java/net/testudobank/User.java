@@ -23,6 +23,9 @@ public class User {
   @Setter @Getter
   private String lastName;
 
+  @Setter @Getter
+  private String interestRate;
+
   @Setter  @Getter @PositiveOrZero @ToString.Include
 	private double balance;
 

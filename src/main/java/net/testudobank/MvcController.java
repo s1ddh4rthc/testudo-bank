@@ -45,6 +45,7 @@ public class MvcController {
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
+  public static String INTEREST_HISTORY_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -85,7 +86,7 @@ public class MvcController {
 		User user = new User();
     model.addAttribute("user", user);
     DEPOSITED = false;
-    applyInterest(user);
+    // applyInterest(user);
 		return "login_form";
 	}
 
@@ -225,9 +226,11 @@ public class MvcController {
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
+    
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
+    user.setInterestRate((String)"1.5%");
     user.setBalance((int)userData.get("Balance")/100.0);
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);

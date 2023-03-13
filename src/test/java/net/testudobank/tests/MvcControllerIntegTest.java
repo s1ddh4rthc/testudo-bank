@@ -67,6 +67,9 @@ public class MvcControllerIntegTest {
     ScriptUtils.runInitScript(dbDelegate, "createDB.sql");
     jdbcTemplate = new JdbcTemplate(MvcControllerIntegTestHelpers.dataSource(db));
     jdbcTemplate.getDataSource().getConnection().setCatalog(db.getDatabaseName());
+    // System.out.println(jdbcTemplate.toString());
+    // // System.out.println(jdbcTemplate.getDataSource().getConnection().setCatalog(db.getDatabaseName()));
+    // System.out.println("HIHIHIHIHIHIHIHIHIHIHIHIHIHIHIHIHIHIHIHIHHIHIHIHIHIHIHI");
     controller = new MvcController(jdbcTemplate, cryptoPriceClient);
   }
 

@@ -57,6 +57,17 @@ CREATE TABLE TransactionHistory (
 '''
 cursor.execute(create_transactionhistory_table_sql)
 
+# Make empty InterestHistory Table
+create_interesthistory_table_sql = '''
+CREATE TABLE InterestHistory (
+  CustomerID varchar(255),
+  Timestamp DATETIME,
+  Action varchar(255) CHECK (Action IN ('Interest')),
+  Amount int
+);
+'''
+cursor.execute(create_interesthistory_table_sql)
+
 # Make empty Transfer table
 create_transferhistory_table_sql = '''
 CREATE TABLE TransferHistory (
