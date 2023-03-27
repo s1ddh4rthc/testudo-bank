@@ -251,6 +251,11 @@ public class MvcController {
     return dateTime;
   }
 
+  // Returns the extra pennyAmount gained from the current interest rate
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+
   // HTML POST HANDLERS ////
 
   /**
@@ -410,7 +415,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -800,14 +805,33 @@ public class MvcController {
 
   /**
    * 
-   * 
+   * If we have a multiple of 5 transactions, and all of those transactions are >20, then we apply interest to the account.
+   * Note that this does nothing to stop someone from splitting up $10,000 into 500 $20 transactions (they could probably steal a lot of money that way)
+   * Also, if someone happens to have a few benign <$20 transactions, they will not recieve anything, by design.
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    String userID = user.getUsername();
+    
+    if(user.getNumDepositsForInterest() == 5) {
+
+      user.setNumDepositsForInterest(0);
+
+      for(Map<String, Object> transaction: TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, 5)) {
+        if((int) transaction.get("Amount") < 2000)
+          return "welcome";
+      }
+      
+      double interest = user.getBalance() * BALANCE_INTEREST_RATE - user.getBalance();
+      user.setAmountToDeposit(interest);
+      submitDeposit(user);
+      updateAccountInfo(user);
+      return "account_info";
+    }
+
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
     return "welcome";
-
   }
-
 }
