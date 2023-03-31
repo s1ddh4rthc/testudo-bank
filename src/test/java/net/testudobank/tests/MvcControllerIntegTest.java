@@ -1583,15 +1583,13 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
-   * Test user flow of buying and selling different types of cryptocurrency
-   * by ensuring changing values in between the transcation sequences are correct 
+   * Test user flow of a customer with no pre-existing Crypto buying and selling different types of 
+   * cryptocurrency by ensuring changing values in between the transcation sequences are correct 
    */
   @Test
   public void testCryptoBuyAndSellFlow() throws ScriptException {
     CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
             .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
             .build();
 
     cryptoTransactionTester.initialize();
