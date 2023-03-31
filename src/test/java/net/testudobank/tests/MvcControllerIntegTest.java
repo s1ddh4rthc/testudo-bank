@@ -1582,4 +1582,96 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Test user flow buy ETH, buy SOL, and then sells some SOL. 
+   */
+  @Test
+  public void testCryptoUserFlowBuyETHBuySOLSellSOL() throws ScriptException {
+    // customer has no pre-existing Crypto
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    // customer buys 100 dollars (or 0.1) worth of ETH
+    CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+    // customer buys 200 dollars (or 0.2) worth of SOL
+    CryptoTransaction cryptoTransactionBuySol = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(700)
+            .expectedEndingCryptoBalance(0.2)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.2)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBuySol);
+
+    // customer sells 100 dollars (or 0.1) worth of SOL
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test that attempting to buy BTC does not invoke a transaction since BTC is not yet supported
+   */
+  @Test
+  public void testCryptoBuyBTCInvalid() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test that attempting to sell BTC does not invoke a transaction since BTC is not yet supported
+   */
+  @Test
+  public void testCryptoSellBTCInvalid() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
 }
