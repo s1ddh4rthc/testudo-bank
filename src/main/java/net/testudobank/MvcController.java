@@ -339,10 +339,17 @@ public class MvcController {
       // add any excess deposit amount to main balance in Customers table
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
+        if(mainBalanceIncreaseAmtInPennies >= 2000){
+          user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+        }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
     } else { // simple deposit case
+      if(userDepositAmtInPennies >= 2000){
+        user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+      }
+
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 
@@ -410,7 +417,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -625,6 +632,9 @@ public class MvcController {
     return "account_info";
   }
 
+  public int applyInterestRateToPennyAmount(int pennyAmount){
+    return (int)(pennyAmount * INTEREST_RATE);
+  }
   /**
    * HTML POST request handler for the Buy Crypto Form page.
    * <p>
@@ -805,6 +815,18 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    //implement interest feature
+    if(user.getNumDepositsForInterest() >= 5){
+      String userID = user.getUsername();
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); 
+      user.setNumDepositsForInterest(0);
+      int interestIncreaseInPennies = (int)(user.getBalance() * BALANCE_INTEREST_RATE);
+      //user.setBalance(interestIncreaseInPennies + user.getBalance());
+
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestIncreaseInPennies);
+
+      return "account_info";
+    }
 
     return "welcome";
 

@@ -79,7 +79,277 @@ public class MvcControllerIntegTest {
   }
 
   //// INTEGRATION TESTS ////
+/**
+ * Test case for interest rate being applied when 5 deposits above $20 is made
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+@Test
+public void testDepositsAboveTwentyInterest() throws SQLException, ScriptException{
+  double CUSTOMER1_BALANCE = 123.45;
+  int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
 
+  // Prepare Deposit Form for 5 Deposits to customer's account.
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT = 25.00; // user input is in dollar amount, not pennies.
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT2 = 25.00; // user input is in dollar amount, not pennies.
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT3 = 25.00; // user input is in dollar amount, not pennies.
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT4 = 25.00; // user input is in dollar amount, not pennies.
+  double CUSTOMER1_AMOUNT_TO_DEPOSIT5 = 25.00; // user input is in dollar amount, not pennies.
+  User customer1DepositFormInputs = new User();
+  customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+  customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+  // verify that there are no logs in TransactionHistory table before Deposit
+  assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT3); 
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT4); 
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT5); 
+  controller.submitDeposit(customer1DepositFormInputs);
+
+  // verify that there are 6 logs in the TransactionHistory after 5th cash deposit and 1st interest deposit
+  assertEquals(6, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+}
+
+
+/**
+ * Test case for interest rate being applied when 5 deposits of $20 is made
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+  @Test
+  public void testDepositsOfTwentyInterest() throws SQLException, ScriptException{
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form for 5 Deposits to customer's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT2 = 20.00; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT3 = 20.00; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT4 = 20.00; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT5 = 20.00; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // verify that there are no logs in TransactionHistory table before Deposit
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT3); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT4); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT5); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify that there are 6 logs in the TransactionHistory after 5th cash deposit and 1st interest deposit
+    assertEquals(6, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+  }
+
+
+  /**
+   * Tests the applyInterest() method functionality.
+   * Ensures that interest is being applied after every 5 valid transactions. 
+   * There are 10 valid deposits so the interest rate must be applied twice.
+   * Ensures that interest is being applied when deposits are greater than $20.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+  */
+  @Test
+  public void testRepeatApplyInterest() throws SQLException, ScriptException { 
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form for 5 Deposits to customer's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 22.34; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT2 = 21.00; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT3 = 32.34; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT4 = 42.34; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT5 = 51.34; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+   
+    // verify that there are no logs in TransactionHistory table before Deposit
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+    controller.submitDeposit(customer1DepositFormInputs);
+   
+    // verify that there is one log in TransactionHistory table before 2nd Deposit
+    assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify that there are 2 logs in TransactionHistory table before 3rd Deposit
+    assertEquals(2, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+    
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT3); 
+    controller.submitDeposit(customer1DepositFormInputs); 
+
+    // verify that there are 3 logs in TransactionHistory table before 4th Deposit
+    assertEquals(3, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+    
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT4); 
+    controller.submitDeposit(customer1DepositFormInputs);
+     
+    // verify that there are 4 logs in TransactionHistory table before 5th Deposit
+    assertEquals(4, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+    
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT5); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify that there are 6 logs in the TransactionHistory after 5th cash deposit and 1st interest deposit
+    assertEquals(6, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+
+    // repeat all of the 5 previous valid deposit amounts to initiate a second interest transaction
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT3); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT4); 
+    controller.submitDeposit(customer1DepositFormInputs);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT5); 
+    controller.submitDeposit(customer1DepositFormInputs);
+
+
+    //verify that there are 12 logs in the TransactionHistory after 10th cash deposit and 2nd interest deposit
+    assertEquals(12, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+  }
+/**
+ * Tests the interest rate functionality to ensure that interest rate is not being continually being applied to account
+ * for just any transaction after the 5th valid deposit.
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+  public void testEveryFiveOnlyApplyInterest() throws SQLException, ScriptException { 
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+ 
+     // Prepare Deposit Form for 7 Deposits to customer's account.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 22.34; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT2 = 125.00; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT3 = 32.34; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT4 = 32.34; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT5 = 51.34; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT6 = 22.34; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT7 = 21.34; // user input is in dollar amount, not pennies. 
+
+     User customer1DepositFormInputs = new User();
+     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+
+     // Applies all 7 of the valid deposits to be added to TransactionHistory
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT3); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT4); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT5); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT6); 
+     controller.submitDeposit(customer1DepositFormInputs); 
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT7); 
+     controller.submitDeposit(customer1DepositFormInputs);
+
+     //verify that there are 8 logs in the TransactionHistory after 7th cash deposit and only one interest deposit
+     assertEquals(8, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+
+  }
+
+  /**
+   * Tests that interest is being applied if deposits of $20.01 is being made, and NOT when deposits of 
+   * $19.99 is being made
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+   @Test
+   public void testEdgeCaseApplyInterest() throws SQLException, ScriptException{
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+ 
+     // Prepare Deposit Form for both invalid and valid types of Deposits to customer's account.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_AMOUNT_TO_DEPOSIT2 = 20.01; // user input is in dollar amount, not pennies.
+     
+
+     User customer1DepositFormInputs = new User();
+     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+     
+
+     //apply 5 deposits under $20, which will no trigger the interest rate to be applied to balance
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+     controller.submitDeposit(customer1DepositFormInputs); 
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+     controller.submitDeposit(customer1DepositFormInputs); 
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+     controller.submitDeposit(customer1DepositFormInputs); 
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+     controller.submitDeposit(customer1DepositFormInputs); 
+
+     //verify that there are 5 logs in the TransactionHistory after 5th cash deposit and zero interest deposits
+     assertEquals(5, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+     //apply 5 valid deposits which will trigger the first amount of interest to be applied to balance
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2);
+     controller.submitDeposit(customer1DepositFormInputs); 
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+     controller.submitDeposit(customer1DepositFormInputs);
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2);
+     controller.submitDeposit(customer1DepositFormInputs); 
+     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2); 
+     controller.submitDeposit(customer1DepositFormInputs);
+
+     //verify that there are 11 logs in the TransactionHistory after 10th cash deposit and one interest deposits
+     assertEquals(11, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class)); 
+
+   }
+
+  
   /**
    * Verifies the simplest deposit case.
    * The customer's Balance in the Customers table should be increased,
@@ -1581,5 +1851,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
 
 }
