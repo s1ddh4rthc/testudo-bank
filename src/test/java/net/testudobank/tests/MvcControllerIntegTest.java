@@ -1458,6 +1458,113 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
   }
 
+  /*
+   * This tests if the user tries to buy ETH, buy SOL, and sell SOL
+   */
+  @Test
+  public void testCryptoBuySellFlow() throws ScriptException {
+
+    // BUY ETH
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionOne = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900) // balance decreased
+            .expectedEndingCryptoBalance(0.1) // balance increased
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .validPassword(true)
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionOne);
+
+    // BUY SOL
+
+    CryptoTransaction cryptoTransactionTwo = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800) // balance decreased
+            .expectedEndingCryptoBalance(0.1) // balance increased
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .validPassword(true)
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionTwo);
+
+    // SELL SOL
+
+    CryptoTransaction cryptoTransactionThree = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900) // balance increased
+            .expectedEndingCryptoBalance(0.0) // balanced decreased
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .validPassword(true)
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionThree);
+  }
+
+  /*
+   * This tests if the user tries to buy crypto with an invalid type, bitcoin
+   */
+  @Test
+  public void testInvalidCryptoBuyWithBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC") // invalid type
+            .validPassword(true)
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false) // welcome page is returned
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /*
+   * This tests if the user tries to sell crypto with an invalid type, bitcoin
+   */
+  @Test
+  public void testInvalidCryptoSellWithBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.1))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC") // invalid type
+            .validPassword(true) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false) // welcome page is returned
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
   /**
    * Test that no crypto buy transaction occurs when the user password is incorrect
    */
