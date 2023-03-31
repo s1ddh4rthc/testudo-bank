@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 import javax.script.ScriptException;
 
@@ -1971,5 +1972,110 @@ public class MvcControllerIntegTest {
 
     // Should be a total of 7 transactions (6 deposits, 1 interest apply)
     assertEquals(7, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+  }
+
+  /**
+   * Test the buying of ETH and SOL properly decreases balance, increases crypto
+   * balance, and succeeds. Test the selling of SOL after buying to show balance
+   * increases, crypto balance
+   * decreases, and the transaction succeeds.
+   */
+  @Test
+  public void testBuyETHBuySOLSellSOL() throws ScriptException {
+    Map<String, Double> cryptos = new HashMap<>();
+    cryptos.put("ETH", 0.0);
+    cryptos.put("SOL", 0.0);
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCryptoBalance(cryptos)
+        .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionETHBuy = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionETHBuy);
+
+    CryptoTransaction cryptoTransactionSOLBuy = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(800)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionSOLBuy);
+
+    CryptoTransaction cryptoTransactionSOLSell = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.0)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionSOLSell);
+  }
+
+  /**
+   * Test the buying of BTC doesn't decrease balance or increase crypto balance
+   * and fails sending by
+   * sending the user back to the welcome page
+   */
+  @Test
+  public void testBuyBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+        .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingCryptoBalance(0.0)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test the buying of BTC doesn't decrease balance or increase crypto balance
+   * and fails sending by
+   * sending the user back to the welcome page
+   */
+  @Test
+  public void testSellBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+        .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingCryptoBalance(0.0)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    cryptoTransactionTester.test(cryptoTransaction);
   }
 }
