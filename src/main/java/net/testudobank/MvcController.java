@@ -330,6 +330,15 @@ public class MvcController {
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // add the user's deposit as a valid deposit of interest if the user make a deposit over
+    // greater than or equal to $20, have money in their bank and have no overdraft
+    if (userDepositAmtInPennies >= convertDollarsToPennies(20.0) && userBalanceInPennies > 0 && userOverdraftBalanceInPennies == 0) {
+      int userNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDeposits + 1);
+    }
+
     if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
       // update overdraft balance in Customers table, and log the repayment in OverdraftLogs table.
       int newOverdraftBalanceInPennies = Math.max(userOverdraftBalanceInPennies - userDepositAmtInPennies, 0);
@@ -805,9 +814,39 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int userNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
-    return "welcome";
+    //// Invalid Input/State Handling ////
 
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't complete deposit.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+
+    // if the user have done 5 valid deposits, calculate and apply interest rate to their current balance
+    if (userNumberOfDeposits == 5) {
+      int userBalanceAfterInterest = (int)(userCashBalanceInPennies * BALANCE_INTEREST_RATE);
+      int userAmtOfInterest = userBalanceAfterInterest - userCashBalanceInPennies;
+
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterest);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userAmtOfInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      return "welcome";
+    }
   }
-
 }
