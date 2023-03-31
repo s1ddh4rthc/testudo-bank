@@ -820,7 +820,7 @@ public class MvcController {
       String userID = user.getUsername();
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); 
       user.setNumDepositsForInterest(0);
-      double interestIncreaseInPennies = (int)(user.getBalance() * BALANCE_INTEREST_RATE);
+      int interestIncreaseInPennies = (int)(user.getBalance() * BALANCE_INTEREST_RATE);
       //user.setBalance(interestIncreaseInPennies + user.getBalance());
 
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestIncreaseInPennies);
