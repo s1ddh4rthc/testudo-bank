@@ -1622,6 +1622,171 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       }
     }
   }
+  /**
+   * Test the scenario in which a customer with no pre-existing Crypto buys ETH and SOL, then later
+   * sells some of their SOL.
+   * 
+   * Written by Benjamin 
+   */
+  @Test
+  public void testCryptoBuyETH_BuySOL_SellSOL()throws ScriptException{
+
+    //Our Tester for ETH
+    CryptoTransactionTester cryptoTransactionTesterBuyETH = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(1000)
+      .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+      .build();
+
+    cryptoTransactionTesterBuyETH.initialize();
+    
+    CryptoTransaction buyETHTest=CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(900)
+      .expectedEndingCryptoBalance(0.1)
+      .cryptoPrice(1000)
+      .cryptoAmountToTransact(0.1)
+      .cryptoName("ETH")
+      .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+      .shouldSucceed(true)
+      .build();
+
+    cryptoTransactionTesterBuyETH.test(buyETHTest);
+    
+    //Test for Buying SOL
+    CryptoTransactionTester cryptoTransactionTesterBuySOL = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(900)
+      .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+      .build();
+
+    cryptoTransactionTesterBuySOL.initialize();
+
+    CryptoTransaction buySOLTest=CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(800)
+      .expectedEndingCryptoBalance(0.1)
+      .cryptoPrice(1000)
+      .cryptoAmountToTransact(0.1)
+      .cryptoName("SOL")
+      .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+      .shouldSucceed(true)
+      .build();
+
+    cryptoTransactionTesterBuySOL.test(buySOLTest);
+
+    /*
+    Code to test after feedback from T.A.s
+
+    //Tester for Selling SOL
+    CryptoTransactionTester cryptoTransactionTesterSellSOL = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(800)
+      .initialCryptoBalance(Collections.singletonMap("SOL", 0.1))
+      .build();
+
+    cryptoTransactionSellSOL.initialize();
+
+    CryptoTransaction sellSOLTest=CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(900)
+      .expectedEndingCryptoBalance(0.0)
+      .cryptoPrice(1000)
+      .cryptoAmountToTransact(0.1)
+      .cryptoName("SOL")
+      .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+      .shouldSucceed(true)
+      .build();
+
+      cryptoTransactionTesterSellSOL.test(sellSOLTest);
+    */
+  }
+
+  /*
+  *Test that the "welcome" page is returned when a user attempts to buy a crypto that is currently not supported
+  *such as "BTC"(bitcoin) when filling out the CryptoBuy form.
+  *
+  *Written by Benjamin
+  */
+  @Test
+  public void testCryptoBuyBTCInvalidCase()throws ScriptException{
+
+    //Checking that the transaction doesn't go through
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(1000)
+      .initialCryptoBalance(Collections.singletonMap("BTC", 0.1))
+      .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .cryptoPrice(1000)
+      .cryptoAmountToTransact(0.1)
+      .expectedEndingCryptoBalance(0.1)
+      .cryptoName("BTC")
+      .validPassword(true)
+      .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+      .shouldSucceed(false)
+      .build();
+
+    cryptoTransactionTester.test(cryptoTransaction);
+
+    //Checking that the "welcome" page is returned
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setWhichCryptoToBuy(cryptoTransaction.cryptoName);
+    
+    Mockito.when(cryptoPriceClient.getCurrentCryptoValue(cryptoTransaction.cryptoName)).thenReturn(cryptoTransaction.cryptoPrice);
+
+    String returnedPage=null;
+    if (cryptoTransaction.cryptoTransactionTestType == CryptoTransactionTestType.BUY) {
+      user.setAmountToBuyCrypto(cryptoTransaction.cryptoAmountToTransact);
+      returnedPage = controller.buyCrypto(user);
+    }
+    assertEquals("welcome", returnedPage);
+  }
+
+  /*
+  *Test that the "welcome" page is returned when a user attempts to sell a crypto that is currently not supported
+  *such as "BTC"(bitcoin) when filling out the CryptoBuy form.
+  *
+  *Written by Benjamin (Need to work on)
+  */
+  @Test
+  public void testCryptoSellBTCInvalidCase()throws ScriptException{
+
+    //Checking that the transaction doesn't go through
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(1000)
+      .initialCryptoBalance(Collections.singletonMap("BTC", 0.1))
+      .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .cryptoPrice(1000)
+      .cryptoAmountToTransact(0.1)
+      .expectedEndingCryptoBalance(0.1)
+      .cryptoName("BTC")
+      .validPassword(true)
+      .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+      .shouldSucceed(false)
+      .build();
+
+    cryptoTransactionTester.test(cryptoTransaction);
+  
+    //Checking that the "welcome" page is returned
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setWhichCryptoToBuy(cryptoTransaction.cryptoName);
+        
+    Mockito.when(cryptoPriceClient.getCurrentCryptoValue(cryptoTransaction.cryptoName)).thenReturn(cryptoTransaction.cryptoPrice);
+    
+    String returnedPage=null;
+    if (cryptoTransaction.cryptoTransactionTestType == CryptoTransactionTestType.SELL) {
+      user.setAmountToSellCrypto(cryptoTransaction.cryptoAmountToTransact);
+      returnedPage = controller.sellCrypto(user);
+    }
+    assertEquals("welcome", returnedPage);
+  }
 
   /**
    * Test that no crypto buy transaction occurs when the user password is incorrect
