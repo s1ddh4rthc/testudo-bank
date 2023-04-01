@@ -1665,7 +1665,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
  }
 
  @Test
- public void testCryptoSellBTC() throws ScriptException {
+ public void testCryptoSellTestBTC() throws ScriptException {
    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
            .initialBalanceInDollars(800)
            .initialCryptoBalance(Collections.singletonMap("BTC", 0.2))
