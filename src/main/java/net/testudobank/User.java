@@ -35,6 +35,7 @@ public class User {
   @Setter @Getter
   private String transactionHist;
 
+
   //// Dispute Fields ////
 
   @Setter @Getter
