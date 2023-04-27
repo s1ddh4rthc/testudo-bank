@@ -20,7 +20,9 @@ create_customer_table_sql = '''
     Balance int,
     OverdraftBalance int,
     NumFraudReversals int,
-    NumDepositsForInterest int
+    NumDepositsForInterest int,
+    IsAccountFrozen boolean,
+    NumAccountFrozen int
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -126,16 +128,20 @@ for i in range(num_customers_to_add):
     # add random customer ID, name, and balance to Customers table.
     # all customers start with Overdraft balance of 0
     # all customers start with a NumFraudReversals of 0
+    # all customers start with a IsAccountFrozen of false
+     # all customers start with a NumAccountFrozen of 0
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
+    VALUES  ({0},{1},{2},{3},{4},{5}, {6}, {7}, {8});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",
                 "'" + customer_last_name + "'",
                 customer_balance,
                 0,
                 0,
+                0,
+                False,
                 0)
     cursor.execute(insert_customer_sql)
     
