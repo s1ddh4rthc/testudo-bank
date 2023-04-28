@@ -180,6 +180,22 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "freeze_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's account freezing input.
+   * 
+   * @param model
+   * @return "freeze_form" page
+   */
+  @GetMapping("/freeze")
+	public String showFreezeForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
+
+		return "freeze_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -797,6 +813,18 @@ public class MvcController {
       return "welcome";
     }
   }
+
+    /**
+   * HTML POST request handler that uses user input from Freeze Form page to determine 
+   * if the user has frozen or unfrozen.
+   * 
+   * @param user
+   * @return "welcome" page 
+   */
+  @PostMapping("/freeze")
+	public String submitFreezeForm(@ModelAttribute("user") User user) {
+    return "welcome";
+	}
 
   /**
    * 
