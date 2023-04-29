@@ -37,7 +37,7 @@ public class MvcController {
   public final static double INTEREST_RATE = 1.02;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
-  private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
+  private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 50;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
@@ -47,10 +47,11 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  public static double BALANCE_INTEREST_RATE = 1.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -355,6 +356,15 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+    }
+
+    // Add this transaction to be considered for interest application
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (userDepositAmtInPennies >= 2000 && // only deposits over $20 will be eligible for APY earnings
+        userOverdraftBalanceInPennies <= 0 &&
+        userCashBalanceInPennies > 0) { 
+      int userNumberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDepositsForInterest + 1);
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -799,15 +809,42 @@ public class MvcController {
   }
 
   /**
+   * Updates the user's cash balance to include an interest application of 
+   * 1.5% APY after every 5 transactions with a dolloar amount of $20 or greater.
    * 
+   * The interest application will be logged to the TransactionHistory table
+   * as a deposit. 
+   * 
+   * If the user is currently in overdraft or has a cash balance of $0, they 
+   * will not receive interest for any transactions. 
+   * 
+   * After interest is applied, the user's number of transactions for interest
+   * counter will be reset. 
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
-    return "welcome";
-
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    String userID = user.getUsername();
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    
+    if (userNumDepositsForInterest == 5) {
+      // Adding interest to balance and showing application in TransactionHistory
+      int userCashBalanceAfterInterestInPennies = (int) (BALANCE_INTEREST_RATE * userCashBalanceInPennies);
+      int increaseAmtInPennies = userCashBalanceAfterInterestInPennies - userCashBalanceInPennies;
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, increaseAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, increaseAmtInPennies);
+      // Resetting the user's number of interest-applicable deposits
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      return "welcome";
+      
+    }
   }
 
 }

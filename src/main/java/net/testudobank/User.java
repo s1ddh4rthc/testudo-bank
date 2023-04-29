@@ -10,6 +10,8 @@ import lombok.ToString;
 @ToString(onlyExplicitlyIncluded = true)
 public class User {
   //// General Customer Fields ////
+  @Getter
+  private double interestRate = MvcController.BALANCE_INTEREST_RATE;
 
   @Setter @Getter @ToString.Include
 	private String username;

@@ -46,7 +46,7 @@ public class TestudoBankRepository {
   }
 
   public static List<Map<String,Object>> getRecentTransactions(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
-    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC, Action DESC LIMIT %d;", customerID, numTransactionsToFetch);
     List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
     return transactionLogs;
   }
@@ -86,11 +86,12 @@ public class TestudoBankRepository {
   }
 
   public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies) {
-    String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d);",
+    String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d, %d);",
                                                               customerID,
                                                               timestamp,
                                                               action,
-                                                              amtInPennies);
+                                                              amtInPennies,
+                                                              getCustomerCashBalanceInPennies(jdbcTemplate, customerID));
     jdbcTemplate.update(insertRowToTransactionHistorySql);
   }
 

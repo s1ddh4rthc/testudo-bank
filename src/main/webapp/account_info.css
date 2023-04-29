@@ -1,0 +1,101 @@
+body {
+    font-family: 'Inter';
+    font-weight: 400;
+    font-size: 14px;
+    margin: 0 0 10px 0;
+}
+
+#body {
+    margin-left: 1.5vw;
+}
+
+#introMsg, #footer {
+  text-align: center;
+}
+
+a {
+    background-color: #D0112B;
+    border-radius: 30px;
+    padding: 1%;
+    width: 14vw;
+    color: white;
+    text-decoration: none;
+    display: inline-block;
+}
+
+#header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    background-color: #D0112B;
+    color: white;
+    text-align: end;
+    font-size: 2em;
+    padding: .5%;
+    margin-left: 0;
+}
+
+img {
+    width: 6%;
+    height: auto;
+    margin-right: 1%;
+}
+
+h2 {
+    color: #D0112B; 
+    margin-bottom: 0;
+}
+
+h3 {
+    display: inline;
+    color: black;
+}
+
+span, td {
+    color: #666666;
+}
+
+td {
+    padding-left: 20px;
+}
+
+#tableWrapper {
+    display: flex;
+    justify-content: center;
+}
+
+#transactionTable {
+    border-collapse: collapse;
+    font-size: 1em;
+    width: 80%;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+    border-radius: 5px 5px 0 0;
+    overflow: hidden;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#transactionTable th {
+    background-color: #D0112B;
+    color: #ffffff;
+    padding: 3px;
+    height: 5vh;
+}
+
+#transactionTable td {
+    padding: 12px 15px;
+    color: black;
+}
+
+#transactionTable tr {
+    border-bottom: 1px solid #dddddd;
+}
+
+#transactionTable tr:last-of-type {
+    border-bottom: 2px solid #D0112B;
+}
+
+#transactionTable tr:hover td {
+    color: #D0112B;
+    background-color: #dddddd;
+}
