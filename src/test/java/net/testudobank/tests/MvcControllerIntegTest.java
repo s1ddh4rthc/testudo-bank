@@ -1751,4 +1751,41 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Test applying staked ETH if the user has decided to stake their ETH
+   */
+  
+  @Test
+  public void testStakeETH() throws ScriptException {
+
+    double ETH_BALANCE = 1;
+    double NEW_ETH_BALANCE = 1.038;
+    User customer = new User();
+    customer.setUsername(CUSTOMER1_ID);
+    customer.setPassword(CUSTOMER1_PASSWORD);
+    customer.setEthBalance(ETH_BALANCE);
+    customer.setEthStaked(true);
+
+    controller.applyETHReward(customer);
+    assertEquals(NEW_ETH_BALANCE, customer.getEthBalance());
+  }
+
+  /**
+   * Test applying staked ETH if the user has NOT decided to stake their ETH
+   */
+  @Test
+  public void testNotStakedETH() throws ScriptException {
+
+    double ETH_BALANCE = 1;
+    double NEW_ETH_BALANCE = 1;
+    User customer = new User();
+    customer.setUsername(CUSTOMER1_ID);
+    customer.setPassword(CUSTOMER1_PASSWORD);
+    customer.setEthBalance(ETH_BALANCE);
+    customer.setEthStaked(false);
+
+    controller.applyETHReward(customer);
+    assertEquals(NEW_ETH_BALANCE, customer.getEthBalance());
+  }
+
 }

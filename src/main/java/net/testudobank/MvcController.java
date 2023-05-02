@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double ETH_STAKING_RATE = 1.038; // hardcoded here, but for a real application this would depend on the total validators
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -832,6 +833,23 @@ public class MvcController {
     }
 
     user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+    return "welcome";
+  }
+
+  /**
+   * When this function is called, we apply the current ETH staking rate to their ETH balance if they have staked their ETH.
+   * Later, we can decide the frequency that this gets called (Coinbase does it every three days, for example). 
+   * @param user
+   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   */
+  public String applyETHReward(@ModelAttribute("userm") User user) {
+
+    if(user.getEthStaked()) {
+      double staking = user.getEthBalance() * ETH_STAKING_RATE - user.getEthBalance();
+      user.setEthBalance(user.getEthBalance() + staking);
+      return "account_info";
+    }
+
     return "welcome";
   }
 }
