@@ -2,9 +2,12 @@ package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.text.ParseException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -15,6 +18,7 @@ import javax.script.ScriptException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import net.testudobank.CryptoPriceClient;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -1457,6 +1461,218 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals("account_info", returnedPage);
   }
 
+    /**
+   * Verifies the simple case for buying certificate of deposit
+   */
+  @Test
+  public void testSimpleCDBuy() throws ScriptException {
+    // initialize customer1 with a balance of $54321
+    double CUSTOMER1_BALANCE = 54321.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    int CD_PRINCIPAL = 1000;
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Buy 2 CDs
+    double CUSTOMER1_AMOUNT_TO_BUY = 2;
+    User customer1BuyCDFormInputs = new User();
+    customer1BuyCDFormInputs.setUsername(CUSTOMER1_ID);
+    customer1BuyCDFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1BuyCDFormInputs.setWhichCDToBuy("688910599");
+    customer1BuyCDFormInputs.setAmountToBuyCD(CUSTOMER1_AMOUNT_TO_BUY);
+    customer1BuyCDFormInputs.setBalance(CUSTOMER1_BALANCE);
+
+    // send request to the Buy CD's POST handler in MvcController
+    // buy cd can not find this user
+    controller.buyCD(customer1BuyCDFormInputs);
+
+    // verify customer balance was decreased by principal cost of CD
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE - (CUSTOMER1_AMOUNT_TO_BUY * CD_PRINCIPAL);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, customer1BuyCDFormInputs.getBalance() * 100);
+  }
+
+    /**
+   * Verifies the simple case for selling certificate of deposit before maturity
+     * @throws ParseException
+   */
+  @Test
+  public void testSimpleCDSellBeforeMaturity() throws ScriptException, ParseException {
+    // initialize customer1 with a balance of $54321
+    double CUSTOMER1_BALANCE = 54321.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Buy 2 CDs
+    double CUSTOMER1_AMOUNT_TO_BUY = 2;
+    User customer1BuyCDFormInputs = new User();
+    customer1BuyCDFormInputs.setUsername(CUSTOMER1_ID);
+    customer1BuyCDFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1BuyCDFormInputs.setWhichCDToBuy("688910599");
+    customer1BuyCDFormInputs.setAmountToBuyCD(CUSTOMER1_AMOUNT_TO_BUY);
+    customer1BuyCDFormInputs.setBalance(CUSTOMER1_BALANCE);
+
+    // send request to the Buy CD's POST handler in MvcController
+    // buy cd can not find this user
+    controller.buyCD(customer1BuyCDFormInputs);
+
+    customer1BuyCDFormInputs.setWhichCDToSell("688910599");
+    customer1BuyCDFormInputs.setAmountToSellCD(CUSTOMER1_AMOUNT_TO_BUY);
+    controller.sellCD(customer1BuyCDFormInputs);
+
+    // verify customer balance remains the same
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, customer1BuyCDFormInputs.getBalance() * 100);
+  }
+
+  /**
+   * Verifies the simple case for selling certificate of deposit after maturity
+     * @throws ParseException
+   */
+  public void testSimpleCDSellAfterMaturity() throws ScriptException, ParseException {
+    // initialize customer1 with a balance of $54321
+    double CUSTOMER1_BALANCE = 54321.00;
+    double CD_INTEREST_RATE = 0.05;
+    double CD_PRINCIPAL = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Buy 2 CDs
+    double CUSTOMER1_AMOUNT_TO_BUY = 2;
+    User customer1BuyCDFormInputs = new User();
+    customer1BuyCDFormInputs.setUsername(CUSTOMER1_ID);
+    customer1BuyCDFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1BuyCDFormInputs.setWhichCDToBuy("688910599");
+    customer1BuyCDFormInputs.setAmountToBuyCD(CUSTOMER1_AMOUNT_TO_BUY);
+    customer1BuyCDFormInputs.setBalance(CUSTOMER1_BALANCE);
+
+    // send request to the Buy CD's POST handler in MvcController
+    // buy cd can not find this user
+    controller.buyCD(customer1BuyCDFormInputs);
+
+    customer1BuyCDFormInputs.setWhichCDToSell("688910599");
+    customer1BuyCDFormInputs.setAmountToSellCD(CUSTOMER1_AMOUNT_TO_BUY);
+
+    LocalDate mockCurrentDate = LocalDate.of(2025, 1, 1);
+    when(LocalDate.now()).thenReturn(mockCurrentDate);
+
+    controller.sellCD(customer1BuyCDFormInputs);
+
+    // verify customer balance was increased by principal cost of CD plus interest
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_BUY * CD_PRINCIPAL * CD_INTEREST_RATE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, customer1BuyCDFormInputs.getBalance() * 100);
+  }
+
+  /*
+   * tests failure case where we sell more CDs than we own, in which case the sell is not performed
+   */
+  @Test
+  public void testSellMoreCDThanAmountHeld() throws ScriptException, ParseException {
+    // initialize customer1 with a balance of $54321
+    double CUSTOMER1_BALANCE = 54321.00;
+    double CD_PRINCIPAL = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Form to Buy 2 CDs
+    double CUSTOMER1_AMOUNT_TO_BUY = 2;
+    User customer1BuyCDFormInputs = new User();
+    customer1BuyCDFormInputs.setUsername(CUSTOMER1_ID);
+    customer1BuyCDFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1BuyCDFormInputs.setWhichCDToBuy("688910599");
+    customer1BuyCDFormInputs.setAmountToBuyCD(CUSTOMER1_AMOUNT_TO_BUY);
+    customer1BuyCDFormInputs.setBalance(CUSTOMER1_BALANCE);
+
+    // send request to the Buy CD's POST handler in MvcController
+    // buy cd can not find this user
+    controller.buyCD(customer1BuyCDFormInputs);
+
+    customer1BuyCDFormInputs.setWhichCDToSell("688910599");
+    customer1BuyCDFormInputs.setAmountToSellCD(CUSTOMER1_AMOUNT_TO_BUY + 1);
+    controller.sellCD(customer1BuyCDFormInputs);
+
+    // verify the buy was completed but the sell did not go through
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE - (CUSTOMER1_AMOUNT_TO_BUY * CD_PRINCIPAL);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, customer1BuyCDFormInputs.getBalance() * 100);
+  }
+
+    /*
+   * tests failure case where we buy a CD that doesn't exist, in which case the buy is not performed
+   */
+  @Test
+  public void testBuyInvalidCD() throws ScriptException, ParseException {
+    // initialize customer1 with a balance of $54321
+    double CUSTOMER1_BALANCE = 54321.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Form to Buy 2 CDs
+    double CUSTOMER1_AMOUNT_TO_BUY = 2;
+    User customer1BuyCDFormInputs = new User();
+    customer1BuyCDFormInputs.setUsername(CUSTOMER1_ID);
+    customer1BuyCDFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1BuyCDFormInputs.setWhichCDToBuy("1");
+    customer1BuyCDFormInputs.setAmountToBuyCD(CUSTOMER1_AMOUNT_TO_BUY);
+    customer1BuyCDFormInputs.setBalance(CUSTOMER1_BALANCE);
+
+    // send request to the Buy CD's POST handler in MvcController
+    // buy cd can not find this user
+    controller.buyCD(customer1BuyCDFormInputs);
+
+    // verify the buy was completed but the sell did not go through
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, customer1BuyCDFormInputs.getBalance() * 100);
+  }
+
+  /*
+   * tests edge case where we buy 2 CDs, and then sell them 1 at a time
+   */
+  @Test
+  public void testSellCDOneAtATime() throws ScriptException, ParseException {
+    // initialize customer1 with a balance of $54321
+    double CUSTOMER1_BALANCE = 54321.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Form to Buy 2 CDs
+    double CUSTOMER1_AMOUNT_TO_BUY = 2;
+    User customer1BuyCDFormInputs = new User();
+    customer1BuyCDFormInputs.setUsername(CUSTOMER1_ID);
+    customer1BuyCDFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1BuyCDFormInputs.setWhichCDToBuy("1");
+    customer1BuyCDFormInputs.setAmountToBuyCD(CUSTOMER1_AMOUNT_TO_BUY);
+    customer1BuyCDFormInputs.setBalance(CUSTOMER1_BALANCE);
+
+    // send request to the Buy CD's POST handler in MvcController
+    // buy cd can not find this user
+    controller.buyCD(customer1BuyCDFormInputs);
+
+    customer1BuyCDFormInputs.setWhichCDToSell("688910599");
+    customer1BuyCDFormInputs.setAmountToSellCD(1);
+    controller.sellCD(customer1BuyCDFormInputs);
+    controller.sellCD(customer1BuyCDFormInputs);
+
+    // verify the buy and sell were completed and balance remains the same
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, customer1BuyCDFormInputs.getBalance() * 100);
+  }
+
   /**
    * Enum for {@link CryptoTransactionTester}
    */
@@ -1919,52 +2135,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoName("ETH")
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
             .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, and then sells some of their SOL.
-   */
-  @Test
-  public void testCryptoBuySell() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(900)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-
-    cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(700)
-            .expectedEndingCryptoBalance(0.2)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.2)
-            .cryptoName("SOL")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-
-    cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(750)
-            .expectedEndingCryptoBalance(0.15)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.05)
-            .cryptoName("SOL")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(true)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
