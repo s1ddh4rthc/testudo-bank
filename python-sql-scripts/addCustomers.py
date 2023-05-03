@@ -2,6 +2,7 @@ import pymysql
 import names
 import random
 import string
+import datetime
 from credentials import mysql_endpoint, username, password, database_name
 
 # SQL Config Values
@@ -68,6 +69,26 @@ CREATE TABLE TransferHistory (
 '''
 cursor.execute(create_transferhistory_table_sql)
 
+# Make empty AvailableCertificateOfDeposits table
+create_availablecertificateofdeposits_table_sql = '''
+CREATE TABLE AvailableCertificateOfDeposits (
+  CertificateID varchar(255),
+  MaturityDate DATETIME,
+  AmountAvailable int
+);
+'''
+cursor.execute(create_availablecertificateofdeposits_table_sql)
+
+
+certificateofdeposit_id = ''.join(random.choices(string.digits, k = 9))
+value1 = datetime.datetime(2024, 4, 27)
+insert_availablecertificateofdeposits_sql = '''
+    INSERT INTO AvailableCertificateOfDeposits
+    VALUES  ('{0}','{1}',{2});
+    '''.format(certificateofdeposit_id,
+              value1,
+              100)
+cursor.execute(insert_availablecertificateofdeposits_sql)
 
 # Make empty CryptoHoldings table
 create_cryptoholdings_table_sql = '''
