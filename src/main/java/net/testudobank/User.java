@@ -35,6 +35,15 @@ public class User {
   @Setter @Getter
   private String transactionHist;
 
+  @Setter @Getter
+  private String availableCDs;
+
+  @Setter @Getter
+  private String CDHoldings;
+
+  @Setter @Getter
+  private double holdingsQuantity;
+
   //// Dispute Fields ////
 
   @Setter @Getter
@@ -78,8 +87,20 @@ public class User {
   @Setter @Getter @Positive
   private double amountToSellCrypto;
 
+  @Setter @Getter @Positive
+  private double amountToBuyCD;
+
+  @Setter @Getter @Positive
+  private double amountToSellCD;
+
   @Setter @Getter
   private String whichCryptoToBuy;
+
+  @Setter @Getter
+  private String whichCDToBuy;
+
+  @Setter @Getter
+  private String whichCDToSell;
 
   @Setter @Getter
   private double ethPrice;

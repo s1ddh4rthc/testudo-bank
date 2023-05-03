@@ -10,7 +10,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.Date;
+import java.text.ParseException;
 import java.util.HashSet;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -42,6 +44,7 @@ public class MvcController {
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
+  public static String TRANSACTION_HISTORY_DEPOSIT_INTEREST_ACTION = "DepositInterest";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -180,6 +183,21 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  @GetMapping("/buycertificateofdeposit")
+	public String showBuyCDForm(Model model) {
+    User user = new User();
+    user.setAvailableCDs("\nID: '688910599', Principal: '$1000', InterestRate: '5%', MaturityDate: '2024-04-27 00:00:00'");
+		model.addAttribute("user", user);
+		return "buycertificateofdeposit_form";
+	}
+
+  @GetMapping("/sellcertificateofdeposit")
+	public String showSellCDForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "sellcertificateofdeposit_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -199,6 +217,12 @@ public class MvcController {
     String transactionHistoryOutput = HTML_LINE_BREAK;
     for(Map<String, Object> transactionLog : transactionLogs){
       transactionHistoryOutput += transactionLog + HTML_LINE_BREAK;
+    }
+
+    List<Map<String,Object>> certificateOfDepositLogs = TestudoBankRepository.getAvailableCertificatesofDeposit(jdbcTemplate);
+    String availableCDsOutput = HTML_LINE_BREAK;
+    for(Map<String, Object> certificateOfDepositLog : certificateOfDepositLogs){
+      availableCDsOutput += certificateOfDepositLog + HTML_LINE_BREAK;
     }
 
     List<Map<String,Object>> transferLogs = TestudoBankRepository.getTransferLogs(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSFERS_DISPLAYED);
@@ -231,6 +255,8 @@ public class MvcController {
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
+    user.setAvailableCDs("ID: 1, Balance: 1000, Interest Rate: 1.05");
+    user.setHoldingsQuantity(0);
     user.setTransferHist(transferHistoryOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
@@ -306,20 +332,16 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
     //// Invalid Input/State Handling ////
-
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
       return "welcome";
     }
-
     // If customer already has too many reversals, their account is frozen. Don't complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES){
       return "welcome";
     }
-
     // Negative deposit amount is not allowed
     double userDepositAmt = user.getAmountToDeposit();
     if (userDepositAmt < 0) {
@@ -341,11 +363,9 @@ public class MvcController {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
-
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
-
     // only adds deposit to transaction history if is not transfer
     if (user.isTransfer()){
       // Adds transaction recieve to transaction history
@@ -356,7 +376,6 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
-
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
     updateAccountInfo(user);
@@ -798,6 +817,63 @@ public class MvcController {
     }
   }
 
+  /*
+  * @param user
+   * @return "account_info" page if sell successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/buycertificateofdeposit")
+  public String buyCD(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int CD_PRINCIPAL = 1000;
+
+    if ((CD_PRINCIPAL * user.getAmountToBuyCD() * 100) > TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) || !user.getWhichCDToBuy().equals("688910599")) {
+      return "welcome";
+    }
+
+    int newCashBalanceInPennies = (int)(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) - (CD_PRINCIPAL * user.getAmountToBuyCD() * 100));
+    user.setBalance(newCashBalanceInPennies/100);
+    TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCashBalanceInPennies);
+    user.setCDHoldings("ID: " + user.getWhichCDToBuy() + ", Quantity: " + user.getAmountToBuyCD());
+    user.setHoldingsQuantity(user.getHoldingsQuantity() + user.getAmountToBuyCD());
+    return "account_info";
+  }
+
+  /*
+  * @param user
+   * @return "account_info" page if sell successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/sellcertificateofdeposit")
+  public String sellCD(@ModelAttribute("user") User user) throws ParseException {
+    String userID = user.getUsername();
+    double CD_INTEREST_RATE = 1.05;
+    int CD_PRINCIPAL = 1000;
+
+    if (!user.getWhichCDToSell().equals("688910599")) {
+      return "welcome";
+    }
+
+    LocalDate date = LocalDate.now();
+    LocalDate maturityDate = LocalDate.of(2024, 4, 27);
+
+    if (user.getAmountToSellCD() > user.getHoldingsQuantity()) {
+      return "welcome";
+    }
+
+    if (date.isAfter(maturityDate)) {
+      int newCashBalanceInPennies = (int)(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) + (user.getAmountToSellCD() * CD_PRINCIPAL * CD_INTEREST_RATE) * 100);
+      user.setBalance(newCashBalanceInPennies/100);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCashBalanceInPennies);
+    } else {
+      int newCashBalanceInPennies = (int)(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) + (user.getAmountToSellCD() * CD_PRINCIPAL) * 100);
+      user.setBalance(newCashBalanceInPennies/100);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCashBalanceInPennies);
+    }
+
+    user.setCDHoldings("ID: " + user.getWhichCDToSell() + ", Quantity: " + user.getHoldingsQuantity());
+    user.setHoldingsQuantity(user.getHoldingsQuantity() - user.getAmountToSellCD());
+    return "account_info";
+  }
+
   /**
    * 
    * 
@@ -805,9 +881,37 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    double userDepositAmt = user.getAmountToDeposit();
+    int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt);
 
-    return "welcome";
+    int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
+    if (userDepositAmtInPennies >= 2000) {
+      numDepositsForInterest++;
+      user.setNumDepositsForInterest(numDepositsForInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest);
+    }
+
+    if (numDepositsForInterest != 5) {
+      return "welcome";
+    }
+
+    // apply interest now that we are on 5th applicable deposit
+    int newCashBalanceInPennies = (int)(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) * BALANCE_INTEREST_RATE);
+    user.setBalance(newCashBalanceInPennies);
+    TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newCashBalanceInPennies);
+    
+    // reset number of deposits for interest
+    numDepositsForInterest = 0;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest);
+
+    // insert row into transaction history table
+    int customerBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_INTEREST_ACTION, (int)(customerBalance - (customerBalance / BALANCE_INTEREST_RATE)));
+
+    return "account_info";
   }
 
 }

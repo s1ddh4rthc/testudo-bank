@@ -51,6 +51,12 @@ public class TestudoBankRepository {
     return transactionLogs;
   }
 
+  public static List<Map<String, Object>> getAvailableCertificatesofDeposit(JdbcTemplate jdbcTemplate) {
+    String getAvailableCDsSql = "SELECT * FROM AvailableCertificateOfDeposits;";
+    List<Map<String,Object>> availableCDs = jdbcTemplate.queryForList(getAvailableCDsSql);
+    return availableCDs;
+  }
+
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);

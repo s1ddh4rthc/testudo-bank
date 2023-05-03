@@ -28,6 +28,12 @@ CREATE TABLE TransactionHistory (
   Amount int
 );
 
+CREATE TABLE AvailableCertificateOfDeposits (
+  CertificateID varchar(255),
+  MaturityDate DATETIME,
+  AmountAvailable int
+);
+
 CREATE TABLE TransferHistory (
   TransferFrom varchar(255),
   TransferTo varchar(255),
