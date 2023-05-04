@@ -20,6 +20,14 @@ import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
+
+public class main{
+  public static void main(){
+ 
+    System.out.println("hello world");
+  }
+}
+
 @Controller
 public class MvcController {
   
@@ -49,7 +57,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
-  public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
+  public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL","BTC"));
   private static double BALANCE_INTEREST_RATE = 1.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
@@ -159,6 +167,7 @@ public class MvcController {
     User user = new User();
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setBtcPrice(cryptoPriceClient.getCurrentBtcValue());
 		model.addAttribute("user", user);
 		return "buycrypto_form";
 	}
@@ -174,8 +183,9 @@ public class MvcController {
   @GetMapping("/sellcrypto")
 	public String showSellCryptoForm(Model model) {
     User user = new User();
-    user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
+    user.setPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setBtcPrice(cryptoPriceClient.getCurrentBtcValue());
 		model.addAttribute("user", user);
 		return "sellcrypto_form";
 	}
@@ -235,8 +245,10 @@ public class MvcController {
     user.setCryptoHist(cryptoHistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
+    user.setBtcBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "BTC").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setBtcPrice(cryptoPriceClient.getCurrentBtcValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
