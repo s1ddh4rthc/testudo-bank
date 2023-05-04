@@ -339,6 +339,12 @@ public class MvcController {
       return "welcome";
     }
 
+    // If customer has set their account to frozen, don't deposit
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
+      return "welcome";
+    }
+
     // Negative deposit amount is not allowed
     double userDepositAmt = user.getAmountToDeposit();
     if (userDepositAmt < 0) {
@@ -413,6 +419,12 @@ public class MvcController {
     // If customer already has too many reversals, their account is frozen. Don't complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+
+    // If customer has set their account to frozen, don't withdraw
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
       return "welcome";
     }
 
@@ -500,6 +512,12 @@ public class MvcController {
     // check if customer account is frozen
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES) {
+      return "welcome";
+    }
+
+    // If customer has set their account to frozen, don't dispute
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
       return "welcome";
     }
     
@@ -614,6 +632,12 @@ public class MvcController {
       return "welcome";
     }
 
+    // If customer has set their account to frozen, don't transfer
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, senderUserID);
+    if (isFrozen) {
+      return "welcome";
+    }
+
     // case where customer tries to send money to themselves
     if (sender.getTransferRecipientID().equals(senderUserID)){
       return "welcome";
@@ -673,6 +697,12 @@ public class MvcController {
 
     // unsuccessful login
     if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // If customer has set their account to frozen, cannot buy crypto
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
       return "welcome";
     }
 
@@ -767,6 +797,12 @@ public class MvcController {
 
     // unsuccessful login
     if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // If customer has set their account to frozen, cannot sell crypto
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
       return "welcome";
     }
 
