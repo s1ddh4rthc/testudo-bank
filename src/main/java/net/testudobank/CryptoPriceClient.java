@@ -20,6 +20,8 @@ public class CryptoPriceClient {
         return getCurrentEthValue();
       } else if (cryptoName.equals("SOL")) {
         return getCurrentSolValue();
+      } else if (cryptoName.equals("BTC")){
+        return getCurrentBtcValue();
       } else {
         return -1;
       }
@@ -47,6 +49,30 @@ public class CryptoPriceClient {
         }
     }
 
+
+    /**
+     * Method which is used to return the current value of Bitcoin
+     * in USD. This method uses a Yahoo Finance Wrapper API (https://github.com/sstrickx/yahoofinance-api).
+     * <p>
+     * To avoid frequent calls to the external service, the value is cached.
+     * See {@link #clearBtcPriceCache()}
+     * <p>
+     * NOTE: If the web scraper fails, a value of -1 is returned
+     *
+     * @return the current value of 1 BTC in USD
+     */
+    @Cacheable("btc-value")
+    public double getCurrentBtcValue() {
+        try {
+            return YahooFinance.get("BTC-USD").getQuote().getPrice().doubleValue();
+        } catch (IOException e1) {
+            // Print Stack Trace for Debugging
+            e1.printStackTrace();
+            return -1;
+        }
+    }
+
+
     /**
      * Method which is used to return the current value of Solana
      * in USD. This method uses a Yahoo Finance Wrapper API (https://github.com/sstrickx/yahoofinance-api).
@@ -71,7 +97,7 @@ public class CryptoPriceClient {
 
 
     /**
-     * Clear the cached price of ethereum.
+     * Clear the cached price of solana.
      * <p>
      * This method is scheduled to run every 30 seconds.
      */
@@ -79,6 +105,18 @@ public class CryptoPriceClient {
     @CacheEvict("sol-value")
     public void clearSolPriceCache() {
     }
+
+
+   /**
+     * Clear the cached price of bitcoin.
+     * <p>
+     * This method is scheduled to run every 30 seconds.
+     */
+    @Scheduled(fixedRate = 30000)
+    @CacheEvict("btc-value")
+    public void clearBtcPriceCache() {
+    }
+
 
     /**
      * Clear the cached price of ethereum.
