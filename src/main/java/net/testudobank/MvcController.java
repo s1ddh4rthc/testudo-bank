@@ -239,6 +239,8 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+    String isAccountFrozen = (TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, user.getUsername())) ? "Frozen" : "Unfrozen";
+
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
@@ -254,6 +256,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setSelectFreezeUnfreeze(isAccountFrozen);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -816,14 +819,45 @@ public class MvcController {
 
     /**
    * HTML POST request handler that uses user input from Freeze Form page to determine 
-   * if the user has frozen or unfrozen.
+   * if the user has frozen or unfrozen their account.
    * 
    * @param user
    * @return "welcome" page 
    */
   @PostMapping("/freeze")
 	public String submitFreezeForm(@ModelAttribute("user") User user) {
-    return "welcome";
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // user selected option
+    String selectedFreezeUnfreeze = user.getSelectFreezeUnfreeze();
+    boolean isSelectedOptionFreeze = (selectedFreezeUnfreeze.equals("Frozen")) ? true : false;
+    // retrieve existing account state
+    boolean isAccountFrozenCurrent = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+
+    // user is already the state they selected
+    if (isSelectedOptionFreeze == isAccountFrozenCurrent) {
+      return "welcome";
+    }
+
+    TestudoBankRepository.setIsCustomerAccountFrozen(jdbcTemplate, userID, isSelectedOptionFreeze);
+
+    // update count of account freezes (if account was frozen)
+    if (isSelectedOptionFreeze) {
+      int numAccountFreezesCurrent = TestudoBankRepository.getNumCustomerAccountFrozen(jdbcTemplate, userID);
+      TestudoBankRepository.setNumCustomerAccountFrozen(jdbcTemplate, userID, numAccountFreezesCurrent + 1);
+    }
+    
+    updateAccountInfo(user);
+    return "account_info";
 	}
 
   /**

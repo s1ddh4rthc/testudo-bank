@@ -177,4 +177,26 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static boolean getIsCustomerAccountFrozen(JdbcTemplate jdbcTemplate, String customerID) {
+    String getIsFrozenSql = String.format("SELECT IsAccountFrozen FROM Customers WHERE CustomerID='%s';", customerID);
+    boolean isFrozen = jdbcTemplate.queryForObject(getIsFrozenSql, Boolean.class);
+    return isFrozen;
+  }
+
+  public static void setIsCustomerAccountFrozen(JdbcTemplate jdbcTemplate, String customerID, boolean isFrozen) {
+    String setIsFrozenSql = String.format("UPDATE Customers SET IsAccountFrozen = %b WHERE CustomerID='%s';", isFrozen, customerID);
+    jdbcTemplate.update(setIsFrozenSql);
+  }
+
+  public static int getNumCustomerAccountFrozen(JdbcTemplate jdbcTemplate, String customerID) {
+    String getNumFrozenSql = String.format("SELECT NumAccountFrozen FROM Customers WHERE CustomerID='%s';", customerID);
+    int numFrozen = jdbcTemplate.queryForObject(getNumFrozenSql, Integer.class);
+    return numFrozen;
+  }
+
+  public static void setNumCustomerAccountFrozen(JdbcTemplate jdbcTemplate, String customerID, int numFrozen) {
+    String setNumFrozenSql = String.format("UPDATE Customers SET NumAccountFrozen = %d WHERE CustomerID='%s';", numFrozen, customerID);
+    jdbcTemplate.update(setNumFrozenSql);
+  }
 }
