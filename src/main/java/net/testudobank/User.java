@@ -2,6 +2,7 @@ package net.testudobank;
 
 import javax.validation.constraints.Positive;
 import javax.validation.constraints.PositiveOrZero;
+import java.util.Date;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -49,6 +50,18 @@ public class User {
 
   @Setter @Getter @Positive
   private double amountToWithdraw;
+
+  @Setter @Getter @Positive
+  private double numInstallments;
+
+  @Setter @Getter @Positive
+  private double totalAmtToPay;
+
+  @Setter @Getter @Positive
+  private Date dueDate;
+
+  @Setter @Getter @Positive
+  private int installmentBalance;
 
   //// Transfer Fields ////
 

@@ -74,6 +74,17 @@ public class TestudoBankRepository {
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
   }
 
+  public static int getCustomerNumberOfInstallmentPayments(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerNumberOfInstallmentPaymentsSql = String.format("SELECT NumOfInstallments FROM Customers WHERE CustomerID='%s';", customerID);
+    int numberOfInstallmentPayments = jdbcTemplate.queryForObject(getCustomerNumberOfInstallmentPaymentsSql, Integer.class);
+    return numberOfInstallmentPayments;
+  }
+
+  public static void setCustomerNumberOfInstallmentPayments(JdbcTemplate jdbcTemplate, String customerID, int numOfInstallments) {
+    String customerInstallmentPaymentsSql = String.format("UPDATE Customers SET NumOfInstallments = %d WHERE CustomerID='%s';", numOfInstallments, customerID);
+    jdbcTemplate.update(customerInstallmentPaymentsSql);
+  }
+
   public static int getCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
     String getCustomerNumberOfDepositsForInterestSql = String.format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", customerID);
     int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql, Integer.class);
@@ -127,6 +138,27 @@ public class TestudoBankRepository {
   public static void increaseCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseAmtInPennies) {
     String balanceIncreaseSql = String.format("UPDATE Customers SET Balance = Balance + %d WHERE CustomerID='%s';", increaseAmtInPennies, customerID);
     jdbcTemplate.update(balanceIncreaseSql);
+  }
+
+  public static int getCustomerInstallmentBalance(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerInstallmentBalanceSql = String.format("SELECT InstallmentBalance FROM Customers WHERE CustomerID='%s';", customerID);
+    int installmentBalance = jdbcTemplate.queryForObject(getCustomerInstallmentBalanceSql, Integer.class);
+    return installmentBalance;
+  }
+
+  public static void setInstallmentBalance(JdbcTemplate jdbcTemplate, String customerID, int installmentBalanceInPennies) {
+    String updateInstallmentBalanceSql = String.format("UPDATE Customers SET InstallmentBalance = %d WHERE CustomerID='%s';", installmentBalanceInPennies, customerID);
+    jdbcTemplate.update(updateInstallmentBalanceSql);
+  }
+
+  public static void increaseInstallmentBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseInstAmtInPennies) {
+    String installmentBalanceIncreaseSql = String.format("UPDATE Customers SET InstallmentBalance = Balance + %d WHERE CustomerID='%s';", increaseInstAmtInPennies, customerID);
+    jdbcTemplate.update(installmentBalanceIncreaseSql);
+  }
+
+  public static void decreaseInstallmentBalance(JdbcTemplate jdbcTemplate, String customerID, int decreaseInstAmtInPennies) {
+    String installmentBalanceDecreaseSql = String.format("UPDATE Customers SET InstallmentBalance = Balance - %d WHERE CustomerID='%s';", decreaseInstAmtInPennies, customerID);
+    jdbcTemplate.update(installmentBalanceDecreaseSql);
   }
 
   public static void initCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {

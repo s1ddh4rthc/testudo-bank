@@ -20,7 +20,9 @@ create_customer_table_sql = '''
     Balance int,
     OverdraftBalance int,
     NumFraudReversals int,
-    NumDepositsForInterest int
+    NumDepositsForInterest int,
+    NumOfInstallments int,
+    InstallmentBalance int
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -51,7 +53,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'InstallmentPaid','TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
   Amount int
 );
 '''
@@ -129,11 +131,13 @@ for i in range(num_customers_to_add):
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
+    VALUES  ({0},{1},{2},{3},{4},{5}, {6}, {7}, {8});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",
                 "'" + customer_last_name + "'",
                 customer_balance,
+                0,
+                0,
                 0,
                 0,
                 0)

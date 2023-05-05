@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INSTALLMENT_ACTION = "InstallmentPaid";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -114,6 +116,21 @@ public class MvcController {
     User user = new User();
 		model.addAttribute("user", user);
 		return "withdraw_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "installments_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's installment form input.
+   * 
+   * @param model
+   * @return "withdraw_form" page
+   */
+  @GetMapping("/installments")
+	public String showInstallmentsForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "installments_form";
 	}
 
   /**
@@ -446,6 +463,88 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
 
+  }
+
+  @PostMapping("/installments")
+  public String submitWithdrawByInstallments(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't complete deposit.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+
+    // Negative deposit amount is not allowed or paying an amount less than the installment amount
+    double userWithdrawAmt = user.getAmountToWithdraw();
+    user.setTotalAmtToPay(userWithdrawAmt);
+    if (userWithdrawAmt < 0 || userWithdrawAmt < (0.25 * user.getTotalAmtToPay())) {
+      return "welcome";
+    }
+
+    //// Complete Withdraw Transaction ////
+
+    int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt);
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+
+      // handling overdraft scenario
+      if (userWithdrawAmtInPennies > userBalanceInPennies) {
+        int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
+        int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+        int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
+
+        if (newOverdraftBalanceInPennies > MAX_OVERDRAFT_IN_PENNIES) {
+          return "welcome";
+        }
+
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, 0);
+        TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
+      } else { // simple, non-overdraft withdraw case
+        int installmentAmtInPennies;
+
+        /*
+         * if the user is beginning a new installment series then the first payment will be calculated based off the amount they entered
+         * 
+         * the installment balance that remains will be updated based off the payment the user makes
+         */
+        if (user.getNumInstallments() == 0) {
+          installmentAmtInPennies = ((int) (0.25 * userWithdrawAmt)) * 100;
+          TestudoBankRepository.setInstallmentBalance(jdbcTemplate, userID, (int) (userWithdrawAmtInPennies * 0.75));
+          TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, installmentAmtInPennies);
+          TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INSTALLMENT_ACTION, userWithdrawAmtInPennies);
+        } else {
+          installmentAmtInPennies = userWithdrawAmtInPennies;
+          TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, installmentAmtInPennies);
+          TestudoBankRepository.decreaseInstallmentBalance(jdbcTemplate, userID, installmentAmtInPennies);
+          TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INSTALLMENT_ACTION, userWithdrawAmtInPennies);
+        }
+
+        // a new due date will not be needed to be set if the user is making their last installment
+        if (user.getNumInstallments() < 4) {
+          Calendar date = Calendar.getInstance();
+          date.add(Calendar.MONTH, 1);
+          Date dueDate = date.getTime();
+          user.setDueDate(dueDate);
+        }
+
+        // increasing the number of installments that the user has made
+        int numInstallments = TestudoBankRepository.getCustomerNumberOfInstallmentPayments(jdbcTemplate, userID);
+        TestudoBankRepository.setCustomerNumberOfInstallmentPayments(jdbcTemplate, userID, numInstallments + 1);
+      }
+
+    updateAccountInfo(user);
+    return "account_info";
   }
 
   /**

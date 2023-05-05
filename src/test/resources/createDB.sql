@@ -5,7 +5,9 @@ CREATE TABLE Customers (
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
-  NumDepositsForInterest int
+  NumDepositsForInterest int,
+  NumOfInstallments int,
+  InstallmentBalance int
 );
 
 CREATE TABLE Passwords (
@@ -24,7 +26,7 @@ CREATE TABLE OverdraftLogs (
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferRecieve', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'InstallmentPaid','TransferSend', 'TransferRecieve', 'CryptoBuy', 'CryptoSell')),
   Amount int
 );
 
