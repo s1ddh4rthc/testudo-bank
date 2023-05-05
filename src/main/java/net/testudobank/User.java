@@ -87,11 +87,17 @@ public class User {
   @Setter @Getter
   private double solPrice;
 
+  @Setter @Getter
+  private double btcPrice;
+
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double ethBalance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double solBalance;
+
+  @Setter @Getter @PositiveOrZero @ToString.Include
+  private double btcBalance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
