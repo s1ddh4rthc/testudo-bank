@@ -12,12 +12,12 @@ import java.io.IOException;
 @Component
 public class StockPriceClient {
 
-  public double getCurrentStockValue(String cryptoName) {
-    if (cryptoName.equals("AAPL")) {
+  public double getCurrentStockValue(String stockName) {
+    if (stockName.equals("AAPL")) {
       return getCurrentAppleValue();
-    } else if (cryptoName.equals("GOOG")) {
+    } else if (stockName.equals("GOOG")) {
       return getCurrentGoogleValue();
-    } else if (cryptoName.equals("MSFT")) {
+    } else if (stockName.equals("MSFT")) {
       return getCurrentMicrosoftValue();
     } else {
       return -1;

@@ -945,6 +945,22 @@ public class MvcController {
     }
   }
 
+  /**
+   * If the password attempt is correct, the user is not in overdraft,
+   * and the purchase amount is a valid amount that does not exceed balance,
+   * the cost of the stock in cash will be subtracted from the users
+   * balance,
+   * and shares will be added to the users account
+   * <p>
+   * If the password attempt is incorrect or the amount to purchase is invalid,
+   * the user is redirected to the "welcome" page.
+   * <p>
+   * *
+   * 
+   * @param user
+   * @return "account_info" page if buy successful. Otherwise, redirect to
+   *         "welcome" page.
+   */
   @PostMapping("/buystock")
   public String buyStock(@ModelAttribute("user") User user) {
 
@@ -971,7 +987,7 @@ public class MvcController {
       return "welcome";
     }
 
-    // cannot buy stock while in overdraft
+    // cannot buy shares while in overdraft
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate,
         userID);
     if (userOverdraftBalanceInPennies > 0) {
@@ -1010,7 +1026,7 @@ public class MvcController {
       }
 
       TestudoBankRepository.increaseCustomerStockBalance(jdbcTemplate, userID, stockToBuy, stockAmountToBuy);
-      TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, stockToBuy, STOCK_HISTORY_BUY_ACTION,
+      TestudoBankRepository.insertRowToStockLogsTable(jdbcTemplate, userID, stockToBuy, STOCK_HISTORY_BUY_ACTION,
           currentTime, stockAmountToBuy);
 
       updateAccountInfo(user);
@@ -1023,22 +1039,15 @@ public class MvcController {
   }
 
   /**
-   * HTML POST request handler for the Sell Crypto Form page.
-   * <p>
-   * The same username+password handling from the login page is used.
-   * <p>
    * If the password attempt is correct, and the purchase amount is a valid amount
-   * that does not exceed crypto balance, the cost of the cryptocurrency in cash
+   * that does not exceed stock balance, the price of the shares in cash
    * will be
-   * added to the users cash balance, and cryptocurrency will be subtracted from
+   * added to the users cash balance, and shares will be subtracted from
    * the users account
    * <p>
    * If the password attempt is incorrect or the amount to purchase is invalid,
    * the user is redirected to the "welcome" page.
    * <p>
-   * Crypto purchase function is implemented by re-using deposit handler.
-   * Logic of deposit (applying to overdraft, adding to balance, etc.) is
-   * delegated to this handler.
    *
    * @param user
    * @return "account_info" page if sell successful. Otherwise, redirect to
@@ -1069,13 +1078,13 @@ public class MvcController {
       return "welcome";
     }
 
-    // possible for user to not have any crypto
+    // possible for user to not have any share
     Optional<Double> stockBalance = TestudoBankRepository.getCustomerStockBalance(jdbcTemplate, userID, stockToSell);
     if (!stockBalance.isPresent()) {
       return "welcome";
     }
 
-    // check if user has required crypto balance
+    // check if user has required stock balance
     if (stockBalance.get() < stockAmountToSell) {
       return "welcome";
     }
@@ -1092,7 +1101,7 @@ public class MvcController {
     if (depositResponse.equals("account_info")) {
 
       TestudoBankRepository.decreaseCustomerStockBalance(jdbcTemplate, userID, stockToSell, stockAmountToSell);
-      TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, stockToSell, STOCK_HISTORY_SELL_ACTION,
+      TestudoBankRepository.insertRowToStockLogsTable(jdbcTemplate, userID, stockToSell, STOCK_HISTORY_SELL_ACTION,
           currentTime, stockAmountToSell);
 
       updateAccountInfo(user);

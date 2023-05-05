@@ -1645,6 +1645,260 @@ public class MvcControllerIntegTest {
                 }
         }
 
+        @AllArgsConstructor
+        enum StockTransactionTestType {
+                BUY("Buy", "StockBuy"),
+                SELL("Sell", "StockSell");
+
+                final String stockHistoryActionName;
+                final String transactionHistoryActionName;
+        }
+
+        /**
+         * Class to represent transaction properties for {@link StockTransactionTester}
+         */
+        @Builder
+        static class StockTransaction {
+                /**
+                 * The name of the stock for the transaction
+                 */
+                final String stockName;
+
+                /**
+                 * The price of the shares in dollars at the time of the transaction
+                 */
+                final double stockPrice;
+
+                /**
+                 * The expected (cash) balance of the user after the transaction
+                 */
+                final double expectedEndingBalanceInDollars;
+
+                /**
+                 * The (cash) overdraft balance of the user before the transaction takes place
+                 */
+                @Builder.Default
+                final double initialOverdraftBalanceInDollars = 0.0;
+
+                /**
+                 * The expected ending overdraft balance of the user
+                 */
+                @Builder.Default
+                final double expectedEndingOverdraftBalanceInDollars = 0.0;
+
+                /**
+                 * The expected ending stock balance of the user
+                 */
+                @Builder.Default
+                double expectedEndingstockBalance = 0.0;
+
+                /**
+                 * The amount of shares to buy
+                 */
+                final double stockAmountToTransact;
+
+                /**
+                 * Whether the transaction is made with the correct password
+                 */
+                @Builder.Default
+                final boolean validPassword = true;
+
+                /**
+                 * Whether the transaction is expected to succeed with the supplied parameters
+                 */
+                final boolean shouldSucceed;
+
+                /**
+                 * Whether the transaction should add to the overdraft logs
+                 */
+                @Builder.Default
+                final boolean overdraftTransaction = false;
+
+                /**
+                 * The type of the transaction (buy or sell)
+                 */
+                final StockTransactionTestType stockTransactionTestType;
+        }
+
+        /**
+         * Helper class to test stock buying and selling in with various parameters.
+         * This does several checks to see if the transaction took place correctly.
+         */
+        @Builder
+        static class StockTransactionTester {
+
+                /**
+                 * The initial (cash) balance of the user
+                 */
+                final double initialBalanceInDollars;
+
+                /**
+                 * The (cash) overdraft balance of the user
+                 */
+                @Builder.Default
+                final double initialOverdraftBalanceInDollars = 0.0;
+
+                /**
+                 * The initial stock balance of the user in units of stock
+                 * Map of stock name to initial balance
+                 */
+                @Builder.Default
+                final Map<String, Double> initialStockBalance = Collections.emptyMap();
+
+                void initialize() throws ScriptException {
+                        int balanceInPennies = MvcControllerIntegTestHelpers
+                                        .convertDollarsToPennies(initialBalanceInDollars);
+                        MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
+                                        CUSTOMER1_FIRST_NAME,
+                                        CUSTOMER1_LAST_NAME, balanceInPennies,
+                                        MvcControllerIntegTestHelpers.convertDollarsToPennies(
+                                                        initialOverdraftBalanceInDollars),
+                                        0, 0);
+                        for (Map.Entry<String, Double> initialBalance : initialStockBalance.entrySet()) {
+                                MvcControllerIntegTestHelpers.setStockBalance(dbDelegate, CUSTOMER1_ID,
+                                                initialBalance.getKey(),
+                                                initialBalance.getValue());
+                        }
+                }
+
+                // Counter for number of transactions completed by this tester
+                private int numTransactions = 0;
+
+                // Counter for the number of overdraft transaction completed by this tester
+                private int numOverdraftTransactions = 0;
+
+                /**
+                 * Attempts a transaction
+                 */
+                void test(StockTransaction transaction) {
+                        User user = new User();
+                        user.setUsername(CUSTOMER1_ID);
+                        if (transaction.validPassword) {
+                                user.setPassword(CUSTOMER1_PASSWORD);
+                        } else {
+                                user.setPassword("wrong_password");
+                        }
+                        user.setWhichStockToBuy(transaction.stockName);
+
+                        Mockito.when(stockPriceClient.getCurrentStockValue(transaction.stockName))
+                                        .thenReturn(transaction.stockPrice);
+
+                        // attempt transaction
+                        LocalDateTime stockTransactionTime = MvcControllerIntegTestHelpers
+                                        .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+                        String returnedPage;
+                        if (transaction.stockTransactionTestType == StockTransactionTestType.BUY) {
+                                user.setAmountToBuyStock(transaction.stockAmountToTransact);
+                                returnedPage = controller.buyStock(user);
+                        } else {
+                                user.setAmountToSellStock(transaction.stockAmountToTransact);
+                                returnedPage = controller.sellStock(user);
+                        }
+
+                        // check the stock balance
+                        try {
+                                double endingStockBalance = jdbcTemplate
+                                                .queryForObject("SELECT StockAmount FROM StockHoldings WHERE CustomerID=? AND StockName=?",
+                                                                BigDecimal.class, CUSTOMER1_ID, transaction.stockName)
+                                                .doubleValue();
+                                assertEquals(transaction.expectedEndingStockBalance, endingStockBalance);
+                        } catch (EmptyResultDataAccessException e) {
+                                assertEquals(transaction.expectedEndingStockBalance, 0);
+                        }
+
+                        // check the cash balance
+                        assertEquals(
+                                        MvcControllerIntegTestHelpers.convertDollarsToPennies(
+                                                        transaction.expectedEndingBalanceInDollars),
+                                        jdbcTemplate.queryForObject("SELECT Balance FROM Customers WHERE CustomerID=?",
+                                                        Integer.class,
+                                                        CUSTOMER1_ID));
+
+                        // check the overdraft balance
+                        assertEquals(
+                                        MvcControllerIntegTestHelpers
+                                                        .convertDollarsToPennies(
+                                                                        transaction.expectedEndingOverdraftBalanceInDollars),
+                                        jdbcTemplate.queryForObject(
+                                                        "SELECT OverdraftBalance FROM Customers WHERE CustomerID=?",
+                                                        Integer.class,
+                                                        CUSTOMER1_ID));
+
+                        if (!transaction.shouldSucceed) {
+                                // verify no transaction took place
+                                assertEquals("welcome", returnedPage);
+                                assertEquals(numTransactions,
+                                                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;",
+                                                                Integer.class));
+                                assertEquals(numTransactions,
+                                                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM StockHistory;",
+                                                                Integer.class));
+                                assertEquals(numOverdraftTransactions,
+                                                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM OverdraftLogs;",
+                                                                Integer.class));
+                        } else {
+                                assertEquals("account_info", returnedPage);
+
+                                // check transaction logs
+                                assertEquals(numTransactions + 1,
+                                                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;",
+                                                                Integer.class));
+                                List<Map<String, Object>> transactionHistoryTableData = jdbcTemplate
+                                                .queryForList("SELECT * FROM TransactionHistory ORDER BY Timestamp DESC;");
+                                Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(0);
+                                int expectedStockValueInPennies = MvcControllerIntegTestHelpers
+                                                .convertDollarsToPennies(transaction.stockPrice
+                                                                * transaction.stockAmountToTransact);
+                                MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog,
+                                                stockTransactionTime,
+                                                CUSTOMER1_ID,
+                                                transaction.stockTransactionTestType.transactionHistoryActionName,
+                                                expectedStockValueInPennies);
+
+                                assertEquals(numTransactions + 1,
+                                                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM StockHistory;",
+                                                                Integer.class));
+                                List<Map<String, Object>> stockHistoryTableData = jdbcTemplate
+                                                .queryForList("SELECT * FROM StockHistory ORDER BY Timestamp DESC;");
+                                Map<String, Object> customer1StockLog = stockHistoryTableData.get(0);
+                                MvcControllerIntegTestHelpers.checkStockLog(customer1StockLog, stockTransactionTime,
+                                                CUSTOMER1_ID,
+                                                transaction.stockTransactionTestType.stockHistoryActionName,
+                                                transaction.stockName, transaction.stockAmountToTransact);
+
+                                // check overdraft logs (if applicable)
+                                if (transaction.overdraftTransaction) {
+                                        assertEquals(numOverdraftTransactions + 1,
+                                                        jdbcTemplate.queryForObject(
+                                                                        "SELECT COUNT(*) FROM OverdraftLogs;",
+                                                                        Integer.class));
+                                        List<Map<String, Object>> overdraftLogTableData = jdbcTemplate
+                                                        .queryForList("SELECT * FROM OverdraftLogs ORDER BY Timestamp DESC;");
+                                        Map<String, Object> customer1OverdraftLog = overdraftLogTableData.get(0);
+                                        MvcControllerIntegTestHelpers.checkOverdraftLog(customer1OverdraftLog,
+                                                        stockTransactionTime,
+                                                        CUSTOMER1_ID,
+                                                        expectedStockValueInPennies,
+                                                        MvcControllerIntegTestHelpers
+                                                                        .convertDollarsToPennies(
+                                                                                        transaction.initialOverdraftBalanceInDollars),
+                                                        MvcControllerIntegTestHelpers
+                                                                        .convertDollarsToPennies(
+                                                                                        transaction.expectedEndingOverdraftBalanceInDollars));
+                                        numOverdraftTransactions++;
+                                } else {
+                                        assertEquals(numOverdraftTransactions,
+                                                        jdbcTemplate.queryForObject(
+                                                                        "SELECT COUNT(*) FROM OverdraftLogs;",
+                                                                        Integer.class));
+                                }
+
+                                numTransactions++;
+
+                        }
+                }
+        }
+
         /**
          * Test that no crypto buy transaction occurs when the user password is
          * incorrect
