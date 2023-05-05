@@ -99,4 +99,7 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Weekly Rewards Fields ////
+  @Setter @Getter
+  private int numWeeklyRewards;
 }

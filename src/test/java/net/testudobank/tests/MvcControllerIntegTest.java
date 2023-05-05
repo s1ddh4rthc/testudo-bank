@@ -1582,4 +1582,234 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /**
+   * Verifies the simplest weekly reward case.
+   * The customer's Balance in the Customers table should be increased,
+   * and the Deposit should be logged in the TransactionHistory table and WeeklyRewards table.
+   * 
+   * Assumes that the customer's account meets all elgibility requirements.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleWeeklyReward() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $10,000.00. Represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 10000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    double CUSTOMER_REWARD_AMOUNT = 5; // user input is in dollar amount, not pennies.
+    User customer1Inputs = new User();
+    customer1Inputs.setUsername(CUSTOMER1_ID);
+    customer1Inputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // verify that there are no logs in TransactionHistory table before Deposit
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // store timestamp of when weekly rewards are redeemed to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+    // send request to weeklyrewards_redeem POST handler in MvcController
+    controller.weeklyRewardsRedeem(customer1Inputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    List<Map<String,Object>> weeklyRewardsTableData = jdbcTemplate.queryForList("SELECT * FROM WeeklyRewards;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance was increased by $5
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER_REWARD_AMOUNT;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // verify that the weekly reward deposit is the only log in TransactionHistory table
+    assertEquals(1, transactionHistoryTableData.size());
+    
+    // verify that the weekly reward deposit details are accurately logged in the TransactionHistory table
+    Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(0);
+    int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER_REWARD_AMOUNT);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_REWARD_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+    
+    // verify that the weekly reward is accurately logged in the TransactionHistory table
+    Map<String,Object> customer1WeeklyRewardLog = weeklyRewardsTableData.get(0);
+    int CUSTOMER1_REWARD_AMOUNT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER_REWARD_AMOUNT);
+    MvcControllerIntegTestHelpers.checkWeeklyRewardsLog(customer1WeeklyRewardLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.WEEKLY_REWARDS_CASH_ACTION, CUSTOMER1_REWARD_AMOUNT_IN_PENNIES);
+  }
+
+  /**
+   * Verifies that redemming multiple weekly rewards works
+   *
+   * Assumes that the customer's account meets all elgibility requirements.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testMultipleWeeklyRewards() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $10,000.00. Represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 10000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    double CUSTOMER_REWARD_AMOUNT_TOTAL = 75; // user input is in dollar amount, not pennies.
+    User customer1Inputs = new User();
+    customer1Inputs.setUsername(CUSTOMER1_ID);
+    customer1Inputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // send 5 requests to weeklyrewards_redeem POST handler in MvcController
+    controller.weeklyRewardsRedeem(customer1Inputs);
+    controller.weeklyRewardsRedeem(customer1Inputs);
+    controller.weeklyRewardsRedeem(customer1Inputs);
+    controller.weeklyRewardsRedeem(customer1Inputs);
+    controller.weeklyRewardsRedeem(customer1Inputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    List<Map<String,Object>> weeklyRewardsTableData = jdbcTemplate.queryForList("SELECT * FROM WeeklyRewards;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer balance was increased by $5, $10, $15, $20, and $25 dollars for $75 dollars total for 5 weeks
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER_REWARD_AMOUNT_TOTAL;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // verify that the weekly reward deposits are the only logs in TransactionHistory table
+    assertEquals(5, transactionHistoryTableData.size());
+    
+    // verify that their are 5 weekly rewards 
+    assertEquals(5, weeklyRewardsTableData.size());
+  }
+
+  /**
+   * Verifies that meeting all elgibility requirements allow customer to redeem rewards
+   * 
+   * 1. Balance of $5,000 or more 
+   * 2. No overdraft
+   * 3. Deposit made in the last week of $100 or more
+   * 4. Weekly Rewards have not been redeemed yet
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testWeeklyRewardsValidElgibility() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $10,000.00 and no overdraft. Represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 10000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1Inputs = new User();
+    customer1Inputs.setUsername(CUSTOMER1_ID);
+    customer1Inputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // sending a deposit of $100
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100.00; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    // send request to the deposit form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify reward has not been redeemed yet
+    List<Map<String,Object>> weeklyRewardsTableData = jdbcTemplate.queryForList("SELECT * FROM WeeklyRewards;");
+    assertEquals(0, weeklyRewardsTableData.size());
+
+    // send request to weeklyrewards_login POST handler in MvcController
+    String responsePage = controller.weeklyrewardsLogin(customer1Inputs);
+    assertEquals("weeklyrewards_displayvalid", responsePage);
+  }
+
+/**
+   * Verifies that overdraft does not allow customer to redeem rewards
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testWeeklyRewardsFailureOverdraft() throws SQLException, ScriptException {
+    // initialize customer1 with an overdraft balance of $100.00. Represented as pennies in the DB.
+    int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = 0;
+    double CUSTOMER1_OVERDRAFT_BALANCE = 100.00;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+
+    User customer1Inputs = new User();
+    customer1Inputs.setUsername(CUSTOMER1_ID);
+    customer1Inputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // sending a deposit of $100 to make sure the failure is due to overdraft
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100.00; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    // send request to the deposit form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // send request to weeklyrewards_login POST handler in MvcController
+    String responsePage = controller.weeklyrewardsLogin(customer1Inputs);
+    assertEquals("weeklyrewards_displayinvalid", responsePage);
+  }
+
+  /**
+   * Verifies that a balance of under 5000 does not allow customer to redeem rewards
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testWeeklyRewardsFailureLowBalance() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $4000.00. Represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 4000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1Inputs = new User();
+    customer1Inputs.setUsername(CUSTOMER1_ID);
+    customer1Inputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // sending a deposit of $100 to make sure failure is due to balance
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100.00; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+    // send request to the deposit form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // send request to weeklyrewards_login POST handler in MvcController
+    String responsePage = controller.weeklyrewardsLogin(customer1Inputs);
+    assertEquals("weeklyrewards_displayinvalid", responsePage);
+  }
+
+    /**
+   * Verifies that no deposit of 100 or more for the week does not allow customer to redeem rewards
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testWeeklyRewardsFailureNoDeposit() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $10,0000. Represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 10000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1Inputs = new User();
+    customer1Inputs.setUsername(CUSTOMER1_ID);
+    customer1Inputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // send request to weeklyrewards_login POST handler in MvcController
+    String responsePage = controller.weeklyrewardsLogin(customer1Inputs);
+    assertEquals("weeklyrewards_displayinvalid", responsePage);
+  }
 }

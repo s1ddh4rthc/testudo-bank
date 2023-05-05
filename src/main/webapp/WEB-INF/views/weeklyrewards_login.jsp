@@ -1,12 +1,11 @@
 <%@ page language="java" contentType="text/html; charset=ISO-8859-1"
-    pageEncoding="ISO-8859-1"%>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>    
+    pageEncoding="ISO-8859-1"%>  
 <!DOCTYPE html>
 <html>
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
   <meta charset="ISO-8859-1">
-  <title>Welcome Page</title>
+  <title>${user.firstName} ${user.lastName} - Testudo Bank</title>
   <style type="text/css">
     label {
       display: inline-block;
@@ -33,20 +32,17 @@
     }
   </style>
 </head>
-
 <body>
-	<div align="center">
-		<h2>Welcome to Testudo Bank!</h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:150px;height:150px;">
-		<a href='/login'>View Account</a> <br/>
-    <a href='/deposit'>Deposit</a> <br/>
-    <a href='/withdraw'>Withdraw</a> <br/>
-    <a href='/dispute'>Dispute</a> <br/>
-    <a href='/transfer'>Transfer</a> <br/>
-    <a href='/buycrypto'>Buy Cryptocurrency</a> <br/>
-    <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
-    <a href='/weeklyrewards_login'>Weekly Rewards</a> <br/>
-	</div>
+  <div align="center">
+    <p>Testudo Bank provides customers with weekly rewards for continuous use of the service. To be elgible you must have no overdraft and a balance of $5000 or more. Then every deposit of $100 or more will make you eligible for the week. Login below to check your elgiblity.</p>
+    <br>
+    <form action="weeklyrewards_login" method="post" modelAttribute="user">
+			<label for="username">Username:</label>
+      <input type="text" id="username" name="username"><br>
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password"><br>
+			<button>Log in</button>
+		</form>
+    <a href='/'>Home</a>
 </body>
-
 </html>

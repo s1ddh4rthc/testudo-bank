@@ -51,6 +51,12 @@ public class TestudoBankRepository {
     return transactionLogs;
   }
 
+  public static List<Map<String,Object>> getWeeklyRewardsLogs(JdbcTemplate jdbcTemplate, String customerID) {
+    String getWeeklyRewardsHistorySql = String.format("Select * from WeeklyRewards WHERE CustomerId='%s' ORDER BY Timestamp DESC;", customerID);
+    List<Map<String,Object>> weeklyRewardsLogs = jdbcTemplate.queryForList(getWeeklyRewardsHistorySql);
+    return weeklyRewardsLogs;
+  }
+
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
@@ -90,6 +96,15 @@ public class TestudoBankRepository {
                                                               customerID,
                                                               timestamp,
                                                               action,
+                                                              amtInPennies);
+    jdbcTemplate.update(insertRowToTransactionHistorySql);
+  }
+
+  public static void insertRowToWeeklyRewardsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String rewardType, int amtInPennies) {
+    String insertRowToTransactionHistorySql = String.format("INSERT INTO WeeklyRewards VALUES ('%s', '%s', '%s', %d);",
+                                                              customerID,
+                                                              timestamp,
+                                                              rewardType,
                                                               amtInPennies);
     jdbcTemplate.update(insertRowToTransactionHistorySql);
   }

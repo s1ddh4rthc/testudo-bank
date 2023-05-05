@@ -66,6 +66,18 @@ public class MvcControllerIntegTestHelpers {
     System.out.println("Timestamp stored in TransactionHistory table for the request: " + transactionLogTimestamp);
   }
 
+  // Verifies that a single transaction log in the WeeklyRewards table matches the expected customerID, timestamp, action, and amount
+  public static void checkWeeklyRewardsLog(Map<String,Object> weeklyRewardLog, LocalDateTime timeWhenRequestSent, String expectedCustomerID, String rewardType, int expectedAmountInPennies) {
+    assertEquals(expectedCustomerID, (String)weeklyRewardLog.get("CustomerID"));
+    assertEquals(rewardType, (String)weeklyRewardLog.get("RewardType"));
+    assertEquals(expectedAmountInPennies, (int)weeklyRewardLog.get("Amount"));
+    // verify that the timestamp for the Deposit is within a reasonable range from when the request was first sent
+    LocalDateTime weeklyRewardLogTimestamp = (LocalDateTime)weeklyRewardLog.get("Timestamp");
+    LocalDateTime weeklyRewardLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    assertTrue(weeklyRewardLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && weeklyRewardLogTimestamp.compareTo(weeklyRewardLogTimestampAllowedUpperBound) <= 0);
+    System.out.println("Timestamp stored in TransactionHistory table for the request: " + weeklyRewardLogTimestamp);
+  }
+
   // Verifies that a single overdraft repayment log in the OverdraftLogs table matches the expected customerID, timestamp, depositAmt, oldOverBalance, and newOverBalance
   public static void checkOverdraftLog(Map<String,Object> overdraftLog, LocalDateTime timeWhenRequestSent, String expectedCustomerID, int expectedDepositAmtInPennies, int expectedOldOverBalanceInPennies, int expectedNewOverBalanceInPennies) {
     assertEquals(expectedCustomerID, (String)overdraftLog.get("CustomerID"));
