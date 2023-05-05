@@ -29,6 +29,7 @@ public class MvcController {
 
   // Client to get crypto price
   private CryptoPriceClient cryptoPriceClient;
+  private StockPriceClient stockPriceClient;
 
   // Formatter for converting Java Dates to SQL-compatible DATETIME Strings
   private static java.text.SimpleDateFormat SQL_DATETIME_FORMATTER = new java.text.SimpleDateFormat(
@@ -51,12 +52,19 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_INTEREST_PAID_ACTION = "InterestPaid";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  public static String TRANSACTION_HISTORY_STOCK_SELL_ACTION = "StockSell";
+  public static String TRANSACTION_HISTORY_STOCK_BUY_ACTION = "StockBuy";
+  public static String STOCK_HISTORY_SELL_ACTION = "Sell";
+  public static String STOCK_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
+  public static Set<String> SUPPORTED_STOCKS = new HashSet<>(Arrays.asList("AAPL", "GOOG", "MSFT"));
   public static double BALANCE_INTEREST_RATE = 1.015;
 
-  public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
+  public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient,
+      @Autowired StockPriceClient stockPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
     this.cryptoPriceClient = cryptoPriceClient;
+    this.stockPriceClient = stockPriceClient;
   }
 
   //// HTML GET HANDLERS ////
@@ -182,6 +190,34 @@ public class MvcController {
     return "sellcrypto_form";
   }
 
+  /**
+   * @param model
+   * @return "buystock_form" page
+   */
+  @GetMapping("/buystock")
+  public String showBuyStockForm(Model model) {
+    User user = new User();
+    user.setAaplPrice(stockPriceClient.getCurrentAppleValue());
+    user.setGoogPrice(stockPriceClient.getCurrentGoogleValue());
+    user.setMsftPrice(stockPriceClient.getCurrentMicrosoftValue());
+    model.addAttribute("user", user);
+    return "buystock_form";
+  }
+
+  /**
+   * @param model
+   * @return "sellstock_form" page
+   */
+  @GetMapping("/sellstock")
+  public String showSellStockForm(Model model) {
+    User user = new User();
+    user.setAaplPrice(stockPriceClient.getCurrentAppleValue());
+    user.setGoogPrice(stockPriceClient.getCurrentGoogleValue());
+    user.setMsftPrice(stockPriceClient.getCurrentMicrosoftValue());
+    model.addAttribute("user", user);
+    return "sellstock_form";
+  }
+
   //// HELPER METHODS ////
 
   /**
@@ -219,6 +255,12 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
+    List<Map<String, Object>> stockLogs = TestudoBankRepository.getStockLogs(jdbcTemplate, user.getUsername());
+    StringBuilder stockHistoryOutput = new StringBuilder(HTML_LINE_BREAK);
+    for (Map<String, Object> stockLog : stockLogs) {
+      stockHistoryOutput.append(stockLog).append(HTML_LINE_BREAK);
+    }
+
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format(
         "SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';",
         user.getUsername());
@@ -234,22 +276,40 @@ public class MvcController {
           * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+    double stockBalanceInDollars = 0;
+    for (String stockName : MvcController.SUPPORTED_STOCKS) {
+      stockBalanceInDollars += TestudoBankRepository
+          .getCustomerStockBalance(jdbcTemplate, user.getUsername(), stockName).orElse(0.0)
+          * stockPriceClient.getCurrentStockValue(stockName);
+    }
+
     user.setFirstName((String) userData.get("FirstName"));
     user.setLastName((String) userData.get("LastName"));
     user.setBalance((int) userData.get("Balance") / 100.0);
     double overDraftBalance = (int) userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance / 100);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
+    user.setStockBalanceUSD(stockBalanceInDollars);
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
+    user.setStockHist(stockHistoryOutput.toString());
     user.setEthBalance(
         TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(
         TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setAaplBalance(
+        TestudoBankRepository.getCustomerStockBalance(jdbcTemplate, user.getUsername(), "AAPL").orElse(0.0));
+    user.setGoogBalance(
+        TestudoBankRepository.getCustomerStockBalance(jdbcTemplate, user.getUsername(), "GOOG").orElse(0.0));
+    user.setMsftBalance(
+        TestudoBankRepository.getCustomerStockBalance(jdbcTemplate, user.getUsername(), "MSFT").orElse(0.0));
+    user.setAaplPrice(stockPriceClient.getCurrentAppleValue());
+    user.setGoogPrice(stockPriceClient.getCurrentGoogleValue());
+    user.setMsftPrice(stockPriceClient.getCurrentMicrosoftValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
@@ -876,6 +936,164 @@ public class MvcController {
       TestudoBankRepository.decreaseCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy, cryptoAmountToSell);
       TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, cryptoToBuy, CRYPTO_HISTORY_SELL_ACTION,
           currentTime, cryptoAmountToSell);
+
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
+  }
+
+  @PostMapping("/buystock")
+  public String buyStock(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // must buy a supported stock
+    String stockToBuy = user.getWhichStockToBuy();
+    if (MvcController.SUPPORTED_STOCKS.contains(stockToBuy) == false) {
+      return "welcome";
+    }
+
+    // must buy a positive amount
+    double stockAmountToBuy = user.getAmountToBuyStock();
+    if (stockAmountToBuy <= 0) {
+      return "welcome";
+    }
+
+    // cannot buy stock while in overdraft
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate,
+        userID);
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }
+
+    // calculate how much it will cost to buy currently
+    double costOfStockPurchaseInDollars = stockPriceClient.getCurrentStockValue(stockToBuy) * stockAmountToBuy;
+
+    // possible for web scraper to fail and return a negative value, abort if so
+    if (costOfStockPurchaseInDollars < 0) {
+      return "welcome";
+    }
+
+    double costOfStockPurchaseInPennies = convertDollarsToPennies(costOfStockPurchaseInDollars);
+
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // check if balance will cover purchase
+    if (costOfStockPurchaseInPennies > userBalanceInPennies) {
+      return "welcome";
+    }
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    // buy stock
+    user.setAmountToWithdraw(costOfStockPurchaseInDollars);
+    user.setStockTransaction(true);
+
+    String withdrawResponse = submitWithdraw(user);
+
+    if (withdrawResponse.equals("account_info")) {
+
+      if (!TestudoBankRepository.getCustomerStockBalance(jdbcTemplate, userID, stockToBuy).isPresent()) {
+        TestudoBankRepository.initCustomerStockBalance(jdbcTemplate, userID, stockToBuy);
+      }
+
+      TestudoBankRepository.increaseCustomerStockBalance(jdbcTemplate, userID, stockToBuy, stockAmountToBuy);
+      TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, stockToBuy, STOCK_HISTORY_BUY_ACTION,
+          currentTime, stockAmountToBuy);
+
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
+
+  }
+
+  /**
+   * HTML POST request handler for the Sell Crypto Form page.
+   * <p>
+   * The same username+password handling from the login page is used.
+   * <p>
+   * If the password attempt is correct, and the purchase amount is a valid amount
+   * that does not exceed crypto balance, the cost of the cryptocurrency in cash
+   * will be
+   * added to the users cash balance, and cryptocurrency will be subtracted from
+   * the users account
+   * <p>
+   * If the password attempt is incorrect or the amount to purchase is invalid,
+   * the user is redirected to the "welcome" page.
+   * <p>
+   * Crypto purchase function is implemented by re-using deposit handler.
+   * Logic of deposit (applying to overdraft, adding to balance, etc.) is
+   * delegated to this handler.
+   *
+   * @param user
+   * @return "account_info" page if sell successful. Otherwise, redirect to
+   *         "welcome" page.
+   */
+  @PostMapping("/sellstock")
+  public String sellStock(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // must buy a supported stock
+    String stockToSell = user.getWhichStockToBuy();
+    if (MvcController.SUPPORTED_STOCKS.contains(stockToSell) == false) {
+      return "welcome";
+    }
+
+    // must sell a positive amount
+    double stockAmountToSell = user.getAmountToSellStock();
+    if (stockAmountToSell <= 0) {
+      return "welcome";
+    }
+
+    // possible for user to not have any crypto
+    Optional<Double> stockBalance = TestudoBankRepository.getCustomerStockBalance(jdbcTemplate, userID, stockToSell);
+    if (!stockBalance.isPresent()) {
+      return "welcome";
+    }
+
+    // check if user has required crypto balance
+    if (stockBalance.get() < stockAmountToSell) {
+      return "welcome";
+    }
+
+    double stockValueInDollars = stockPriceClient.getCurrentStockValue(stockToSell) * stockAmountToSell;
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    user.setAmountToDeposit(stockValueInDollars);
+    user.setStockTransaction(true);
+
+    String depositResponse = submitDeposit(user);
+
+    if (depositResponse.equals("account_info")) {
+
+      TestudoBankRepository.decreaseCustomerStockBalance(jdbcTemplate, userID, stockToSell, stockAmountToSell);
+      TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, stockToSell, STOCK_HISTORY_SELL_ACTION,
+          currentTime, stockAmountToSell);
 
       updateAccountInfo(user);
 

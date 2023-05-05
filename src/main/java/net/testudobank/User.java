@@ -11,92 +11,193 @@ import lombok.ToString;
 public class User {
   //// General Customer Fields ////
 
-  @Setter @Getter @ToString.Include
-	private String username;
+  @Setter
+  @Getter
+  @ToString.Include
+  private String username;
 
-  @Setter @Getter @ToString.Include
-	private String password;
+  @Setter
+  @Getter
+  @ToString.Include
+  private String password;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String firstName;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String lastName;
 
-  @Setter  @Getter @PositiveOrZero @ToString.Include
-	private double balance;
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
+  private double balance;
 
-  @Setter @Getter @PositiveOrZero
-	private double overDraftBalance;
+  @Setter
+  @Getter
+  @PositiveOrZero
+  private double overDraftBalance;
 
-  @Setter @Getter
-	private String logs;
+  @Setter
+  @Getter
+  private String logs;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String transactionHist;
 
   //// Dispute Fields ////
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private int numTransactionsAgo;
 
   //// Deposit Fields ////
 
-  @Setter @Getter @Positive
+  @Setter
+  @Getter
+  @Positive
   private double amountToDeposit;
 
   //// Withdraw Fields ////
 
-  @Setter @Getter @Positive
+  @Setter
+  @Getter
+  @Positive
   private double amountToWithdraw;
 
   //// Transfer Fields ////
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private double amountToTransfer;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String transferRecipientID;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private boolean isTransfer;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String transferHist;
 
   //// Crypto Fields ////
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private boolean isCryptoTransaction;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String cryptoHist;
 
-  @Setter @Getter @Positive
+  @Setter
+  @Getter
+  @Positive
   private double amountToBuyCrypto;
 
-  @Setter @Getter @Positive
+  @Setter
+  @Getter
+  @Positive
   private double amountToSellCrypto;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private String whichCryptoToBuy;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private double ethPrice;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private double solPrice;
 
-  @Setter  @Getter @PositiveOrZero @ToString.Include
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
   private double ethBalance;
 
-  @Setter  @Getter @PositiveOrZero @ToString.Include
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
   private double solBalance;
 
-  @Setter  @Getter @PositiveOrZero @ToString.Include
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
   private double cryptoBalanceUSD;
 
-  @Setter @Getter
+  @Setter
+  @Getter
   private int numDepositsForInterest;
+
+  //// Stock Fields ////
+
+  @Setter
+  @Getter
+  private boolean isStockTransaction;
+
+  @Setter
+  @Getter
+  private String stockHist;
+
+  @Setter
+  @Getter
+  @Positive
+  private double amountToBuyStock;
+
+  @Setter
+  @Getter
+  @Positive
+  private double amountToSellStock;
+
+  @Setter
+  @Getter
+  private String whichStockToBuy;
+
+  @Setter
+  @Getter
+  private double aaplPrice;
+
+  @Setter
+  @Getter
+  private double googPrice;
+
+  @Setter
+  @Getter
+  private double msftPrice;
+
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
+  private double aaplBalance;
+
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
+  private double googBalance;
+
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
+  private double msftBalance;
+
+  @Setter
+  @Getter
+  @PositiveOrZero
+  @ToString.Include
+  private double stockBalanceUSD;
 
 }
