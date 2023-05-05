@@ -35,6 +35,12 @@ CREATE TABLE TransferHistory (
   Amount int
 );
 
+CREATE TABLE FraudAlertHistory (
+  CustomerID varchar(255),
+  Timestamp DATETIME,
+  Amount int
+);
+
 CREATE TABLE CryptoHoldings (
   CustomerID varchar(255),
   CryptoName varchar(255),

@@ -35,6 +35,10 @@ public class User {
   @Setter @Getter
   private String transactionHist;
 
+  // set a field in user for fraud history
+  @Setter @Getter
+  private String fraudHist;
+
   //// Dispute Fields ////
 
   @Setter @Getter

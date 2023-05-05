@@ -38,6 +38,7 @@ public class MvcController {
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
+  private final static int MAX_NUM_FRAUDS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
@@ -50,6 +51,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
+  public static boolean IS_FRAUD = false;
+  public static String OLD_PASSWORD = "";
   private static double BALANCE_INTEREST_RATE = 1.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
@@ -180,6 +183,22 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "passwordreset_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's form input.
+   * 
+   * @param model
+   * @return "passwordreset_form" page
+   */
+  @GetMapping("/passwordreset")
+	public String showPasswordResetForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+
+		return "passwordreset_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -207,6 +226,13 @@ public class MvcController {
       transferHistoryOutput += transferLog + HTML_LINE_BREAK;
     }
 
+    // logging fraud alerts
+    List<Map<String,Object>> fraudLogs = TestudoBankRepository.getFraudLogs(jdbcTemplate, user.getUsername(), MAX_NUM_FRAUDS_DISPLAYED);
+    String fraudHistoryOutput = HTML_LINE_BREAK;
+    for(Map<String, Object> fraudLog : fraudLogs){
+      fraudHistoryOutput += fraudLog + HTML_LINE_BREAK;
+    }
+
     List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
     StringBuilder cryptoHistoryOutput = new StringBuilder(HTML_LINE_BREAK);
     for (Map<String, Object> cryptoLog : cryptoLogs) {
@@ -232,6 +258,7 @@ public class MvcController {
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
+    user.setFraudHist(fraudHistoryOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
@@ -277,8 +304,17 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
 
+    
+
     // Retrieve correct password for this customer.
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    System.out.println("userPasswordAttempt: " + userPasswordAttempt);
+    System.out.println("userPassword: " + userPassword);
+
+    if (IS_FRAUD) {
+      return "passwordreset_form";
+    }
 
     if (userPasswordAttempt.equals(userPassword)) {
       updateAccountInfo(user);
@@ -314,6 +350,10 @@ public class MvcController {
       return "welcome";
     }
 
+    if (IS_FRAUD) {
+      return "passwordreset_form";
+    }
+
     // If customer already has too many reversals, their account is frozen. Don't complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES){
@@ -325,7 +365,7 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
-    
+
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
@@ -391,6 +431,10 @@ public class MvcController {
       return "welcome";
     }
 
+    if (IS_FRAUD) {
+      return "passwordreset_form";
+    }
+
     // If customer already has too many reversals, their account is frozen. Don't complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES){
@@ -408,7 +452,15 @@ public class MvcController {
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
+    int userBalanceInPenniesHalf = userBalanceInPennies / 2;
+
+    if (userWithdrawAmtInPennies > userBalanceInPenniesHalf) { // if user withdraws more than half of their money in account
+      IS_FRAUD = true;
+      OLD_PASSWORD = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+      TestudoBankRepository.insertRowToFraudAlertTable(jdbcTemplate, userID, currentTime, userWithdrawAmtInPennies);
+      updateAccountInfo(user);
+      return "passwordreset_form";
+    } else if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
       int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
@@ -445,7 +497,6 @@ public class MvcController {
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
-
   }
 
   /**
@@ -476,6 +527,10 @@ public class MvcController {
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
       return "welcome";
+    }
+
+    if (IS_FRAUD) {
+      return "passwordreset_form";
     }
 
     // check if customer account is frozen
@@ -589,6 +644,10 @@ public class MvcController {
       return "welcome";
     }
 
+    if (IS_FRAUD) {
+      return "passwordreset_form";
+    }
+
     // case where customer already has too many reversals
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, senderUserID);
     if (numOfReversals >= MAX_DISPUTES) {
@@ -608,7 +667,7 @@ public class MvcController {
     if (transferAmount < 0) {
       return "welcome";
     } 
-  
+
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this transfer
 
     // withdraw transfer amount from sender and deposit into recipient's account
@@ -655,6 +714,10 @@ public class MvcController {
     // unsuccessful login
     if (!userPasswordAttempt.equals(userPassword)) {
       return "welcome";
+    }
+
+    if (IS_FRAUD) {
+      return "passwordreset_form";
     }
 
     // must buy a supported cryptocurrency
@@ -717,7 +780,6 @@ public class MvcController {
     } else {
       return "welcome";
     }
-
   }
 
   /**
@@ -749,6 +811,10 @@ public class MvcController {
     // unsuccessful login
     if (!userPasswordAttempt.equals(userPassword)) {
       return "welcome";
+    }
+
+    if (IS_FRAUD) {
+      return "passwordreset_form";
     }
 
     // must buy a supported cryptocurrency
@@ -799,6 +865,43 @@ public class MvcController {
   }
 
   /**
+   * HTML POST request handler that uses user input from Password Reset Form page to determine 
+   * if the user successfully changed their password.
+   * 
+   * Queries 'passwords' table in MySQL DB for the new password associated with the
+   * username ID given by the user. Compares the user's new password with the old
+   * password.
+   * 
+   * If the new and old password does not match, the "welcome" page is served to the customer
+   * and the fraud alert will be removed.
+   * 
+   * If the new and old password matches, the user is redirected to the "passwordreset" page
+   * to provide a new password.
+   * 
+   * @param user
+   * @return "welcome" page if password change successful. Otherwise, redirect to "passwordreset" page.
+   */
+  @PostMapping("/passwordreset")
+	public String submitPasswordResetForm(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPassword = user.getPassword();
+
+    System.out.println("user password 1: " + userPassword);
+
+    // Retrieve correct password for this customer.
+    //String userPassword2 = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    if (OLD_PASSWORD.equals(userPassword)) {
+      return "passwordreset_form";
+    } else {
+      IS_FRAUD = false;
+      TestudoBankRepository.setCustomerPassword(jdbcTemplate, userID, userPassword);
+      System.out.println("user password: " + TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID));
+      return "welcome";
+    }
+	}
+
+  /**
    * 
    * 
    * @param user
@@ -809,5 +912,4 @@ public class MvcController {
     return "welcome";
 
   }
-
 }
