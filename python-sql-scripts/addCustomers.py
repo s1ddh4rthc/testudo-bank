@@ -51,7 +51,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell', 'RewardDeposit')),
   Amount int
 );
 '''
@@ -85,13 +85,23 @@ create_cryptohistory_table_sql = '''
 CREATE TABLE CryptoHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Buy', 'Sell')),
+  Action varchar(255) CHECK (Action IN ('Buy', 'Sell', 'RewardBuy')),
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
 );
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty WeeklyRewards table
+create_weeklyrewards_table_sql = '''
+CREATE TABLE WeeklyRewards (
+  CustomerID varchar(255),
+  Timestamp DATETIME,
+  RewardType varchar(255) CHECK (Action IN ('Cash', 'ETH', 'SOL')),
+  Amount int
+);
+'''
+cursor.execute(create_weeklyrewards_table_sql)
 
 
 # The two sets created below are used to ensure that this

@@ -24,7 +24,7 @@ CREATE TABLE OverdraftLogs (
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferRecieve', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferRecieve', 'CryptoBuy', 'CryptoSell', "RewardDeposit")),
   Amount int
 );
 
@@ -44,7 +44,14 @@ CREATE TABLE CryptoHoldings (
 CREATE TABLE CryptoHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Buy', 'Sell')),
+  Action varchar(255) CHECK (Action IN ('Buy', 'Sell', 'RewardBuy')),
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
+);
+
+CREATE TABLE WeeklyRewards (
+  CustomerID varchar(255),
+  Timestamp DATETIME,
+  RewardType varchar(255) CHECK (Action IN ('Cash', 'ETH', 'SOL')),
+  Amount int
 );

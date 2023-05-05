@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.time.LocalDateTime;
@@ -17,6 +18,7 @@ import java.util.List;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.TimeZone;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -47,8 +49,13 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_REWARD_DEPOSIT_ACTION = "RewardDeposit";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  public static String CRYPTO_HISTORY_REWARD_BUY_ACTION = "RewardBuy";
+  public static String WEEKLY_REWARDS_CASH_ACTION = "Cash";
+  public static String WEEKLY_REWARDS_CRYPTO_ETH_ACTION = "ETH";
+  public static String WEEKLY_REWARDS_CRYPTO_SOL_ACTION = "SOL";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
 
@@ -180,6 +187,49 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "weeklyrewards_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute
+   * 
+   * @param model
+   * @return "weeklyrewards_login" page
+   */
+  @GetMapping("/weeklyrewards_login")
+	public String showWeeklyRewardsForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "weeklyrewards_login";
+	}
+
+  /**
+   * HTML GET request handler that serves the "weeklyrewards_displayvalid" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's rewards
+   * 
+   * @param model
+   * @return "weeklyrewards_displayvalid" page
+   */
+  @GetMapping("/weeklyrewards_displayvalid")
+	public String showWeeklyRewardsDisplayValid(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "weeklyrewards_displayvalid";
+	}
+
+  /**
+   * HTML GET request handler that serves the "weeklyrewards_displayinvalid" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute
+   * 
+   * @param model
+   * @return "weeklyrewards_displayinvalid" page
+   */
+  @GetMapping("/weeklyrewards_displayinvalid")
+	public String showWeeklyRewardsDisplayInvalid(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "weeklyrewards_displayinvalid";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -238,6 +288,8 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    //Get the current weekly reward user is on. Reset at 52 for a new year of rewards.
+    user.setNumWeeklyRewards(TestudoBankRepository.getWeeklyRewardsLogs(jdbcTemplate, user.getUsername()).size() % 52);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -249,6 +301,54 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  // Helper function to remove complicated logic out of post request
+  // to check if a customer has made a deposit of 100 or more this week and has not reedemed a reward this week.
+  private boolean customerMadeDepositOf100InLastWeekAndHasNotReedemedReward (User user) {
+    boolean ans = false;
+    Calendar todayTime = Calendar.getInstance();
+    todayTime.setTimeZone(TimeZone.getTimeZone("EST"));
+
+    //Checks to make sure a reward has not been reedemed for this week
+    if (TestudoBankRepository.getWeeklyRewardsLogs(jdbcTemplate, user.getUsername()).size() != 0) {
+      String mostRecentReward = TestudoBankRepository.getWeeklyRewardsLogs(jdbcTemplate, user.getUsername()).get(0).get("Timestamp").toString();
+      Calendar mostRecentRewardTime = Calendar.getInstance();
+      mostRecentRewardTime.setTimeZone(TimeZone.getTimeZone("EST"));
+      mostRecentRewardTime.set(Calendar.YEAR, Integer.parseInt(mostRecentReward.substring(0, 4)));
+      // Java calendar api is horribly designed and the month specifically is zero indexed
+      mostRecentRewardTime.set(Calendar.MONTH, Integer.parseInt(mostRecentReward.substring(5, 7)) - 1);
+      mostRecentRewardTime.set(Calendar.DAY_OF_MONTH, Integer.parseInt(mostRecentReward.substring(8, 10)));
+      //FOR GRADING: Comment out the below if statement to be able to redeem rewards without a 
+      // week limit so you can see the functionality much better (still need at least one deposit of 100)
+      if (todayTime.get(Calendar.YEAR) == mostRecentRewardTime.get(Calendar.YEAR)
+            && todayTime.get(Calendar.WEEK_OF_YEAR) == mostRecentRewardTime.get(Calendar.WEEK_OF_YEAR)) {
+        return false;
+      }
+    }
+    
+    //Checks to make sure a 100 dollar deposit has been made this week
+    List<Map<String,Object>> transactionLogs = TestudoBankRepository.getRecentTransactions(jdbcTemplate, user.getUsername(), 100);
+    for(Map<String, Object> transactionLog : transactionLogs){
+      String timestamp = transactionLog.get("Timestamp").toString();
+      String year = timestamp.substring(0, 4);
+      String month = timestamp.substring(5, 7);
+      String day = timestamp.substring(8, 10);
+
+      Calendar transactionTime = Calendar.getInstance();
+      transactionTime.setTimeZone(TimeZone.getTimeZone("EST"));
+      transactionTime.set(Calendar.YEAR, Integer.parseInt(year));
+      // Java calendar api is horribly designed and the month specifically is zero indexed
+      transactionTime.set(Calendar.MONTH, Integer.parseInt(month) - 1);
+      transactionTime.set(Calendar.DAY_OF_MONTH, Integer.parseInt(day));
+
+      if (Integer.parseInt(transactionLog.get("Amount").toString()) >= 10000 
+            && todayTime.get(Calendar.YEAR) == transactionTime.get(Calendar.YEAR)
+            && todayTime.get(Calendar.WEEK_OF_YEAR) == transactionTime.get(Calendar.WEEK_OF_YEAR)) {
+              ans = true;
+      }
+    }
+    return ans;
   }
 
   // HTML POST HANDLERS ////
@@ -799,6 +899,142 @@ public class MvcController {
   }
 
   /**
+   * HTML POST request handler for user input from Weekly Rewards Form page 
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct, either the "weeklyrewards_displayvalid" or "weeklyrewards_displayinvalid" 
+   * page is served to the customer with account info retrieved from the MySQL DB and depending on elgibility.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "weekly_rewards_display" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/weeklyrewards_login")
+	public String weeklyrewardsLogin(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    if (userPasswordAttempt.equals(userPassword)) {
+      updateAccountInfo(user);
+      //If user has no overdraft, has a balance of 5000 or more, made a deposit of 100 dollars or more this week, 
+      //and has not reedemed their reward for this week they are elgible.
+      if (user.getOverDraftBalance() == 0 && user.getBalance() >= 5000 && customerMadeDepositOf100InLastWeekAndHasNotReedemedReward(user)) {
+        return "weeklyrewards_displayvalid";
+      } 
+      else {
+        return "weeklyrewards_displayinvalid";
+      }
+    } else {
+      return "welcome";
+    }
+	}
+
+  /**
+   * HTML POST request handler for the redeeming a weekly reward.
+   * 
+   * The user has already logged in and is already elgible for reward. This occurs once
+   * the user clicks on the button.
+   * 
+   * The user gets 5 dollars starting off increasing by 5 dollars each week until 90 dollars.
+   * Then the user gets the same in both Etherium and Solanium. This will make 52 weeks where
+   * it then restarts.
+   * 
+   * Updates transaction table for cash prizes, crypto table for crypto prizes, and rewards table
+   * always.
+   * 
+   * @param user
+   * @return "account_info"
+   */
+  @PostMapping("/weeklyrewards_redeem")
+  public String weeklyRewardsRedeem(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int numWeeklyRewards = user.getNumWeeklyRewards();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+
+    // Cash deposit reward
+    if (numWeeklyRewards < 18) {
+      int userDepositAmtInPennies = convertDollarsToPennies(5*(numWeeklyRewards + 1)); // dollar amounts stored as pennies to avoid floating point errors
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_REWARD_DEPOSIT_ACTION, userDepositAmtInPennies);
+      TestudoBankRepository.insertRowToWeeklyRewardsTable(jdbcTemplate, userID, currentTime, WEEKLY_REWARDS_CASH_ACTION, userDepositAmtInPennies);
+    }
+    // Etherium deposit reward
+    else if (numWeeklyRewards < 35) {
+      String cryptoToBuy = "ETH";
+      double cryptoAmountToBuy = (numWeeklyRewards - 17) * 5;
+      // calculate how much it will cost to buy currently
+      double costOfCryptoPurchaseInDollars = cryptoPriceClient.getCurrentCryptoValue(cryptoToBuy) * cryptoAmountToBuy;
+
+      // possible for web scraper to fail and return a negative value, abort if so
+      if (costOfCryptoPurchaseInDollars < 0) {
+        return "welcome";
+      }
+
+      double costOfCryptoPurchaseInPennies = convertDollarsToPennies(costOfCryptoPurchaseInDollars);
+
+      // buy crypto
+      user.setAmountToWithdraw(costOfCryptoPurchaseInDollars);
+      user.setCryptoTransaction(true);
+
+      String withdrawResponse = submitWithdraw(user);
+
+      if (withdrawResponse.equals("account_info")) {
+
+        // create an entry in CryptoHoldings table if customer is buying this Crypto for the first time.
+        if (!TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy).isPresent()) {
+          TestudoBankRepository.initCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy);
+        }
+
+        TestudoBankRepository.increaseCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy, cryptoAmountToBuy);
+        TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, cryptoToBuy, CRYPTO_HISTORY_BUY_ACTION, currentTime, cryptoAmountToBuy);
+        TestudoBankRepository.insertRowToWeeklyRewardsTable(jdbcTemplate, userID, currentTime, WEEKLY_REWARDS_CRYPTO_ETH_ACTION, (int) costOfCryptoPurchaseInPennies);
+      }
+    }
+    // Solanium Deposit Reward
+    else {
+      String cryptoToBuy = "SOL";
+      double cryptoAmountToBuy = (numWeeklyRewards - 34) * 5;
+      // calculate how much it will cost to buy currently
+      double costOfCryptoPurchaseInDollars = cryptoPriceClient.getCurrentCryptoValue(cryptoToBuy) * cryptoAmountToBuy;
+
+      // possible for web scraper to fail and return a negative value, abort if so
+      if (costOfCryptoPurchaseInDollars < 0) {
+        return "welcome";
+      }
+
+      double costOfCryptoPurchaseInPennies = convertDollarsToPennies(costOfCryptoPurchaseInDollars);
+
+      // buy crypto
+      user.setAmountToWithdraw(costOfCryptoPurchaseInDollars);
+      user.setCryptoTransaction(true);
+
+      String withdrawResponse = submitWithdraw(user);
+
+      if (withdrawResponse.equals("account_info")) {
+
+        // create an entry in CryptoHoldings table if customer is buying this Crypto for the first time.
+        if (!TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy).isPresent()) {
+          TestudoBankRepository.initCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy);
+        }
+
+        TestudoBankRepository.increaseCustomerCryptoBalance(jdbcTemplate, userID, cryptoToBuy, cryptoAmountToBuy);
+        TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, cryptoToBuy, CRYPTO_HISTORY_BUY_ACTION, currentTime, cryptoAmountToBuy);
+        TestudoBankRepository.insertRowToWeeklyRewardsTable(jdbcTemplate, userID, currentTime, WEEKLY_REWARDS_CRYPTO_SOL_ACTION, (int) costOfCryptoPurchaseInPennies);
+      }
+    }
+
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  /**
    * 
    * 
    * @param user
@@ -810,4 +1046,5 @@ public class MvcController {
 
   }
 
+  
 }
