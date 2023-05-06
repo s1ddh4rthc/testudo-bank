@@ -45,6 +45,9 @@
     <a href='/transfer'>Transfer</a> <br/>
     <a href='/buycrypto'>Buy Cryptocurrency</a>
     <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
+    <a href='/scheduletransfer'>Schedule a Transfer</a>
+    <a href='/schedulesellcrypto'>Schedule a Crypto Sell</a>
+    <a href='/schedulebuycrypto'>Schedule a Crypto Buy</a> <br/>
 
 	</div>
 </body>

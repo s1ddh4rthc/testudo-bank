@@ -3,6 +3,7 @@ package net.testudobank.helpers;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -32,8 +33,8 @@ public class MvcControllerIntegTestHelpers {
   }
 
   // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
-  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals) throws ScriptException {
-    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals);
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
 
     String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
@@ -41,8 +42,16 @@ public class MvcControllerIntegTestHelpers {
   }
 
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
-  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance) throws ScriptException {
-    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0);
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+  }
+
+  // Set crypto balance to specified amount
+  public static void setCryptoBalance(DatabaseDelegate dbDelegate, String userID, String cryptoName, double cryptoAmount) throws ScriptException {
+    String removeOldBalanceSql = String.format("DELETE FROM CryptoHoldings WHERE CustomerID='%s' AND CryptoName= '%s';", userID, cryptoName);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, removeOldBalanceSql);
+    String setBalanceSql = String.format("INSERT INTO CryptoHoldings (CryptoAmount,CustomerID,CryptoName) VALUES (%f, '%s' , '%s')", cryptoAmount, userID, cryptoName);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, setBalanceSql);
   }
 
   // Verifies that a single transaction log in the TransactionHistory table matches the expected customerID, timestamp, action, and amount
@@ -68,6 +77,19 @@ public class MvcControllerIntegTestHelpers {
     LocalDateTime overdraftLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
     assertTrue(overdraftLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && overdraftLogTimestamp.compareTo(overdraftLogTimestampAllowedUpperBound) <= 0);
     System.out.println("Timestamp stored in OverdraftLogs table for the Repayment: " + overdraftLogTimestamp);
+  }
+
+  // Verifies that a single crypto log in the CryptoHistory table matches the expected customerID, timestamp, action, cryptocurrency, and amount
+  public static void checkCryptoLog(Map<String,Object> cryptoLog, LocalDateTime timeWhenRequestSent, String expectedCustomerID, String expectedAction, String expectedCryptoName, double expectedCryptoAmount) {
+    assertEquals(expectedCustomerID, cryptoLog.get("CustomerID"));
+    assertEquals(expectedAction, cryptoLog.get("Action"));
+    assertEquals(expectedCryptoAmount, ((BigDecimal) cryptoLog.get("CryptoAmount")).doubleValue());
+    assertEquals(expectedCryptoName, cryptoLog.get("CryptoName"));
+    // verify that the timestamp for the Deposit is within a reasonable range from when the request was first sent
+    LocalDateTime transactionLogTimestamp = (LocalDateTime)cryptoLog.get("Timestamp");
+    LocalDateTime transactionLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
+    System.out.println("Timestamp stored in CryptoHistory table for the request: " + transactionLogTimestamp);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB

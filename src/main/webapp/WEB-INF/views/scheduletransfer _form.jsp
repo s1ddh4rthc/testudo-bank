@@ -6,7 +6,7 @@
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
   <meta charset="ISO-8859-1">
-  <title>User Login Form</title>
+  <title>Deposit Form</title>
   <style type="text/css">
     label {
       display: inline-block;
@@ -35,16 +35,26 @@
 </head>
 <body>
 	<div align="center">
-		<h2>Please sign in: </h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
-		<form:form action="login" method="post" modelAttribute="user">
+		<form:form action="scheduletransfer" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>
 			
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
+
+      <form:label path="transferRecipientID">Username of Recipient:</form:label>
+			<form:input path="transferRecipientID"/><br/>
+
+      <form:label path="amountToTransfer">Amount to Transfer ($):</form:label>
+			<form:input path="amountToTransfer"/><br/>
+      
+      <form:label path="whenToSendTransfer">:When do you want to send?: (yyyy-MM-dd HH:mm)</form:label>
+			<form:input path="whenToSendTransfer"/><br/>
+
+      <form:label path="RecurringTransferStatus">:How often is this done?: (Once, Daily, Weekly, Monthly, or Yearly)</form:label>
+			<form:input path="RecurringTransferStatus"/><br/>
 				
-			<form:button>Log in</form:button>
+			<form:button>Schedule Transfer</form:button>
 		</form:form>
     <a href='/'>Home</a>
 	</div>

@@ -19,7 +19,8 @@ create_customer_table_sql = '''
     LastName varchar(255),
     Balance int,
     OverdraftBalance int,
-    NumFraudReversals int
+    NumFraudReversals int,
+    NumDepositsForInterest int
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -73,7 +74,7 @@ create_cryptoholdings_table_sql = '''
 CREATE TABLE CryptoHoldings (
   CustomerID varchar(255),
   CryptoName varchar(255),
-  CryptoAmount float
+  CryptoAmount decimal(30,18)
 );
 '''
 cursor.execute(create_cryptoholdings_table_sql)
@@ -86,7 +87,7 @@ CREATE TABLE CryptoHistory (
   Timestamp DATETIME,
   Action varchar(255) CHECK (Action IN ('Buy', 'Sell')),
   CryptoName varchar(255),
-  CryptoAmount float
+  CryptoAmount decimal(30,18)
 );
 '''
 cursor.execute(create_cryptohistory_table_sql)
@@ -128,11 +129,12 @@ for i in range(num_customers_to_add):
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5});
+    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",
                 "'" + customer_last_name + "'",
                 customer_balance,
+                0,
                 0,
                 0)
     cursor.execute(insert_customer_sql)

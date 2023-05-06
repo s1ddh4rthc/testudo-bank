@@ -6,7 +6,7 @@
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
   <meta charset="ISO-8859-1">
-  <title>User Login Form</title>
+  <title>Schedule Sell Cryptocurrency Form</title>
   <style type="text/css">
     label {
       display: inline-block;
@@ -35,16 +35,29 @@
 </head>
 <body>
 	<div align="center">
-		<h2>Please sign in: </h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
-		<form:form action="login" method="post" modelAttribute="user">
+		<form:form action="schedulesellcrypto" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>
-			
+
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
-				
-			<form:button>Log in</form:button>
+
+      <form:label path="whichCryptoToBuy">Which Crypto to buy (Type 'ETH' or 'SOL'):</form:label>
+			<form:input path="whichCryptoToBuy"/><br/>
+
+      <form:label path="amountToSellCrypto">Amount to buy (# of Coins, Fractional Allowed):</form:label>
+			<form:input path="amountToSellCrypto"/><br/>	
+
+      <form:label path="whenToSellCrypto">:When do you want to send?: (yyyy-MM-dd HH:mm)</form:label>
+	  <form:input path="whenToSellCrypto"/><br/>
+
+      <form:label path="RecurringSellCryptoStatus">:How often is this done?: (Once, Daily, Weekly, Monthly, or Yearly)</form:label>
+	  <form:input path="RecurringSellCryptoStatus"/><br/>
+
+      <span>Current $ETH Price: </span><span>${user.ethPrice}</span><br/>
+      <span>Current $SOL Price: </span><span>${user.solPrice}</span><br/>
+
+			<form:button>Schedule Sell Crypto</form:button>
 		</form:form>
     <a href='/'>Home</a>
 	</div>
