@@ -1120,6 +1120,106 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
+   * Verifies that a customer's account is "Frozen" if they submit
+   * a request to freeze their account and that DB increments the number of
+   * account freezes and is frozen columns.
+   * 
+   * When account is frozen, any deposits, withdraws, disputes, transfers, buying
+   * and selling of crypto should redirect to the welcome page
+   * 
+   * The customer should be able to view the state of their account (Frozen or Unfrozen)
+   * on the account_info page
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testAccountFrozenByCustomer() throws SQLException, ScriptException {
+    // initialize with $100 main balance and $0 overdraft balance for simplicity
+    double CUSTOMER1_MAIN_BALANCE = 100;
+    int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = 0;
+    int CUSTOMER1_NUM_INTEREST_DEPOSITS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, 
+                                                  CUSTOMER1_ID, 
+                                                  CUSTOMER1_PASSWORD, 
+                                                  CUSTOMER1_FIRST_NAME, 
+                                                  CUSTOMER1_LAST_NAME, 
+                                                  CUSTOMER1_MAIN_BALANCE_IN_PENNIES, 
+                                                  CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
+                                                  0,
+                                                  CUSTOMER1_NUM_INTEREST_DEPOSITS,
+                                                  false,
+                                                  0);
+    String CUSTOMER1_ACCOUNT_STATE = "Frozen"; // set account state to frozen
+    User customer1FreezeFormInputs = new User();
+    customer1FreezeFormInputs.setUsername(CUSTOMER1_ID);
+    customer1FreezeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1FreezeFormInputs.setSelectFreezeUnfreeze(CUSTOMER1_ACCOUNT_STATE);
+    
+    String returnedPage = controller.submitFreezeForm(customer1FreezeFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    // verify account state is now frozen and number of account freezes has increased by 1
+    boolean CUSTOMER1_EXPECTED_ACCOUNT_STATE = true;
+    assertEquals(CUSTOMER1_EXPECTED_ACCOUNT_STATE, (boolean)customer1Data.get("IsAccountFrozen"));
+    assertEquals(1, (int)customer1Data.get("NumAccountFrozen"));
+    // verify customer was served account page
+    assertEquals("account_info", returnedPage);
+
+    //// Begin Frozen Account Checks ////
+
+    // customer should still be able to view account info with the Login Form
+    String responsePage = controller.submitLoginForm(customer1FreezeFormInputs);
+    assertEquals("account_info", responsePage);
+
+    // customer should not be able to Deposit
+    customer1FreezeFormInputs.setAmountToDeposit(MvcControllerIntegTestHelpers.convertDollarsToPennies(50));
+    responsePage = controller.submitDeposit(customer1FreezeFormInputs);
+    assertEquals("welcome", responsePage);
+
+    // customer should not be able to Withdraw
+    customer1FreezeFormInputs.setAmountToWithdraw(MvcControllerIntegTestHelpers.convertDollarsToPennies(50));
+    responsePage = controller.submitWithdraw(customer1FreezeFormInputs);
+    assertEquals("welcome", responsePage);
+
+    // customer should not be able to Dispute/Reverse a Transaction
+    customer1FreezeFormInputs.setNumTransactionsAgo(1);
+    responsePage = controller.submitDispute(customer1FreezeFormInputs);
+    assertEquals("welcome", responsePage);
+
+    // verify customer's data and # of transactions is unchanged
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_MAIN_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(0, transactionHistoryTableData.size());
+
+    // verify state changes to unfrozen when user selects "Unfrozen"
+    CUSTOMER1_ACCOUNT_STATE = "Unfrozen"; // set account state to unfrozen
+    customer1FreezeFormInputs.setSelectFreezeUnfreeze(CUSTOMER1_ACCOUNT_STATE);
+    
+    returnedPage = controller.submitFreezeForm(customer1FreezeFormInputs);
+
+    // fetch updated data from the DB
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+    customer1Data = customersTableData.get(0);
+    // verify account state is now unfrozen and number of times account was frozen is still 1
+    CUSTOMER1_EXPECTED_ACCOUNT_STATE = false;
+    assertEquals(CUSTOMER1_EXPECTED_ACCOUNT_STATE, (boolean)customer1Data.get("IsAccountFrozen"));
+    assertEquals(1, (int)customer1Data.get("NumAccountFrozen"));
+    // verify customer was served account page
+    assertEquals("account_info", returnedPage);
+
+    // verify customer is served welcome page if they try to set account to state that it already is
+    returnedPage = controller.submitFreezeForm(customer1FreezeFormInputs);
+    assertEquals("welcome", returnedPage);
+  }
+
+  /**
    * Enum for {@link CryptoTransactionTester}
    */
   @AllArgsConstructor

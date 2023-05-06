@@ -857,8 +857,14 @@ public class MvcController {
    * HTML POST request handler that uses user input from Freeze Form page to determine 
    * if the user has frozen or unfrozen their account.
    * 
+   * If user password attempt is invalid or user tries to set state to the existing state, 
+   * user is redirected to welcome page.
+   * 
+   * User account state is set to the option that the user selects, frozen or unfrozen.
+   * If user freezes their account, number of account freeze field is updated in SQL.
+   * 
    * @param user
-   * @return "welcome" page 
+   * @return "account_info" page if account state is changed. Otherwise, redirect to "welcome" page.
    */
   @PostMapping("/freeze")
 	public String submitFreezeForm(@ModelAttribute("user") User user) {
