@@ -15,6 +15,11 @@ public class TestudoBankRepository {
     return customerPassword;
   }
 
+  public static void setCustomerPassword(JdbcTemplate jdbcTemplate, String customerID, String newPassword) {
+    String customerPasswordResetSql = String.format("UPDATE Passwords SET Password = '%s' WHERE CustomerID='%s';", newPassword, customerID);
+    jdbcTemplate.update(customerPasswordResetSql);
+  }
+
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
     int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);
@@ -57,6 +62,12 @@ public class TestudoBankRepository {
     return transferLogs;
   }
 
+  public static List<Map<String,Object>> getFraudLogs(JdbcTemplate jdbcTemplate, String customerID, int numFraudsToFetch) {
+    String getFraudHistorySql = String.format("Select * from FraudAlertHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numFraudsToFetch);
+    List<Map<String,Object>> fraudLogs = jdbcTemplate.queryForList(getFraudHistorySql);
+    return fraudLogs;
+  }
+
   public static List<Map<String,Object>> getOverdraftLogs(JdbcTemplate jdbcTemplate, String customerID){
     String getOverDraftLogsSql = String.format("SELECT * FROM OverdraftLogs WHERE CustomerID='%s';", customerID);
     List<Map<String,Object>> overdraftLogs = jdbcTemplate.queryForList(getOverDraftLogsSql);
@@ -92,6 +103,14 @@ public class TestudoBankRepository {
                                                               action,
                                                               amtInPennies);
     jdbcTemplate.update(insertRowToTransactionHistorySql);
+  }
+
+  public static void insertRowToFraudAlertTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int amtInPennies) {
+    String insertRowToFraudAlertHistorySql = String.format("INSERT INTO FraudAlertHistory VALUES ('%s', '%s', %d);",
+                                                              customerID,
+                                                              timestamp,
+                                                              amtInPennies);
+    jdbcTemplate.update(insertRowToFraudAlertHistorySql);
   }
 
   public static void insertRowToOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int depositAmtIntPennies, int oldOverdraftBalanceInPennies, int newOverdraftBalanceInPennies) {

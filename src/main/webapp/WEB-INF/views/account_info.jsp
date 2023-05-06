@@ -40,6 +40,7 @@
     <span>Current $SOL Price: </span><span>${user.solPrice}</span><br/>
     <span>Re-payment logs: </span><span>${user.logs}</span><br/>
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
+    <span>Fraud Alert History: </span><span>${user.fraudHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
     <br/>
