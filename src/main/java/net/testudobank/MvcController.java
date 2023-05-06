@@ -47,6 +47,9 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_LOAN_ACTION = "LoanDeposit";
+  public static String TRANSACTION_HISTORY_PAY_CREDIT_ACTION = "PayoffCredit";
+  public static String TRANSACTION_HISTORY_PAY_LOAN_ACTION = "PayLoan";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -179,6 +182,65 @@ public class MvcController {
 		model.addAttribute("user", user);
 		return "sellcrypto_form";
 	}
+  /**
+   * HTML GET request handler that serves the "creditapp_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * if the user has a credit card.
+   * 
+   * @param model
+   * @return "creditapp_form" page
+   */
+  @GetMapping("/creditapp")
+	public String showCreditAppForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "creditapp_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "paycredit_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to keep track of
+   * the users credit paying history
+   * 
+   * @param model
+   * @return "paycredit_form" page
+   */
+  @GetMapping("/paycredit")
+	public String payCreditForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "paycredit_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "applyforloan_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the users applications for loans.
+   * 
+   * @param model
+   * @return "loan_form" page
+   */
+  @GetMapping("/applyforloan")
+	public String applyForLoan(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "loan_form";
+	}
+
+    /**
+   * HTML GET request handler that serves the "payloan_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the users' history of paying off their loans
+   * 
+   * @param model
+   * @return "payloan_form" page
+   */
+  @GetMapping("/payloan")
+	public String payLoanForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "payloan_form";
+	}
 
   //// HELPER METHODS ////
 
@@ -238,6 +300,12 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    if (TestudoBankRepository.doesCustomerHaveCredit(jdbcTemplate, user.getUsername())) {
+      user.setCreditBalance(TestudoBankRepository.getCreditBalancePennies(jdbcTemplate, user.getUsername())/100.0);
+      user.setCreditScore(TestudoBankRepository.getCreditScore(jdbcTemplate, user.getUsername()));
+      user.setLoanDebt(TestudoBankRepository.getLoanDebt(jdbcTemplate, user.getUsername())/100.0);
+      user.setCreditLimit(TestudoBankRepository.getCreditLimit(jdbcTemplate, user.getUsername()));
+    }
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -304,6 +372,7 @@ public class MvcController {
   @PostMapping("/deposit")
   public String submitDeposit(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
+    System.out.println(userID);
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
@@ -358,7 +427,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -800,14 +868,259 @@ public class MvcController {
 
   /**
    * 
+   * Applies the user for a credit card. If it is accepted then an entry is created in the credit sql table
+   * with the users information
+   * 
+   * 
+   * @param user
+   * @return "account_info" when user applys to credit card
+   */
+  @PostMapping("/apply")
+  public String applyForCredit(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    //create entry in credit table
+    TestudoBankRepository.insertRowToCreditTable(jdbcTemplate, userID);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  /**
+   * 
+   * POST request to pay off a user's balance in their credit account
+   * 
+   * 
+   * @param user
+   * @return "account_info" when user pays off their credit
+   */
+  @PostMapping("/paycredit")
+  public String payCredit(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't pay off credit.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+    
+    double amountToPay =  user.getAmountToPayCredit();
+    int amountToPayInPennies = convertDollarsToPennies(amountToPay);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    //pays off their credit balance and subtracts from their balance
+    TestudoBankRepository.payOffCreditBalance(jdbcTemplate, userID, amountToPayInPennies);
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, amountToPayInPennies);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_LOAN_ACTION, amountToPayInPennies);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+
+      /**
+   * 
+   * 
+   * POST request for users applying for loans. Multiple cases where a loan is accepeted is given
+   * generally the higher the credit score the more money from a loan you can get
+   * 
+   * @param user
+   * @return "account_info" when user successfully gets a loan
+   */
+  @PostMapping("/usedcredit")
+  public String useCredit(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+    int userCreditLimit = TestudoBankRepository.getCreditLimit(jdbcTemplate, userID);
+    double userCreditUsed = user.getCreditUsed();
+    int userCreditUsedInPennies = convertDollarsToPennies(userCreditUsed);
+    int userCurrentCreditBalance = TestudoBankRepository.getCreditBalancePennies(jdbcTemplate, userID);
+
+    //when a user has a better credit score the more money they can get from a loan and add entry to transaction history
+    if (userCurrentCreditBalance + userCreditUsedInPennies > userCreditLimit) {
+      return "welcome";
+    } else {
+      TestudoBankRepository.addCreditBalance(jdbcTemplate, userID, userCreditUsedInPennies);
+    }
+    
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+    /**
+   * 
+   * 
+   * POST request for users applying for loans. Multiple cases where a loan is accepeted is given
+   * generally the higher the credit score the more money from a loan you can get
+   * 
+   * @param user
+   * @return "account_info" when user successfully gets a loan
+   */
+  @PostMapping("/applyforloan")
+  public String applyForLoan(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+    int userCreditScore = TestudoBankRepository.getCreditScore(jdbcTemplate, userID);
+    double userLoanRequestAmount = user.getLoanRequestAmount();
+    int userLoanRequestAmountInPennies = convertDollarsToPennies(userLoanRequestAmount);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    //when a user has a better credit score the more money they can get from a loan
+    if (userCreditScore < 700) {
+      return "welcome";
+    } else if (userCreditScore >= 700 && userLoanRequestAmount <= 2500) {
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userLoanRequestAmountInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_LOAN_ACTION, userLoanRequestAmountInPennies);
+      TestudoBankRepository.loanDebtAdded(jdbcTemplate, userID, userLoanRequestAmountInPennies);
+    } else if (userCreditScore > 750 && userLoanRequestAmount <= 5000) {
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userLoanRequestAmountInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_LOAN_ACTION, userLoanRequestAmountInPennies);
+    } else if (userCreditScore > 800 && userLoanRequestAmount <= 10000) {
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userLoanRequestAmountInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_LOAN_ACTION, userLoanRequestAmountInPennies);
+    } else if (userCreditScore > 850 && userLoanRequestAmount <= 20000) {
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userLoanRequestAmountInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_LOAN_ACTION, userLoanRequestAmountInPennies);
+    } else {
+      return "welcome";
+    }
+    
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  /**
+   * 
+   * 
+   * POST request for users paying off their loans. 
+   * 
+   * @param user
+   * @return "account_info" when user pays off their loan
+   */
+  @PostMapping("/payloan")
+  public String payLoan(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Double userLoanDebt = TestudoBankRepository.getLoanDebt(jdbcTemplate, userID)/100.0;
+    Double userPayDebt = user.getAmountToPayLoan();
+    int userBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't pay off credit.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+    int userAmtPayLoan = 0;
+    if (userLoanDebt < userPayDebt) {
+      userAmtPayLoan = convertDollarsToPennies(userLoanDebt);
+    } else {
+      userAmtPayLoan = convertDollarsToPennies(userPayDebt);
+    }
+
+    if (userAmtPayLoan > userBalance) {
+      return "welcome";
+    } 
+
+    //decreases their loan if the payment is sucessfull and decreases their balance
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    TestudoBankRepository.payOffLoan(jdbcTemplate, userID, userAmtPayLoan);
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userAmtPayLoan);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_LOAN_ACTION, userAmtPayLoan);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  /**
+   * 
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  public String applyInterestToCredit(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
-    return "welcome";
+    //// Invalid Input/State Handling ////
+
+        // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    int userCreditBalanceInPennies = TestudoBankRepository.getCreditBalancePennies(jdbcTemplate, userID);
+
+    //Applies interest to user credit if they did not pay their month's balance
+    int userCreditBalanceInPenniesWithInterest = (int) (userCreditBalanceInPennies * BALANCE_INTEREST_RATE);
+    int userInterestRateAppliedAmount = (int) (userCreditBalanceInPenniesWithInterest - userCreditBalanceInPennies);
+    TestudoBankRepository.addCreditBalance(jdbcTemplate, userID, userInterestRateAppliedAmount);
+    return "account_info";
+    }
+
+      /**
+   * 
+   * 
+   * @param user
+   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   */
+    public String applyInterestToLoan(@ModelAttribute("user") User user) {
+      String userID = user.getUsername();
+      String userPasswordAttempt = user.getPassword();
+      String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+  
+      //// Invalid Input/State Handling ////
+  
+          // unsuccessful login
+      if (userPasswordAttempt.equals(userPassword) == false) {
+        return "welcome";
+      }
+  
+      int userLoanInPennies = TestudoBankRepository.getLoanDebt(jdbcTemplate, userID);
+  
+      //Applies interest to loan every if they have not payed it off 
+      int userLoanInPenniesWithInterest = (int) (userLoanInPennies * BALANCE_INTEREST_RATE);
+      int userInterestRateAppliedAmount = (int) (userLoanInPenniesWithInterest - userLoanInPennies);
+      TestudoBankRepository.loanDebtAdded(jdbcTemplate, userID, userInterestRateAppliedAmount);
+      return "account_info";
+      }
 
   }
-
-}

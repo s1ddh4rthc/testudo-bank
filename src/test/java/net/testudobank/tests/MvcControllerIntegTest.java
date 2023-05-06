@@ -30,6 +30,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import net.testudobank.MvcController;
+import net.testudobank.TestudoBankRepository;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
@@ -1580,6 +1581,346 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+    /**
+   * Verifies the simplest paying off credit case.
+   * The customer's CreditBalance in the Credit table should be decreased,
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleCreditPayOff() throws SQLException, ScriptException {
+    //initialize custuomer1 with balance of 123.45 in customers database
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    // initialize customer1 with a credit balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_CREDIT_BALANCE = 123.45;
+    int CUSTOMER1_CREDIT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_CREDIT_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,700, 1000, CUSTOMER1_CREDIT_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Credit Form to pay off  $123.45 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_PAY_OFF = 123.45; // user input is in dollar amount, not pennies.
+    User customer1CreditFormInputs = new User();
+    customer1CreditFormInputs.setUsername(CUSTOMER1_ID);
+    customer1CreditFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1CreditFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_PAY_OFF); 
+
+    // send request to the Pay Credit Form's POST handler in MvcController
+    controller.submitDeposit(customer1CreditFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customerTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1CreditData = CreditTableData.get(0);
+    Map<String,Object> customer1Data = customerTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance and credit balance is $0
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = 0;
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE, (int)customer1CreditData.get("CreditBalance"));
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+      /**
+   * Verifies simple credit limit increase.
+   * The customer's credit limit in the Credit table should be increased
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testCreditLimitIncrease() throws SQLException, ScriptException {
+    // initialize customer1 with a credit balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    int CUSTOMER1_CREDIT_LIMIT = 1000;
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,700, CUSTOMER1_CREDIT_LIMIT, 0, 0);
+
+    // update the credit limit of a user
+    int NEW_CREDIT_LIMIT = 2000;
+    TestudoBankRepository.increaseCreditLimit(jdbcTemplate, CUSTOMER1_FIRST_NAME, NEW_CREDIT_LIMIT);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1Data = CreditTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer credit limit has increased
+    assertEquals(NEW_CREDIT_LIMIT, (int)customer1Data.get("CreditLimit"));
+  }
+
+
+  /**
+   * Verifies edge case where user spends over their credit limit.
+   * Should return the welcome page
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testCreditLimitExceeded() throws SQLException, ScriptException {
+    // initialize customer1 with a credit balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    int CUSTOMER1_CREDIT_LIMIT = 1000;
+    int CUSTOMER1_CREDIT_BALANCE = 999;
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,700, CUSTOMER1_CREDIT_LIMIT, CUSTOMER1_CREDIT_BALANCE, 0);
+
+     // Prepare Credit Form for user to pay using credit card
+     double CUSTOMER1_AMOUNT_TO_PAY_OFF = 100.0; // user input is in dollar amount, not pennies.
+
+     User customer1CreditFormInputs = new User();
+     customer1CreditFormInputs.setUsername(CUSTOMER1_ID);
+     customer1CreditFormInputs.setPassword(CUSTOMER1_PASSWORD);
+     customer1CreditFormInputs.setCreditUsed(CUSTOMER1_AMOUNT_TO_PAY_OFF); 
+
+     String result = controller.useCredit(customer1CreditFormInputs);
+    // fetch updated data from the DB
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1Data = CreditTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // customer has went over credit limit so should return the welcome page
+    assertEquals("welcome", result);
+  }
+
+       /**
+   * Verifies simple credit score increase
+   * The customer's credit score should increase in the Credit table
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testCreditScoreIncrease() throws SQLException, ScriptException {
+    // initialize customer1 with a credit balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    int CUSTOMER1_CREDIT_SCORE = 700;
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,CUSTOMER1_CREDIT_SCORE, 1000, 0, 0);
+
+    // update the credit Score of a user
+    int NEW_CREDIT_Score = 800;
+    TestudoBankRepository.increaseCreditScore(jdbcTemplate, CUSTOMER1_FIRST_NAME, NEW_CREDIT_Score);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1Data = CreditTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer credit Score has increased
+    assertEquals(NEW_CREDIT_Score, (int)customer1Data.get("CreditScore"));
+  }
+
+      /**
+   * Verifies the simplest application of a loan
+   * The customer's Balance should increase by the loan amount and the loan debt should be increased by the loan amount
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleLoanApp() throws SQLException, ScriptException {
+    //initialize custuomer1 with balance of 123.45 in customers database
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    // initialize customer1 with a credit balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,700, 1000, 0, 0);
+
+    // Prepare Credit Form to pay off  $123.45 to customer 1's account.
+    double CUSTOMER1_LOAN_AMOUNT = 1000; // user input is in dollar amount, not pennies.
+    User customer1LoanFormInputs = new User();
+    customer1LoanFormInputs.setUsername(CUSTOMER1_ID);
+    customer1LoanFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1LoanFormInputs.setLoanRequestAmount(CUSTOMER1_LOAN_AMOUNT); 
+
+    // send request to the Loan Form's POST handler in MvcController
+    controller.applyForLoan(customer1LoanFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customerTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1CreditData = CreditTableData.get(0);
+    Map<String,Object> customer1Data = customerTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance is $2000 and loan debt is now $1000
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = 2000*100;
+    assertEquals(CUSTOMER1_LOAN_AMOUNT, (int)customer1CreditData.get("LoanDebt"));
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+       /**
+   * Verifies the applicaiton of a loan where it is denied
+   * The customer's Balance should stay the same and their loan debt should stay the same
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleDeniedLoanApp() throws SQLException, ScriptException {
+    //initialize custuomer1 with balance of 123.45 in customers database
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    // initialize customer1 with a credit balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,650, 1000, 0, 0);
+
+    // Prepare Credit Form to pay off  $123.45 to customer 1's account.
+    double CUSTOMER1_LOAN_AMOUNT = 1000; // user input is in dollar amount, not pennies.
+    User customer1LoanFormInputs = new User();
+    customer1LoanFormInputs.setUsername(CUSTOMER1_ID);
+    customer1LoanFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1LoanFormInputs.setLoanRequestAmount(CUSTOMER1_LOAN_AMOUNT); 
+
+    // send request to the Loan Form's POST handler in MvcController
+    String result = controller.applyForLoan(customer1LoanFormInputs);
+
+    //verify that the loan was denied
+    assertEquals("welcome", result);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customerTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1CreditData = CreditTableData.get(0);
+    Map<String,Object> customer1Data = customerTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance is the same and loan debt is still 0 
+    assertEquals(0, (int)customer1CreditData.get("LoanDebt"));
+    assertEquals(CUSTOMER1_BALANCE, (int)customer1Data.get("Balance"));
+  }
+
+   /**
+   * Verifies the applicaiton of a loan where it is denied
+   * The customer's Balance should stay the same and their loan debt should stay the same
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleLoanPayment() throws SQLException, ScriptException {
+    //initialize custuomer1 with balance of 123.45 in customers database
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    // initialize customer1 with a loan debt of $100
+    int CUSTOMER1_LOAN_DEBT = 100;
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,650, 1000, 0, CUSTOMER1_LOAN_DEBT);
+
+    // Prepare Loan form to pay off  $100 of the loan debt
+    double CUSTOMER1_LOAN_PAYMENT = 100; // user input is in dollar amount, not pennies.
+    User customer1LoanFormInputs = new User();
+    customer1LoanFormInputs.setUsername(CUSTOMER1_ID);
+    customer1LoanFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1LoanFormInputs.setLoanRequestAmount(CUSTOMER1_LOAN_PAYMENT); 
+
+    // send request to the Loan Form's POST handler in MvcController
+    controller.payLoan(customer1LoanFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customerTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1CreditData = CreditTableData.get(0);
+    Map<String,Object> customer1Data = customerTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance was decreased by 100 and loan debt is fully payed so should be $0
+    int EXPECTED_CUSTOMER1_BALANCE_FINAL = CUSTOMER1_BALANCE_IN_PENNIES - (int)(CUSTOMER1_LOAN_PAYMENT/100.0);
+    int EXPECTED_CUSTOMER1_LOAN_DEBT = 0;
+    assertEquals(EXPECTED_CUSTOMER1_LOAN_DEBT, (int)customer1CreditData.get("LoanDebt"));
+    assertEquals(EXPECTED_CUSTOMER1_BALANCE_FINAL, (int)customer1Data.get("Balance"));
+  }
+
+     /**
+   * Verifies the action where interest rate is applied to the credit balance and loan debt if not payed by the end of the month
+   * The customer's Balance should stay the same and their loan debt should stay the same
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void interestRateApplied() throws SQLException, ScriptException {
+    double INTEREST_RATE = 1.20;
+    //initialize custuomer1 with balance of 123.45 in customers database
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    // initialize customer1 with a loan debt of $100
+    int CUSTOMER1_LOAN_DEBT = 100;
+    MvcControllerIntegTestHelpers.addCustomerToCredit(dbDelegate, CUSTOMER1_ID ,650, 1000, 500, CUSTOMER1_LOAN_DEBT);
+
+    // Prepare Loan form to pay off  $100 of the loan debt
+    User customer1InterestLoanFormInputs = new User();
+    customer1InterestLoanFormInputs.setUsername(CUSTOMER1_ID);
+    customer1InterestLoanFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+    User customer1InterestCreditFormInputs = new User();
+    customer1InterestCreditFormInputs.setUsername(CUSTOMER1_ID);
+    customer1InterestCreditFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // send request to the Loan Form's POST handler in MvcController
+    controller.applyInterestToLoan(customer1InterestLoanFormInputs);
+    controller.applyInterestToCredit(customer1InterestCreditFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customerTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> CreditTableData = jdbcTemplate.queryForList("SELECT * FROM Credit;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, CreditTableData.size());
+    Map<String,Object> customer1CreditData = CreditTableData.get(0);
+    Map<String,Object> customer1Data = customerTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer loan debt and credit balance was increased by the interest rate when they did not fully pay for that month
+    int EXPECTED_CUSTOMER1_LOAN_DEBT = (int)(CUSTOMER1_LOAN_DEBT * INTEREST_RATE*100);
+    int EXPECTED_CUSTOMER1_CREDIT_BALANCE = (int)(500 * INTEREST_RATE*100);
+    assertEquals(EXPECTED_CUSTOMER1_LOAN_DEBT, (int)customer1CreditData.get("LoanDebt"));
+    assertEquals(EXPECTED_CUSTOMER1_CREDIT_BALANCE, (int)customer1CreditData.get("CreditBalance"));
   }
 
 }

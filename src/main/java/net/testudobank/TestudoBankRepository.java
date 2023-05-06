@@ -177,4 +177,84 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static void insertRowToCreditTable(JdbcTemplate jdbcTemplate, String customerID) {
+    String creditToSql = String.format("INSERT INTO Credit VALUES ('%s', '%d', '%d', %d, %d);",
+                                                    customerID,
+                                                    700,
+                                                    1000,
+                                                    0,
+                                                    0);
+    jdbcTemplate.update(creditToSql);
+  }
+
+  public static void addCreditBalance(JdbcTemplate jdbcTemplate, String customerID, int amtInPennies) {
+    String paySql = String.format("UPDATE Credit SET CreditBalance = CreditBalance + %d WHERE CustomerID='%s';", amtInPennies, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
+  public static void setCreditBalance(JdbcTemplate jdbcTemplate, String customerID, int amtInPennies) {
+    String paySql = String.format("UPDATE Credit SET CreditBalance = %d WHERE CustomerID='%s';", amtInPennies, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
+  public static void increaseCreditLimit(JdbcTemplate jdbcTemplate, String customerID, int newLimit) {
+    String paySql = String.format("UPDATE Credit SET CreditLimit = %d WHERE CustomerID='%s';", newLimit, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
+  public static void payOffCreditBalance(JdbcTemplate jdbcTemplate, String customerID, int payAmtInPennies) {
+    String paySql = String.format("UPDATE Credit SET CreditBalance = CreditBalance - %d WHERE CustomerID='%s';", payAmtInPennies, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
+  public static int getCreditBalancePennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCreditBalanceSql = String.format("SELECT CreditBalance FROM Credit WHERE CustomerID='%s';", customerID);
+    int userCreditBalanceInPennies = jdbcTemplate.queryForObject(getCreditBalanceSql, Integer.class);
+    return userCreditBalanceInPennies;
+  }
+
+  public static int getCreditScore(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCreditScoreSql = String.format("SELECT CreditScore FROM Credit WHERE CustomerID='%s';", customerID);
+    int userCreditScore = jdbcTemplate.queryForObject(getCreditScoreSql, Integer.class);
+    return userCreditScore;
+  }
+
+  public static int getLoanDebt(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanDebtSql = String.format("SELECT LoanDebt FROM Credit WHERE CustomerID='%s';", customerID);
+    int userLoanDebt = jdbcTemplate.queryForObject(getLoanDebtSql, Integer.class);
+    return userLoanDebt;
+  }
+
+  public static boolean doesCustomerHaveCredit(JdbcTemplate jdbcTemplate, String customerID) { 
+    String getCustomerIDSql = String.format("SELECT IFNULL((SELECT CustomerID FROM Credit WHERE CustomerID='%s'), 'not found' );", customerID);
+    String response = (jdbcTemplate.queryForObject(getCustomerIDSql, String.class));
+    if (!response.equals("not found")) {
+     return true;
+    } else {
+      return false;
+    }
+  }
+
+  public static void loanDebtAdded(JdbcTemplate jdbcTemplate, String customerID, int loanAmtInPennies) {
+    String paySql = String.format("UPDATE Credit SET LoanDebt = LoanDebt + %d WHERE CustomerID='%s';", loanAmtInPennies, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
+  public static void payOffLoan(JdbcTemplate jdbcTemplate, String customerID, int loanAmtInPennies) {
+    String paySql = String.format("UPDATE Credit SET LoanDebt = LoanDebt - %d WHERE CustomerID='%s';", loanAmtInPennies, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
+  public static int getCreditLimit(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanDebtSql = String.format("SELECT CreditLimit FROM Credit WHERE CustomerID='%s';", customerID);
+    int userLoanDebt = jdbcTemplate.queryForObject(getLoanDebtSql, Integer.class);
+    return userLoanDebt;
+  }
+
+  public static void increaseCreditScore(JdbcTemplate jdbcTemplate, String customerID, int newScore) {
+    String paySql = String.format("UPDATE Credit SET CreditScore = %d WHERE CustomerID='%s';", newScore, customerID);
+    jdbcTemplate.update(paySql);
+  }
+
 }
