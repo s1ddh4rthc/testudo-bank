@@ -64,6 +64,12 @@ public class User {
   @Setter @Getter
   private String transferHist;
 
+  @Setter @Getter
+  private String RecurringTransferStatus;
+
+  @Setter @Getter
+  private String whenToSendTransfer;
+
   //// Crypto Fields ////
 
   @Setter @Getter
@@ -99,4 +105,9 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private String whenToSellCrypto;
+
+  @Setter @Getter
+  private String RecurringSellCryptoStatus;
 }
