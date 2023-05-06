@@ -99,4 +99,16 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Wager Fields ////
+  @Setter @Getter
+  private int gamblingProfit;
+
+  @Setter @Getter
+  private int value;
+
+  @Setter @Getter
+  private double amountToWager;
+
+  @Setter @Getter
+  private String overOrUnder;
 }

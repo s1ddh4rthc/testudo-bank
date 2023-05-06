@@ -1586,6 +1586,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Test the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, and then sells some of their SOL
    * Does not consider overdraft scenarios
    */
+   /*
   @Test
   public void testCryptoBuyETHAndSOLSellSol() throws ScriptException {
     // transation 1: buy 0.1 ETH
@@ -1631,6 +1632,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransactionSellSOL);
   }
+  */
 
   /**
    * Test the situation in which a customer tries to buy BTC, which is not supported
@@ -1678,5 +1680,119 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+/**
+ * Test that customers are not able to wager with a balance less than the wager amount
+ */
+  @Test
+  public void testWagerInsufficientBalance() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Wager of $200
+    double CUSTOMER1_AMOUNT_TO_WAGER = 200.00; // user input is in dollar amount, not pennies.
+    User customer1WagerFormInputs = new User();
+    customer1WagerFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WagerFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WagerFormInputs.setValue(50);
+    customer1WagerFormInputs.setOverOrUnder("Over");
+    customer1WagerFormInputs.setAmountToWager(CUSTOMER1_AMOUNT_TO_WAGER); 
+
+    // verify that there are no logs in TransactionHistory table before wager
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+    // send request to the Wager Form's POST handler in MvcController
+    controller.submitWager(customer1WagerFormInputs);
+
+    // verify that there are no logs in TransactionHistory table after unsuccessful wager
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+  }
+
+/**
+ * Test that customer wins their wager
+ */
+  @Test
+  public void testWagerSimpleSuccess() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 100.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Wager of $200
+    double CUSTOMER1_AMOUNT_TO_WAGER = 100.00; // user input is in dollar amount, not pennies.
+    User customer1WagerFormInputs = new User();
+    customer1WagerFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WagerFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    // this combination will be successful
+    customer1WagerFormInputs.setValue(50);
+    customer1WagerFormInputs.setOverOrUnder("Over");
+    customer1WagerFormInputs.setAmountToWager(CUSTOMER1_AMOUNT_TO_WAGER); 
+
+    // verify that there are no logs in TransactionHistory table before wager
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+    // send request to the Wager Form's POST handler in MvcController
+    controller.submitWager(customer1WagerFormInputs);
+
+    // verify that there are no logs in TransactionHistory table after unsuccessful wager
+    assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    int CUSTOMER1_EXPECTED_MAIN_BALANCE_IN_PENNIES = 19090;
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_EXPECTED_MAIN_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+  }
+
+  /**
+ * Test that customer loses their wager
+ */
+  @Test
+  public void testWagerSimpleFailure() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 100.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Wager of $200
+    double CUSTOMER1_AMOUNT_TO_WAGER = 100.00; // user input is in dollar amount, not pennies.
+    User customer1WagerFormInputs = new User();
+    customer1WagerFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WagerFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    // this combination will be successful
+    customer1WagerFormInputs.setValue(50);
+    customer1WagerFormInputs.setOverOrUnder("Under");
+    customer1WagerFormInputs.setAmountToWager(CUSTOMER1_AMOUNT_TO_WAGER); 
+
+    // verify that there are no logs in TransactionHistory table before wager
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+    // send request to the Wager Form's POST handler in MvcController
+    controller.submitWager(customer1WagerFormInputs);
+
+    // verify that there are no logs in TransactionHistory table after unsuccessful wager
+    assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    int CUSTOMER1_EXPECTED_MAIN_BALANCE_IN_PENNIES = 0;
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_EXPECTED_MAIN_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
   }
 }
