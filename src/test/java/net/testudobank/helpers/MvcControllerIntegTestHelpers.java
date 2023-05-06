@@ -35,10 +35,26 @@ public class MvcControllerIntegTestHelpers {
   // Uses given customer details to initialize the customer in the Customers and
   // Passwords table in the MySQL DB.
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName,
-      String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits)
+      String lastName, int balance, int overdraftBalance, int numFraudReversals,
+      int numInterestDeposits)
       throws ScriptException {
-    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID,
-        firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %d)",
+        ID,
+        firstName, lastName, 0, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
+
+    String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
+  }
+
+  // Uses given customer details to initialize the customer in the Customers and
+  // Passwords table in the MySQL DB.
+  public static void addSavingsCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName,
+      String lastName, int savingsBalance, int balance, int overdraftBalance, int numFraudReversals,
+      int numInterestDeposits)
+      throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %d)", ID,
+        firstName, lastName, savingsBalance, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
 
     String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);

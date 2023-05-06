@@ -26,6 +26,9 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
 	private double balance;
 
+  @Setter  @Getter @PositiveOrZero @ToString.Include
+	private double savingsBalance;
+
   @Setter @Getter @PositiveOrZero
 	private double overDraftBalance;
 
@@ -41,6 +44,9 @@ public class User {
   private int numTransactionsAgo;
 
   //// Deposit Fields ////
+
+  @Setter @Getter 
+  private String account;
 
   @Setter @Getter @Positive
   private double amountToDeposit;

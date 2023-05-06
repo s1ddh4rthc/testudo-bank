@@ -1817,9 +1817,10 @@ public class MvcControllerIntegTest {
     // initialize customer1 with a balance of $0
     double CUSTOMER1_BALANCE = 0.0;
     int INTEREST_AMOUNT = (int) (2001 * 5.0 * 0.015); // Deposit amount mulitplied by 5 and then by interest rate
-    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
-        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    int CUSTOMER1_SAVINGS_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addSavingsCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
+        CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_SAVINGS_BALANCE_IN_PENNIES, 0, 0, 0, 0);
 
     // Prepare Deposit Form to Deposit $20.01 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01; // user input is in dollar amount, not pennies.
@@ -1827,6 +1828,7 @@ public class MvcControllerIntegTest {
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    customer1DepositFormInputs.setAccount("Savings");
 
     // verify that there are no logs in TransactionHistory table before Deposit
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
@@ -1878,9 +1880,10 @@ public class MvcControllerIntegTest {
   public void testInterestApplyOnDepositAmounts() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $0
     double CUSTOMER1_BALANCE = 0.0;
-    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
-        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    int CUSTOMER1_SAVINGS_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addSavingsCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
+        CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_SAVINGS_BALANCE_IN_PENNIES, 0, 0, 0, 0);
 
     double CUSTOMER1_UNDER_TWENTY_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
     double CUSTOMER1_OVER_TWENTY_DEPOSIT = 20.01; // user input is in dollar amount, not pennies.
@@ -1889,6 +1892,7 @@ public class MvcControllerIntegTest {
     User customer1DepositFormInputs = new User();
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAccount("Savings");
 
     // verify that there are no logs in TransactionHistory table before Deposit
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
@@ -1932,10 +1936,12 @@ public class MvcControllerIntegTest {
   @Test
   public void testInterestApplyAmountLessThanTwentyAfterFiveDeposits() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $0
-    double CUSTOMER1_BALANCE = 0.0;
-    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
-        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    double CUSTOMER1_SAVINGS_BALANCE = 0.0;
+    int CUSTOMER1_SAVINGS_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers
+        .convertDollarsToPennies(CUSTOMER1_SAVINGS_BALANCE);
+    MvcControllerIntegTestHelpers.addSavingsCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
+        CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_SAVINGS_BALANCE_IN_PENNIES, 0, 0, 0, 0);
 
     double CUSTOMER1_UNDER_TWENTY_DEPOSIT = 19.99; // user input is in dollar amount, not pennies.
     double CUSTOMER1_TWENTY_DEPOSIT = 20.00; // user input is in dollar amount, not pennies.
@@ -1943,12 +1949,10 @@ public class MvcControllerIntegTest {
     User customer1DepositFormInputs = new User();
     customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
     customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAccount("Savings");
 
     // verify that there are no logs in TransactionHistory table before Deposit
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
-
-    String numDepositsForInterestQuery = String
-        .format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID);
 
     // 5 20 dollar deposits
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
@@ -1961,6 +1965,9 @@ public class MvcControllerIntegTest {
     controller.submitDeposit(customer1DepositFormInputs);
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_TWENTY_DEPOSIT);
     controller.submitDeposit(customer1DepositFormInputs);
+
+    String numDepositsForInterestQuery = String
+        .format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID);
 
     // Should be 5 deposits for interest
     assertEquals(5, jdbcTemplate.queryForObject(numDepositsForInterestQuery, Integer.class));

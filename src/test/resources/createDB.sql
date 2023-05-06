@@ -2,6 +2,7 @@ CREATE TABLE Customers (
   CustomerID varchar(255),
   FirstName varchar(255),
   LastName varchar(255),
+  SavingsBalance int,
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
