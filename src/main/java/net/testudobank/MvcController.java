@@ -18,6 +18,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import java.lang.Math;
+import java.util.Random;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -47,10 +50,16 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_WAGER_LOSS_ACTION = "Wager Loss";
+  public static String TRANSACTION_HISTORY_WAGER_GAIN_ACTION = "Wager Gain";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  public static Set<Integer> SUPPORTED_WAGER_VALUES = new HashSet<>(Arrays.asList(10, 25, 50, 75, 90));
+  public static Set<String> SUPPORTED_OVER_UNDER = new HashSet<>(Arrays.
+  asList("Over", "Under"));
+  private static Random generator = new Random((long) 0.1); //[0.73096776, 0.831441, 0.24053639]
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -178,6 +187,17 @@ public class MvcController {
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
 		model.addAttribute("user", user);
 		return "sellcrypto_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "wager_form" page to the user.
+   * An empty "User" object is also added to the Model as an Attribute to store the user's wager form input
+   */
+  @GetMapping("/wager")
+	public String showWagerForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "wager_form";
 	}
 
   //// HELPER METHODS ////
@@ -796,6 +816,96 @@ public class MvcController {
     } else {
       return "welcome";
     }
+  }
+
+  /**
+   * HTML POST request handler for the Wager Form page.
+   * 
+   * @param user
+   * @return "account_info" page if valid wager request. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/wager")
+  public String submitWager(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // overdrafted accounts cannot wager
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userOverdraftBalanceInPennies < 0) {
+      return "welcome";
+    }
+
+    // Negative wager amount is not allowed
+    double userWagerAmount = user.getAmountToWager();
+    if (userWagerAmount < 0) {
+      return "welcome";
+    }
+
+    // Balance must cover wager
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (userBalanceInPennies < userWagerAmount * 100) {
+      return "welcome";
+    }
+
+    // Non-suppored values are not allowed
+    int value = user.getValue();
+    if (MvcController.SUPPORTED_WAGER_VALUES.contains(value) == false) {
+      return "welcome";
+    }
+
+    // Non-suppored inputs are not allowed
+    String overOrUnder = user.getOverOrUnder();
+    if (MvcController.SUPPORTED_OVER_UNDER.contains(overOrUnder) == false) {
+      return "welcome";
+    }
+    
+    //// Complete Wager Transaction ////
+    int userWagerAmountInPennies = convertDollarsToPennies(userWagerAmount); // dollar amounts stored as pennies to avoid floating point errors
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this wager
+
+    // gambling logic
+    // generate a random float between 0.0 and 100.0
+    float randomValue = generator.nextFloat() * 100;
+    boolean wagerIsSuccessful = false;
+
+    // determine if wager was a success
+    wagerIsSuccessful = (overOrUnder.equals("Over")) ? (randomValue > value) : (randomValue < value);
+
+    double multiplier = 0;
+
+    if (value == 10) {
+      multiplier = (overOrUnder.equals("Over")) ? 0.101 : 9.909;
+    } else if (value == 25) {
+      multiplier = (overOrUnder.equals("Over")) ? 0.303 : 3.303;
+    } else if (value == 50) {
+      multiplier = (overOrUnder.equals("Over")) ? 0.909 : 0.909;
+    } else if (value == 75) {
+      multiplier = (overOrUnder.equals("Over")) ? 3.303 : 0.303;
+    } else if (value == 90) {
+      multiplier = (overOrUnder.equals("Over")) ? 9.909 : 0.101;
+    }
+
+    // handle balance change depending on wager result
+    if (wagerIsSuccessful) {
+      int userWinningsAmountInPennies = (int) Math.floor(userWagerAmountInPennies * multiplier);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userWinningsAmountInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WAGER_GAIN_ACTION, userWinningsAmountInPennies);
+    } else {
+      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWagerAmountInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WAGER_LOSS_ACTION, userWagerAmountInPennies);
+    }
+
+    // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
+    return "account_info";
   }
 
   /**

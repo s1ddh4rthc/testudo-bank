@@ -20,7 +20,8 @@ create_customer_table_sql = '''
     Balance int,
     OverdraftBalance int,
     NumFraudReversals int,
-    NumDepositsForInterest int
+    NumDepositsForInterest int,
+    GamblingProfit int
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -92,7 +93,57 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty OverUnderGame table
+create_overundergame_table_sql = '''
+CREATE TABLE OverUnderGame (
+  Value int,
+  OverMultiplier int,
+  UnderMultiplier int
+)
+'''
 
+cursor.execute(create_overundergame_table_sql)
+
+# populate the OverUnderGame table with our preset odds
+insert_overundergame_sql = '''
+INSERT INTO Customers
+VALUES ({0},{1},{2});
+'''.format(10,
+          1101,
+          10909)
+cursor.execute(insert_overundergame_sql)
+
+insert_overundergame_sql = '''
+INSERT INTO Customers
+VALUES ({0},{1},{2});
+'''.format(25,
+          1303,
+          4303)
+cursor.execute(insert_overundergame_sql)
+
+insert_overundergame_sql = '''
+INSERT INTO Customers
+VALUES ({0},{1},{2});
+'''.format(50,
+          1909,
+          1909)
+cursor.execute(insert_overundergame_sql)
+
+insert_overundergame_sql = '''
+INSERT INTO Customers
+VALUES ({0},{1},{2});
+'''.format(75,
+          4303,
+          1303)
+cursor.execute(insert_overundergame_sql)
+
+insert_overundergame_sql = '''
+INSERT INTO Customers
+VALUES ({0},{1},{2});
+'''.format(90,
+          10909,
+          1101)
+cursor.execute(insert_overundergame_sql)
 
 # The two sets created below are used to ensure that this
 # automated, randomized process does not accidentally 
@@ -126,6 +177,7 @@ for i in range(num_customers_to_add):
     # add random customer ID, name, and balance to Customers table.
     # all customers start with Overdraft balance of 0
     # all customers start with a NumFraudReversals of 0
+    # all customers start with a GamblingProfit of 0
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
