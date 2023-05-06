@@ -51,7 +51,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell', 'StockBuy', 'StockSell')),
   Amount int
 );
 '''
@@ -92,7 +92,28 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty StockHoldings table
+create_stockholdings_table_sql = '''
+CREATE TABLE StockHoldings (
+  CustomerID varchar(255),
+  StockName varchar(255),
+  StockAmount decimal(30,18)
+);
+'''
+cursor.execute(create_stockholdings_table_sql)
 
+
+# Make empty StockHistory table
+create_stockhistory_table_sql = '''
+CREATE TABLE StockHistory (
+  CustomerID varchar(255),
+  Timestamp DATETIME,
+  Action varchar(255) CHECK (Action IN ('Buy', 'Sell')),
+  StockName varchar(255),
+  StockAmount decimal(30,18)
+);
+'''
+cursor.execute(create_stockhistory_table_sql)
 
 # The two sets created below are used to ensure that this
 # automated, randomized process does not accidentally 
