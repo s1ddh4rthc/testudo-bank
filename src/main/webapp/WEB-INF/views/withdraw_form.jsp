@@ -43,7 +43,10 @@
 			<form:password path="password"/><br/>		
 
       <form:label path="amountToWithdraw">Amount to Withdraw ($):</form:label>
-			<form:input path="amountToWithdraw"/><br/>	
+			<form:input path="amountToWithdraw"/><br/>
+      
+      <form:label path="account">Which Account to Deposit to (Type 'Regular' or 'Savings'):</form:label>
+			<form:input path="account"/><br/>	
 				
 			<form:button>Withdraw</form:button>
 		</form:form>
