@@ -63,6 +63,17 @@ public class MvcControllerIntegTestHelpers {
     ScriptUtils.executeDatabaseScript(dbDelegate, null, setBalanceSql);
   }
 
+  public static void setStockBalance(DatabaseDelegate dbDelegate, String userID, String stockName,
+      double stockAmount) throws ScriptException {
+    String removeOldBalanceSql = String.format("DELETE FROM StockHoldings WHERE CustomerID='%s' AND StockName= '%s';",
+        userID, stockName);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, removeOldBalanceSql);
+    String setBalanceSql = String.format(
+        "INSERT INTO StockHoldings (StockAmount,CustomerID,StockName) VALUES (%f, '%s' , '%s')", stockAmount,
+        userID, stockName);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, setBalanceSql);
+  }
+
   // Verifies that a single transaction log in the TransactionHistory table
   // matches the expected customerID, timestamp, action, and amount
   public static void checkTransactionLog(Map<String, Object> transactionLog, LocalDateTime timeWhenRequestSent,
@@ -116,6 +127,22 @@ public class MvcControllerIntegTestHelpers {
     assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0
         && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
     System.out.println("Timestamp stored in CryptoHistory table for the request: " + transactionLogTimestamp);
+  }
+
+  public static void checkStockLog(Map<String, Object> stockLog, LocalDateTime timeWhenRequestSent,
+      String expectedCustomerID, String expectedAction, String expectedStockName, double expectedStockAmount) {
+    assertEquals(expectedCustomerID, stockLog.get("CustomerID"));
+    assertEquals(expectedAction, stockLog.get("Action"));
+    assertEquals(expectedStockAmount, ((BigDecimal) stockLog.get("StockAmount")).doubleValue());
+    assertEquals(expectedStockName, stockLog.get("StockName"));
+    // verify that the timestamp for the Deposit is within a reasonable range from
+    // when the request was first sent
+    LocalDateTime transactionLogTimestamp = (LocalDateTime) stockLog.get("Timestamp");
+    LocalDateTime transactionLogTimestampAllowedUpperBound = timeWhenRequestSent
+        .plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0
+        && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
+    System.out.println("Timestamp stored in StockHistory table for the request: " + transactionLogTimestamp);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL

@@ -1690,7 +1690,7 @@ public class MvcControllerIntegTest {
                  * The expected ending stock balance of the user
                  */
                 @Builder.Default
-                double expectedEndingstockBalance = 0.0;
+                double expectedEndingStockBalance = 0.0;
 
                 /**
                  * The amount of shares to buy
@@ -1897,6 +1897,148 @@ public class MvcControllerIntegTest {
 
                         }
                 }
+        }
+
+        // Test simple buying of shares (specifically AAPL)
+        @Test
+        public void testStockBuySimple() throws ScriptException {
+                StockTransactionTester stockTransactionTester = StockTransactionTester.builder()
+                                .initialBalanceInDollars(1000)
+                                .initialStockBalance(Collections.singletonMap("AAPL", 0.0))
+                                .build();
+
+                stockTransactionTester.initialize();
+
+                StockTransaction stockTransaction = StockTransaction.builder()
+                                .expectedEndingBalanceInDollars(900)
+                                .expectedEndingStockBalance(1.0)
+                                .stockPrice(100)
+                                .stockAmountToTransact(1.0)
+                                .stockName("AAPL")
+                                .stockTransactionTestType(StockTransactionTestType.BUY)
+                                .shouldSucceed(true)
+                                .build();
+                stockTransactionTester.test(stockTransaction);
+        }
+
+        /**
+         * Test simple selling of cryptocurrency
+         */
+        @Test
+        public void testStockSellSimple() throws ScriptException {
+                StockTransactionTester stockTransactionTester = StockTransactionTester.builder()
+                                .initialBalanceInDollars(1000)
+                                .initialStockBalance(Collections.singletonMap("GOOG", 1.0))
+                                .build();
+
+                stockTransactionTester.initialize();
+
+                StockTransaction stockTransaction = StockTransaction.builder()
+                                .expectedEndingBalanceInDollars(1100)
+                                .expectedEndingStockBalance(0.0)
+                                .stockPrice(100)
+                                .stockAmountToTransact(1.0)
+                                .stockName("GOOG")
+                                .stockTransactionTestType(StockTransactionTestType.SELL)
+                                .shouldSucceed(true)
+                                .build();
+                stockTransactionTester.test(stockTransaction);
+        }
+
+        /**
+         * Test buying when balance is 0
+         */
+        @Test
+        public void testStockBalance0() throws ScriptException {
+                StockTransactionTester stockTransactionTester = StockTransactionTester.builder()
+                                .initialBalanceInDollars(0)
+                                .initialStockBalance(Collections.singletonMap("MSFT", 0.0))
+                                .build();
+
+                stockTransactionTester.initialize();
+
+                StockTransaction stockTransaction = StockTransaction.builder()
+                                .expectedEndingBalanceInDollars(0)
+                                .expectedEndingStockBalance(0.0)
+                                .stockPrice(100)
+                                .stockAmountToTransact(1.0)
+                                .stockName("MSFT")
+                                .stockTransactionTestType(StockTransactionTestType.BUY)
+                                .shouldSucceed(false)
+                                .build();
+                stockTransactionTester.test(stockTransaction);
+        }
+
+        /**
+         * Test buying when balance is negative
+         */
+        @Test
+        public void testStockBuyNegative() throws ScriptException {
+                StockTransactionTester stockTransactionTester = StockTransactionTester.builder()
+                                .initialBalanceInDollars(1000)
+                                .initialStockBalance(Collections.singletonMap("MSFT", 0.0))
+                                .build();
+
+                stockTransactionTester.initialize();
+
+                StockTransaction stockTransaction = StockTransaction.builder()
+                                .expectedEndingBalanceInDollars(1000)
+                                .expectedEndingStockBalance(0.0)
+                                .stockPrice(100)
+                                .stockAmountToTransact(-1.0)
+                                .stockName("MSFT")
+                                .stockTransactionTestType(StockTransactionTestType.BUY)
+                                .shouldSucceed(false)
+                                .build();
+                stockTransactionTester.test(stockTransaction);
+        }
+
+        /**
+         * Test selling when balance is negative
+         */
+        @Test
+        public void testStockSellNegative() throws ScriptException {
+                StockTransactionTester stockTransactionTester = StockTransactionTester.builder()
+                                .initialBalanceInDollars(1000)
+                                .initialStockBalance(Collections.singletonMap("MSFT", 1.0))
+                                .build();
+
+                stockTransactionTester.initialize();
+
+                StockTransaction stockTransaction = StockTransaction.builder()
+                                .expectedEndingBalanceInDollars(1000)
+                                .expectedEndingStockBalance(1.0)
+                                .stockPrice(100)
+                                .stockAmountToTransact(-1.0)
+                                .stockName("MSFT")
+                                .stockTransactionTestType(StockTransactionTestType.SELL)
+                                .shouldSucceed(false)
+                                .build();
+                stockTransactionTester.test(stockTransaction);
+        }
+
+        /**
+         * Test that no stock buy transaction occurs when the user password is
+         * incorrect
+         */
+        @Test
+        public void testStockBuyInvalidPassword() throws ScriptException {
+                StockTransactionTester stockTransactionTester = StockTransactionTester.builder()
+                                .initialBalanceInDollars(1000)
+                                .build();
+
+                stockTransactionTester.initialize();
+
+                StockTransaction stockTransaction = StockTransaction.builder()
+                                .expectedEndingBalanceInDollars(1000)
+                                .stockPrice(1000)
+                                .stockAmountToTransact(0.1)
+                                .stockName("AAPL")
+                                .validPassword(false)
+                                .stockTransactionTestType(StockTransactionTestType.BUY)
+                                .shouldSucceed(false)
+                                .build();
+                stockTransactionTester.test(stockTransaction);
         }
 
         /**
