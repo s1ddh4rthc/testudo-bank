@@ -5,7 +5,9 @@ CREATE TABLE Customers (
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
-  NumDepositsForInterest int
+  NumDepositsForInterest int,
+  FreezeStatus boolean,
+  CustomerEmail varchar(255)
 );
 
 CREATE TABLE Passwords (
