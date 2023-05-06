@@ -99,4 +99,29 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Credit Fields ////
+  
+  @Setter @Getter @Positive
+  private double amountToPayCredit;
+
+  @Setter @Getter
+	private double creditBalance = 0;
+
+  @Setter @Getter
+	private double loanRequestAmount;
+
+  @Setter @Getter @Positive
+	private double loanDebt = 0;
+
+  @Setter @Getter @Positive
+  private int creditScore = 0;
+
+  @Setter @Getter @Positive
+  private int creditLimit = 0;
+
+  @Setter @Getter @Positive
+  private double amountToPayLoan;
+
+  @Setter @Getter @Positive
+  private double creditUsed = 0;
 }

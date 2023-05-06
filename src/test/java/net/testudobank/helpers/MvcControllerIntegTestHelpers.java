@@ -41,6 +41,11 @@ public class MvcControllerIntegTestHelpers {
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
   }
 
+  public static void addCustomerToCredit(DatabaseDelegate dbDelegate, String ID, int CreditScore, int CreditLimit, int CreditBalance, int LoanDebt) throws ScriptException {
+    String insertCreditSql = String.format("INSERT INTO Credit VALUES ('%s', %d, %d, %d, %d)", ID, CreditScore, CreditLimit, CreditBalance, LoanDebt);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCreditSql);
+  }
+
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
     addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);

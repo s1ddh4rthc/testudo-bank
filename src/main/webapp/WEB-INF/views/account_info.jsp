@@ -31,7 +31,11 @@
 	<div align="center">
 		<h2><span>${user.firstName}</span> <span>${user.lastName}</span> Bank Account Info</h2>
     <span>Username: </span><span>${user.username}</span><br/>
+    <span>Credit Score: </span><span>${user.creditScore}</span><br/>
+    <span>Loan Debt: $</span><span>${user.loanDebt}</span><br/>
 		<span>Balance: $</span><span>${user.balance}</span><br/>
+    <span>Credit Balance: $</span><span>${user.creditBalance}</span><br/>
+    <span>Credit Limit: $</span><span>${user.creditLimit}</span><br/>
     <span>Overdraft Balance: $</span><span>${user.overDraftBalance}</span><br/>
     <span>Crypto Balance in USD: $</span><span>${user.cryptoBalanceUSD}</span><br/>
     <span>Ethereum Coins Owned: </span><span>${user.ethBalance}</span><br/>
@@ -46,7 +50,11 @@
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
-    <a href='/transfer'>Transfer</a>
+    <a href='/transfer'>Transfer</a><br/>
+    <a href='/creditapp'>Apply for Credit Card</a>
+    <a href='/paycredit'>Pay Off Credit</a>
+    <a href='/applyforloan'>Apply for Loan</a>
+    <a href='/payloan'>Pay off Loan</a><br/>
     <a href='/'>Logout</a>
 	</div>
 </body>

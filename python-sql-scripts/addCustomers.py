@@ -51,7 +51,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell', 'LoanDeposit', 'PayoffCredit', 'PayLoan')),
   Amount int
 );
 '''
@@ -91,6 +91,18 @@ CREATE TABLE CryptoHistory (
 );
 '''
 cursor.execute(create_cryptohistory_table_sql)
+
+#Make empty Credit table
+create_credit_table_sql = '''
+  CREATE TABLE Credit (
+    CustomerID varchar(255),
+    CreditScore int,
+    CreditLimit int,
+    CreditBalance int,
+    LoanDebt int
+  );
+  '''
+cursor.execute(create_credit_table_sql)
 
 
 
