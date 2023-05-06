@@ -21,6 +21,12 @@ public class TestudoBankRepository {
     return numOfReversals;
   }
 
+  public static boolean getCustomerFreezeStatus(JdbcTemplate jdbcTemplate, String customerID) {
+    String getFreezeStatusSql = String.format("SELECT FreezeStatus FROM Customers WHERE CustomerID='%s';", customerID);
+    boolean freezeStatus = jdbcTemplate.queryForObject(getFreezeStatusSql, Boolean.class);
+    return freezeStatus;
+  }
+
   public static int getCustomerCashBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
     String getUserBalanceSql =  String.format("SELECT Balance FROM Customers WHERE CustomerID='%s';", customerID);
     int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
@@ -107,6 +113,11 @@ public class TestudoBankRepository {
   public static void setCustomerNumFraudReversals(JdbcTemplate jdbcTemplate, String customerID, int newNumFraudReversals) {
     String numOfReversalsUpdateSql = String.format("UPDATE Customers SET NumFraudReversals = %d WHERE CustomerID='%s';", newNumFraudReversals, customerID);
     jdbcTemplate.update(numOfReversalsUpdateSql);
+  }
+
+  public static void setCustomerFreezeStatus(JdbcTemplate jdbcTemplate, String customerID, boolean newFreezeStatus) {
+    String freezeStatusSql = String.format("UPDATE Customers SET FreezeStatus = %b WHERE CustomerID='%s';", newFreezeStatus, customerID);
+    jdbcTemplate.update(freezeStatusSql);
   }
 
   public static void setCustomerOverdraftBalance(JdbcTemplate jdbcTemplate, String customerID, int newOverdraftBalanceInPennies) {

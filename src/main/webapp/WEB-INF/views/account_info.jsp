@@ -47,6 +47,8 @@
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/freezeaccount'>Freeze Account</a>
+    <a href='/unfreezeaccount'>Unfreeze Account</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

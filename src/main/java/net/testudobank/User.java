@@ -35,6 +35,12 @@ public class User {
   @Setter @Getter
   private String transactionHist;
 
+  @Setter @Getter
+  private Boolean freezeStatus;
+
+  @Setter @Getter
+  private String customerEmail;
+
   //// Dispute Fields ////
 
   @Setter @Getter

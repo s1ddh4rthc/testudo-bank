@@ -20,7 +20,9 @@ create_customer_table_sql = '''
     Balance int,
     OverdraftBalance int,
     NumFraudReversals int,
-    NumDepositsForInterest int
+    NumDepositsForInterest int,
+    FreezeStatus boolean,
+    CustomerEmail varchar(255)
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -117,26 +119,30 @@ for i in range(num_customers_to_add):
   # don't add row if someone already has this ID (really unlikely)
   if (customer_id not in ids_in_db and customer_id not in ids_just_added):
 
-    # generate random name, balance, and password
+    # generate random name, balance, password, and email
     customer_first_name = names.get_first_name()
     customer_last_name = names.get_last_name()
     customer_balance = random.randint(100, 10000) * 100 # multiply by 100 to have a penny value of 0
     customer_password = ''.join(random.choices(string.ascii_lowercase + string.ascii_uppercase + string.digits, k = 9))
+    customer_email = customer_first_name + customer_last_name + "@gmail.com"
     
-    # add random customer ID, name, and balance to Customers table.
+    # add random customer ID, name, balance, and email to Customers table.
     # all customers start with Overdraft balance of 0
     # all customers start with a NumFraudReversals of 0
+    # all customers start with an unfrozen account status represented by false
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
+    VALUES  ({0},{1},{2},{3},{4},{5}, {6}, {7}, {8});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",
                 "'" + customer_last_name + "'",
                 customer_balance,
                 0,
                 0,
-                0)
+                0,
+                False,
+                "'" + customer_email + "'")
     cursor.execute(insert_customer_sql)
     
     # add customer ID and password to Passwords table

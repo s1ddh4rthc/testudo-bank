@@ -51,6 +51,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private final static Boolean frozen = true;
+  private final static Boolean unfrozen = false;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -180,6 +182,36 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "freeze_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for freezing their account.
+   * 
+   * @param model
+   * @return "freeze_form" page
+   */
+  @GetMapping("/freezeaccount")
+  public String showFreezeCryptoForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "freeze_form";
+  }
+
+  /**
+   * HTML GET request handler that serves the "unfreeze_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for unfreezing their account.
+   * 
+   * @param model
+   * @return "freeze_form" page
+   */
+  @GetMapping("/unfreezeaccount")
+  public String showUnfreezeCryptoForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "unfreeze_form";
+  }
+
   //// HELPER METHODS ////
 
   /**
@@ -238,6 +270,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setFreezeStatus(TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, user.getUsername()));
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -306,11 +339,17 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
 
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // account is frozen
+    if (userAccountStatus == frozen) {
       return "welcome";
     }
 
@@ -383,11 +422,17 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
 
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // account is frozen
+    if (userAccountStatus == frozen) {
       return "welcome";
     }
 
@@ -472,9 +517,15 @@ public class MvcController {
     String userPasswordAttempt = user.getPassword();
     
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
 
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // account is frozen
+    if (userAccountStatus == frozen) {
       return "welcome";
     }
 
@@ -570,11 +621,13 @@ public class MvcController {
     String senderUserID = sender.getUsername();
     String senderPasswordAttempt = sender.getPassword();
     String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
+    Boolean senderAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, senderUserID);
 
     // creates new user for recipient
     User recipient = new User();
     String recipientUserID = sender.getTransferRecipientID();
     String recipientPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, recipientUserID);
+    Boolean recipientAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, recipientUserID);
     recipient.setUsername(recipientUserID);
     recipient.setPassword(recipientPassword);
 
@@ -586,6 +639,11 @@ public class MvcController {
 
     // unsuccessful login
     if (senderPasswordAttempt.equals(senderPassword) == false) {
+      return "welcome";
+    }
+
+    // either account is frozen
+    if (senderAccountStatus == frozen || recipientAccountStatus == frozen) {
       return "welcome";
     }
 
@@ -649,11 +707,17 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
 
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
     if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // account is frozen
+    if (userAccountStatus == frozen) {
       return "welcome";
     }
 
@@ -743,11 +807,17 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
 
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
     if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // account is frozen
+    if (userAccountStatus == frozen) {
       return "welcome";
     }
 
@@ -799,6 +869,76 @@ public class MvcController {
   }
 
   /**
+   * HTML POST request handler for the Freeze Form page.
+   * 
+   * If the user's account is already frozen, the freeze request will
+   * not change the account status.
+   * 
+   * If the user's account is not frozen, the account will be frozen,
+   * and the user will no longer be able to deposit, withdraw, dispute,
+   * transfer, or buy/sell crypto until the account is unfrozen.
+   * 
+   * @param user
+   * @return "account_info" page if valid deposit request. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/freezeaccount")
+  public String submitFreeze(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // if the user's account is frozen and they are sending a freeze request customers will be sent to "welcome" page
+    if (userAccountStatus == frozen) {
+      return "welcome";
+    }
+
+    applyFreeze(user);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for the Unfreeze Form page.
+   * 
+   * If the user's account is already unfrozen, the unfreeze request will
+   * not change the account status.
+   * 
+   * If the user's account is frozen, the account will be unfrozen,
+   * and the user will now be able to deposit, withdraw, dispute,
+   * transfer, or buy/sell crypto.
+   * 
+   * @param user
+   * @return "account_info" page if valid deposit request. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/unfreezeaccount")
+  public String submitUnfreeze(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    Boolean userAccountStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // if the user's account is unfrozen and they are sending an unfreeze request customers will be sent to "welcome" page
+    if (userAccountStatus == unfrozen) {
+      return "welcome";
+    }
+
+    applyUnfreeze(user);
+    updateAccountInfo(user);
+    return "account_info";
+  }
+
+  /**
    * 
    * 
    * @param user
@@ -808,6 +948,54 @@ public class MvcController {
 
     return "welcome";
 
+  }
+
+  /**
+   * 
+   * 
+   * @param user
+   * @return "account_info" if freeze status is applied. Otherwise, redirect to "welcome" page.
+   */
+  public String applyFreeze(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+
+    boolean userCurrentFreezeStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
+    TestudoBankRepository.setCustomerFreezeStatus(jdbcTemplate, userID, userCurrentFreezeStatus);
+
+    if (userCurrentFreezeStatus == unfrozen) {
+      userCurrentFreezeStatus = frozen;
+      TestudoBankRepository.setCustomerFreezeStatus(jdbcTemplate, userID, userCurrentFreezeStatus);
+    
+      updateAccountInfo(user);
+      return "account_info";
+    
+    } else {
+      return "welcome";
+    }
+  }
+
+  /**
+   * 
+   * 
+   * @param user
+   * @return "account_info" if unfreeze status is applied. Otherwise, redirect to "welcome" page.
+   */
+  public String applyUnfreeze(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+
+    boolean userCurrentFreezeStatus = TestudoBankRepository.getCustomerFreezeStatus(jdbcTemplate, userID);
+    TestudoBankRepository.setCustomerFreezeStatus(jdbcTemplate, userID, userCurrentFreezeStatus);
+
+    if (userCurrentFreezeStatus == frozen) {
+      userCurrentFreezeStatus = unfrozen;
+      TestudoBankRepository.setCustomerFreezeStatus(jdbcTemplate, userID, userCurrentFreezeStatus);
+    
+      updateAccountInfo(user);
+      return "account_info";
+    
+    } else {
+      return "welcome";
+    }
   }
 
 }
