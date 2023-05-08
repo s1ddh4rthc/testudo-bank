@@ -2,6 +2,7 @@ import pymysql
 import names
 import random
 import string
+from datetime import datetime
 from credentials import mysql_endpoint, username, password, database_name
 
 # SQL Config Values
@@ -24,6 +25,18 @@ create_customer_table_sql = '''
   );
   '''
 cursor.execute(create_customer_table_sql)
+
+# Make empty CustomerInstallments table
+create_customer_installments_table_sql = '''
+  CREATE TABLE CustomerInstallments (
+    CustomerID varchar(255),
+    Balance int,
+    NumOfInstallments int,
+    InstallmentBalance int,
+    InitialAmount int
+  );
+  '''
+cursor.execute(create_customer_installments_table_sql)
 
 # Make empty Passwords table
 create_password_table_sql = '''
@@ -51,7 +64,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'InstallmentPaid', 'PenaltyFee', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
   Amount int
 );
 '''
@@ -136,8 +149,19 @@ for i in range(num_customers_to_add):
                 customer_balance,
                 0,
                 0,
-                0)
+                0
+                )
     cursor.execute(insert_customer_sql)
+
+    insert_customer_installments_sql = '''
+    INSERT INTO CustomerInstallments
+    VALUES  ({0}, {1}, {2}, {3}, {4});
+    '''.format("'" + customer_id + "'",
+               customer_balance,
+               0,
+               0,
+               0)
+    cursor.execute(insert_customer_installments_sql)
     
     # add customer ID and password to Passwords table
     insert_password_sql = '''

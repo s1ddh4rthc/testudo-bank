@@ -43,7 +43,12 @@ public class MvcControllerIntegTestHelpers {
 
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
-    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, interestDeposits);
+  }
+
+  public static void addCustomerToInstDB(DatabaseDelegate dbDelegate, String ID, int balance, int numOfInstallments, int installmentBalance, int initialAmt) throws ScriptException {
+    String insertCustomerInstSql = String.format("INSERT INTO CustomerInstallments VALUES ('%s', %d, %d, %d, %d)", ID, balance, numOfInstallments, installmentBalance, initialAmt);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerInstSql);
   }
 
   // Set crypto balance to specified amount
