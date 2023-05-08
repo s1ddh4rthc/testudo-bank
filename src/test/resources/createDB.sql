@@ -5,9 +5,15 @@ CREATE TABLE Customers (
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
-  NumDepositsForInterest int,
+  NumDepositsForInterest int
+);
+
+CREATE TABLE CustomerInstallments (
+  CustomerID varchar(255),
+  Balance int,
   NumOfInstallments int,
-  InstallmentBalance int
+  InstallmentBalance int,
+  InitialAmount int
 );
 
 CREATE TABLE Passwords (

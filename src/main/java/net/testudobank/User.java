@@ -51,16 +51,18 @@ public class User {
   @Setter @Getter @Positive
   private double amountToWithdraw;
 
+  //// Installment Fields ////
+  
   @Setter @Getter @Positive
-  private double numInstallments;
+  private double numOfInstallments;
 
   @Setter @Getter @Positive
-  private double totalAmtToPay;
+  private int initialAmount;
 
   @Setter @Getter @Positive
   private Date dueDate;
 
-  @Setter @Getter @Positive
+  @Setter @Getter @PositiveOrZero
   private int installmentBalance;
 
   //// Transfer Fields ////
