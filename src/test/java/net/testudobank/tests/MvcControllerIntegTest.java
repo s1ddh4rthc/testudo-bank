@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.mockito.internal.matchers.Null;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -1629,7 +1630,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     customer1.setUsername(CUSTOMER1_ID);
     customer1.setPassword(CUSTOMER1_PASSWORD);
 
-    String[] weakPasswords = {"weak", "Weak", "stilweak", "abcdefg1", "12345678", "STILWEAK", "W1k", "W123kmn"};
+    String[] weakPasswords = {"weak", "Weak", "stilweak", "abcdefg1", "12345678", "STILWEAK", "W1k", "W123kmn", ""};
 
     for (String password : weakPasswords) {
       customer1.setChangePassword(password);
@@ -1641,6 +1642,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       assertEquals(false, password.equals(TestudoBankRepository.getCustomerPassword(jdbcTemplate, CUSTOMER1_ID)));
       assertEquals(CUSTOMER1_PASSWORD, TestudoBankRepository.getCustomerPassword(jdbcTemplate, CUSTOMER1_ID));
     }
+    customer1.setPassword("");
+    String result = controller.changePassword(customer1);
+    assertEquals("welcome", result);
   }
 
 }
