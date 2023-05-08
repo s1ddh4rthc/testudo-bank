@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.mockito.internal.matchers.Null;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,6 +33,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
+import net.testudobank.TestudoBankRepository;
 
 @Testcontainers
 @SpringBootTest
@@ -1580,6 +1582,69 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Verifies that a customer's password can be changed.
+   * 
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   * @throws InterruptedException
+   */
+  @Test
+  public void testPasswordChangeSuccess() throws SQLException, ScriptException, InterruptedException {
+    // Setup
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    User customer1 = new User();
+    customer1.setUsername(CUSTOMER1_ID);
+    customer1.setPassword(CUSTOMER1_PASSWORD);
+    customer1.setChangePassword("Pass4567");
+    // Execute
+    String result = controller.changePassword(customer1);
+
+    // Verify
+    assertEquals("password_success", result);
+    assertEquals(false, CUSTOMER1_PASSWORD.equals(TestudoBankRepository.getCustomerPassword(jdbcTemplate, CUSTOMER1_ID)));
+    assertEquals("Pass4567", TestudoBankRepository.getCustomerPassword(jdbcTemplate, CUSTOMER1_ID));
+  }
+
+  /**
+   * Tests change password failure cases.
+   * 
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   * @throws InterruptedException
+   */
+  @Test
+  public void testPasswordChangeFailure() throws SQLException, ScriptException, InterruptedException {
+    // Setup
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    
+    User customer1 = new User();
+    customer1.setUsername(CUSTOMER1_ID);
+    customer1.setPassword(CUSTOMER1_PASSWORD);
+
+    String[] weakPasswords = {"weak", "Weak", "stilweak", "abcdefg1", "12345678", "STILWEAK", "W1k", "W123kmn", ""};
+
+    for (String password : weakPasswords) {
+      customer1.setChangePassword(password);
+      // Execute
+      String result = controller.changePassword(customer1);
+
+      // Verify
+      assertEquals("password_fail", result);
+      assertEquals(false, password.equals(TestudoBankRepository.getCustomerPassword(jdbcTemplate, CUSTOMER1_ID)));
+      assertEquals(CUSTOMER1_PASSWORD, TestudoBankRepository.getCustomerPassword(jdbcTemplate, CUSTOMER1_ID));
+    }
+    customer1.setPassword("");
+    String result = controller.changePassword(customer1);
+    assertEquals("welcome", result);
   }
 
 }

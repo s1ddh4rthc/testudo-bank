@@ -15,6 +15,11 @@ public class TestudoBankRepository {
     return customerPassword;
   }
 
+  public static void setCustomerPassword(JdbcTemplate jdbcTemplate, String customerID, String customerPassword) {
+    String customerPasswordUpdateSql = String.format("UPDATE Passwords SET Password = '%s' WHERE CustomerID='%s';", customerPassword, customerID);
+    jdbcTemplate.update(customerPasswordUpdateSql);
+  }
+
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
     int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);
