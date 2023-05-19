@@ -860,13 +860,13 @@ public class MvcController {
     int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
     if (numOfDepositsForInterest == MIN_NUM_TRANSACTIONS_FOR_INTEREST) { 
-      if (userSavingsBalanceInPennies > 100000) { //tier 1
+      if (userSavingsBalanceInPennies > 100000) { // tier 1
         int newSavingsBalanceInPennies = (int) (userSavingsBalanceInPennies * SAVINGS_BALANCE_TIER_ONE_INTEREST_RATE);
         int userInterestAmtInPennies = newSavingsBalanceInPennies - userSavingsBalanceInPennies;
         TestudoBankRepository.setCustomerSavingsBalance(jdbcTemplate, userID, newSavingsBalanceInPennies);
         TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SAVINGS_DEPOSIT_ACTION, userInterestAmtInPennies);
         TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0); // resets numDepositsForInterest to 0
-      } else if (userSavingsBalanceInPennies > 500000) { //tier 2
+      } else if (userSavingsBalanceInPennies > 500000) { // tier 2
         int newSavingsBalanceInPennies = (int) (userSavingsBalanceInPennies * SAVINGS_BALANCE_TIER_TWO_INTEREST_RATE);
         int userInterestAmtInPennies = newSavingsBalanceInPennies - userSavingsBalanceInPennies;
         TestudoBankRepository.setCustomerSavingsBalance(jdbcTemplate, userID, newSavingsBalanceInPennies);

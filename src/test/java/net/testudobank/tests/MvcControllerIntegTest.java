@@ -1599,14 +1599,16 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     public void testSimpleApplyInterest() throws SQLException, ScriptException {
       // initialize the interest rate      
       double BALANCE_INTEREST_RATE = 1.015;
+      double SAVINGS_BALANCE_TIER_ONE_INTEREST_RATE = 1.025;
+      double SAVINGS_BALANCE_TIER_TWO_INTEREST_RATE = 1.035;
  
       // initialize customer1 with a balance of $100.00 represented as pennies in the DB.
-      double CUSTOMER1_BALANCE = 100.0;
+      double CUSTOMER1_BALANCE = 1100.0;
       int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
       MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
  
-      // Prepare Deposit Form to Deposit $20 to customer 1's account.
-      double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.0; // user input is in dollar amount, not pennies.
+      // Prepare Deposit Form to Deposit $100 to customer 1's account.
+      double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100.0; // user input is in dollar amount, not pennies.
       User customer1DepositFormInputs = new User();
       customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
       customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
@@ -1642,7 +1644,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       Map<String,Object> customer1Data = customersTableData.get(0);
  
       // verify customer balance was increased by $20 and the interest rate was applied
-      double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT) * BALANCE_INTEREST_RATE;
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT) * SAVINGS_BALANCE_TIER_ONE_INTEREST_RATE;
       double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
       assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
  
