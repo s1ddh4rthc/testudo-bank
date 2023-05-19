@@ -40,9 +40,12 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_NUM_TRANSACTIONS_FOR_INTEREST = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_SAVINGS_DEPOSIT_ACTION = "SavingsDeposit";
+  public static String TRANSACTION_HISTORY_SAVINGS_WITHDRAW_ACTION = "SavingsWithdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -51,6 +54,9 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double SAVINGS_BALANCE_TIER_ONE_INTEREST_RATE = 1.025;
+  private static double SAVINGS_BALANCE_TIER_TWO_INTEREST_RATE = 1.035;
+
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -213,7 +219,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, SavingsBalance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -226,6 +232,7 @@ public class MvcController {
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
+    user.setSavingsBalance((int)userData.get("SavingsBalance")/100.0);
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
@@ -306,7 +313,7 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
+    String accountType = user.getAccountType();
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
@@ -320,6 +327,11 @@ public class MvcController {
       return "welcome";
     }
 
+    // Account type other than Checkings or Savings is not allowed
+    if (!(accountType.equals("Checkings") || accountType.equals("Savings")))  {
+      return "welcome";
+    }
+
     // Negative deposit amount is not allowed
     double userDepositAmt = user.getAmountToDeposit();
     if (userDepositAmt < 0) {
@@ -330,7 +342,8 @@ public class MvcController {
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
+
+    if (accountType.equals("Checkings") && userOverdraftBalanceInPennies > 0) { // checkings account deposit will pay off overdraft first
       // update overdraft balance in Customers table, and log the repayment in OverdraftLogs table.
       int newOverdraftBalanceInPennies = Math.max(userOverdraftBalanceInPennies - userDepositAmtInPennies, 0);
       TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
@@ -343,7 +356,25 @@ public class MvcController {
       }
 
     } else { // simple deposit case
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      if (accountType.equals("Checkings")) {
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      } else if (accountType.equals("Savings")) {
+        TestudoBankRepository.increaseCustomerSavingsBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      }
+    }
+
+    // checks if user's overdraft balance is 0, have a positive savings balance, and 
+    // if savings deposit amount meets the minimum requirement, which is $100,
+    // to count towards number of deposits for interest.
+    //
+    // if requirements are met, increase the number of deposits for interest 
+
+    if (accountType.equals("Savings")) {
+      int userSavingsBalanceInPennies = TestudoBankRepository.getCustomerSavingsBalanceInPennies(jdbcTemplate, userID);
+      int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID); 
+      if (userOverdraftBalanceInPennies == 0 && userSavingsBalanceInPennies > 0 && userDepositAmtInPennies >= convertDollarsToPennies(100.0)) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numOfDepositsForInterest+1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -353,8 +384,12 @@ public class MvcController {
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
     } else {
-      // Adds deposit to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      // Adds checkings or savings deposit to transaction history
+      if (accountType.equals("Checkings")) {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      } else if (accountType.equals("Savings")) {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SAVINGS_DEPOSIT_ACTION, userDepositAmtInPennies);
+      }
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -383,7 +418,7 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
+    String accountType = user.getAccountType();
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
@@ -397,7 +432,12 @@ public class MvcController {
       return "welcome";
     }
 
-    // Negative deposit amount is not allowed
+    // Account type other than Checkings or Savings is not allowed
+    if (!(accountType.equals("Checkings") || accountType.equals("Savings")))  {
+      return "welcome";
+    }
+
+    // Negative withdraw amount is not allowed
     double userWithdrawAmt = user.getAmountToWithdraw();
     if (userWithdrawAmt < 0) {
       return "welcome";
@@ -408,7 +448,8 @@ public class MvcController {
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
+   
+    if (accountType.equals("Checkings") && userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
       int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
@@ -427,7 +468,11 @@ public class MvcController {
       TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
 
     } else { // simple, non-overdraft withdraw case
-      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+      if (accountType.equals("Checkings")) {
+        TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+      } else if (accountType.equals("Savings")) {
+        TestudoBankRepository.decreaseCustomerSavingsBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+      }
     }
 
     // only adds withdraw to transaction history if is not transfer
@@ -438,7 +483,11 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
     } else {
       // Adds withdraw to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
+      if (accountType.equals("Checkings")) {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
+      } else if (accountType.equals("Savings")) {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SAVINGS_WITHDRAW_ACTION, userWithdrawAmtInPennies);
+      }
     }
 
   
@@ -799,14 +848,29 @@ public class MvcController {
   }
 
   /**
-   * 
-   * 
+   * If number of savings deposits for interest is 5, then apply the savings interest rate on the user's 
+   * current savings balance (based on tier) and add the interest deposit to transaction history 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); 
+    int userSavingsBalanceInPennies = TestudoBankRepository.getCustomerSavingsBalanceInPennies(jdbcTemplate, userID);
+    int numOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    return "welcome";
+    if (numOfDepositsForInterest == MIN_NUM_TRANSACTIONS_FOR_INTEREST) { 
+      int newSavingsBalanceInPennies = (int) (userSavingsBalanceInPennies * SAVINGS_BALANCE_TIER_ONE_INTEREST_RATE);
+      int userInterestAmtInPennies = newSavingsBalanceInPennies - userSavingsBalanceInPennies;
+      TestudoBankRepository.setCustomerSavingsBalance(jdbcTemplate, userID, newSavingsBalanceInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SAVINGS_DEPOSIT_ACTION, userInterestAmtInPennies);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0); // resets numDepositsForInterest to 0
+
+       return "account_info";
+
+    } else {
+      return "welcome";
+    }
 
   }
 

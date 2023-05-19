@@ -41,6 +41,9 @@
 			
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
+      
+      <form:label path="accountType">Account Type: (Checkings/Savings)</form:label>
+      <form:input path="accountType"/><br/>
 
       <form:label path="amountToWithdraw">Amount to Withdraw ($):</form:label>
 			<form:input path="amountToWithdraw"/><br/>	
