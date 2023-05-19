@@ -42,9 +42,12 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
 
+      <form:label path="accountType">Account Type: (Checkings/Savings)</form:label>
+      <form:input path="accountType"/><br/>
+
       <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
 			<form:input path="amountToDeposit"/><br/>	
-				
+			
 			<form:button>Deposit</form:button>
 		</form:form>
     <a href='/'>Home</a>
