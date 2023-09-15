@@ -240,9 +240,6 @@ public class MvcController {
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
-  private static int applyInterestRateToPennyAmount(int pennyAmount) {
-    return (int) (pennyAmount * INTEREST_RATE);
-  }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
@@ -253,6 +250,10 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  private static int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
   }
 
   // HTML POST HANDLERS ////
