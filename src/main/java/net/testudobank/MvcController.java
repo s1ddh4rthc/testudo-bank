@@ -182,6 +182,8 @@ public class MvcController {
 
   //// HELPER METHODS ////
 
+  // Siddharth was here on Sep 8, 2023
+
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
    * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
