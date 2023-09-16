@@ -183,11 +183,7 @@ public class MvcController {
   //// HELPER METHODS ////
 
   /*
-   * Helper method for applying intrest rate to a given penny amount
-   *      /*Question(s):
-   *         should I replace the logic in 410 or 413
-   *         Is there a way to test my changes, using maven spring-boot run?
-   *         
+   * Helper method to encapuslate logic for applying intrest rate to a given penny amount 
    */
   private static int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
