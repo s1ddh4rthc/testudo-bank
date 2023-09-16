@@ -99,4 +99,7 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private Boolean ethStaked;
+
 }

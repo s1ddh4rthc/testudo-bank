@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double ETH_STAKING_RATE = 1.038; // hardcoded here, but for a real application this would depend on the total validators
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -251,6 +252,11 @@ public class MvcController {
     return dateTime;
   }
 
+  // Returns the extra pennyAmount gained from the current interest rate
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+
   // HTML POST HANDLERS ////
 
   /**
@@ -410,7 +416,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -800,14 +806,50 @@ public class MvcController {
 
   /**
    * 
-   * 
+   * If we have a multiple of 5 transactions, and all of those transactions are >20, then we apply interest to the account.
+   * Note that this does nothing to stop someone from splitting up $10,000 into 500 $20 transactions (they could probably steal a lot of money that way)
+   * Also, if someone happens to have a few benign <$20 transactions, they will not recieve anything, by design.
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+    String userID = user.getUsername();
+    
+    if(user.getNumDepositsForInterest() == 5) {
 
+      user.setNumDepositsForInterest(0);
+
+      for(Map<String, Object> transaction: TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, 5)) {
+        if((int) transaction.get("Amount") < 2000)
+          return "welcome";
+      }
+      
+      double interest = user.getBalance() * BALANCE_INTEREST_RATE - user.getBalance();
+      user.setAmountToDeposit(interest);
+      submitDeposit(user);
+      updateAccountInfo(user);
+      return "account_info";
+    }
+
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+    return "welcome";
   }
 
+  /**
+   * When this function is called, we apply the current ETH staking rate to their ETH balance if they have staked their ETH.
+   * Later, we can decide the frequency that this gets called (Coinbase does it every three days, for example). 
+   * @param user
+   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   */
+  public String applyETHReward(@ModelAttribute("userm") User user) {
+
+    if(user.getEthStaked()) {
+      double staking = user.getEthBalance() * ETH_STAKING_RATE - user.getEthBalance();
+      user.setEthBalance(user.getEthBalance() + staking);
+      return "account_info";
+    }
+
+    return "welcome";
+  }
 }
