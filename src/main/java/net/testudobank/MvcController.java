@@ -51,11 +51,14 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
     this.cryptoPriceClient = cryptoPriceClient;
   }
+
+
 
   //// HTML GET HANDLERS ////
 
@@ -238,6 +241,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    
   }
 
   private static int applyInterestRateToPennyAmount(int pennyAmount) {
@@ -326,9 +330,12 @@ public class MvcController {
 
     // Negative deposit amount is not allowed
     double userDepositAmt = user.getAmountToDeposit();
+
     if (userDepositAmt < 0) {
       return "welcome";
     }
+
+    
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -347,7 +354,13 @@ public class MvcController {
       }
 
     } else { // simple deposit case
+
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+
+      //This function will only increment the value when the account is not in overdraft.
+      if (userDepositAmt >= 20.00) {
+        user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -362,6 +375,8 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    
+    updateAccountInfo(user);
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -804,13 +819,30 @@ public class MvcController {
 
   /**
    * 
-   * 
+   *  This function takes into account the transactions made by a User. This interest feature was added for the new 
+   *  policy to get more customers into our banking system. Apply interest rate for every 5th deposit over $20. If in overdraft this function will never run. 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    if(user == null) {
+      //If the user is not properly recieved, then go back to the welcome page
+      return "welcome";
+    }
+    String userID = user.getUsername(); //Get the User ID to update the TestudoBankRepository
+    int depositCount = user.getNumDepositsForInterest();
 
-    return "welcome";
+    //Apply Deposit Interest
+    if(depositCount == 5 && user.getBalance() >= 0) {
+      user.setNumDepositsForInterest(0);
+      user.setBalance(user.getBalance() * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)Math.ceil(((user.getBalance() * 100))));
+      return "account_info";
+    }
+    else {
+      //If we are not at a valid transaction go back to the account_info without making any changes;
+      return "account_info";
+    }
 
   }
 
