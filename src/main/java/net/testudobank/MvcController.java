@@ -83,7 +83,6 @@ public class MvcController {
   public String showLoginForm(Model model) {
     User user = new User();
     model.addAttribute("user", user);
-
     return "login_form";
   }
 
@@ -308,6 +307,14 @@ public class MvcController {
     }
   }
 
+  /*This function check the validation of deposits and increase NumDepositsForInterest */
+  public void increaseNumDepositsForInterest(@ModelAttribute("user") User user, double amount) {
+    double RequireAmountForInterest = 20.00;
+    if (amount >= RequireAmountForInterest) {
+      user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+    }
+  }
+
   /**
    * HTML POST request handler for the Deposit Form page.
    * 
@@ -371,6 +378,7 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      increaseNumDepositsForInterest(user, userDepositAmt);
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -389,6 +397,7 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
+    updateAccountInfo(user);
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -880,27 +889,17 @@ public class MvcController {
    *         page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-    if (user.getOverDraftBalance() > 0 || user.getBalance() <= 0.0
-        || user.getNumDepositsForInterest() < 5) {
-      return "welcome";
-    } else {
-      int validDeposit = 0;
+    if (user.getNumDepositsForInterest() == 5 && user.getBalance() >= 0.0) {
       String userID = user.getUsername();
-      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-      for (int index = 0; index < user.getNumDepositsForInterest(); index++) {
-        if (user.getAmountToDeposit() > 20.0) {
-          validDeposit++;
-        }
-      }
-      if (validDeposit > 5) {
-        double balanceAfterInterest = user.getBalance() + (user.getBalance() * BALANCE_INTEREST_RATE);
-        user.setBalance( balanceAfterInterest);
-        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
-        TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)balanceAfterInterest);
-        return "account_info";
-      }
+      double balanceAfterInterest = (user.getBalance() * BALANCE_INTEREST_RATE);
+      user.setBalance(balanceAfterInterest);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID,
+          convertDollarsToPennies(balanceAfterInterest));
+      user.setNumDepositsForInterest(0);
+      return "account_info";
+    } else {
+      return "welcome";
     }
-    return "welcome";
   }
 
 }
