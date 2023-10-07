@@ -37,7 +37,7 @@ public class MvcController {
   public final static double INTEREST_RATE = 1.02;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
-  public final static int INTEREST_NUM_DEPOSIT_REQ = 2;
+  public final static int INTEREST_NUM_DEPOSIT_REQ = 5;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
