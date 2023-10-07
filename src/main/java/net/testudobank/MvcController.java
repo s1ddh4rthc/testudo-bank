@@ -816,8 +816,9 @@ public class MvcController {
     int validDepositForInterestInPennies = 20 * 100; // 20$ minimum valid deposit
 
     // reading TransactionHistory table for information on latest deposit size
-    Map<String, Object> transactionEntry = TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, 1).get(0);
-    int userDepositAmtInPennies = (int) transactionEntry.get("amtInPennies");
+    List<Map<String, Object>> transactionEntries = TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, 1);
+    Map<String, Object> transactionEntry = transactionEntries.get(0);
+    int userDepositAmtInPennies = (int) transactionEntry.get("Amount");
 
     // ensure that the most recent deposit was >$20
     if (userDepositAmtInPennies >= validDepositForInterestInPennies) {
@@ -825,7 +826,7 @@ public class MvcController {
       // ensure that the customer's account is not in overdraft
       int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
 
-      if (userOverdraftBalanceInPennies > 0) {
+      if (userOverdraftBalanceInPennies <= 0) {
 
         // find and either increment the number of deposits, or set to 0 and apply interest rate
         int userNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
@@ -833,13 +834,11 @@ public class MvcController {
         if (userNumberOfDeposits == 4) { // since we start at 0 deposits, at the 5th deposit we will see 4 deposits (have been made)
 
           int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-          int interestGainedInPennies = (int)((double) userBalanceInPennies * BALANCE_INTEREST_RATE);
-
-          int newBalanceInPennies = interestGainedInPennies + userBalanceInPennies;
-
+          int userBalanceAfterInterestInPennies = (int)((double) userBalanceInPennies * BALANCE_INTEREST_RATE);
+          int interestGainedInPennies = userBalanceAfterInterestInPennies - userBalanceInPennies;
 
           // set the customer's new balance to be old balance + interest earned
-          TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalanceInPennies);
+          TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterestInPennies);
 
           // add a new interest apply action to the TransactionHistory table, 
           String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
