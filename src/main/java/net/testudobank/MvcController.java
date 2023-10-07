@@ -830,7 +830,8 @@ public class MvcController {
     int updatedCustomerDepositsForInterest = customerDepositsForInterest + 1;
     if (updatedCustomerDepositsForInterest % INTEREST_NUM_DEPOSIT_REQ == 0) {
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-      int accuredIntrestinPennies = (int) Math.round(BALANCE_INTEREST_RATE * userBalanceinPennies) - userBalanceinPennies;
+      double newBalanceDallors = BALANCE_INTEREST_RATE * userBalanceinPennies / 100;
+      int accuredIntrestinPennies = convertDollarsToPennies(newBalanceDallors) - userBalanceinPennies;
 
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, accuredIntrestinPennies);
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate,userID,currentTime,TRANSACTION_HISTORY_INTEREST_ACTION,accuredIntrestinPennies);
