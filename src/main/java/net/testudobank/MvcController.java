@@ -37,12 +37,14 @@ public class MvcController {
   public final static double INTEREST_RATE = 1.02;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
+  public final static int INTEREST_NUM_DEPOSIT_REQ = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -51,6 +53,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double INTEREST_MIN_DEPOSIT = 20;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -799,15 +802,45 @@ public class MvcController {
   }
 
   /**
+   * Handles applying the interest feature to savings account.
    * 
+   * If deposit is below the threshold, user account is in overdaft, or no money in account
+   * then deposit does not account for deposit requirement.
+   * 
+   * Adds interest to the account if number of qualified deposit is met.
+   * 
+   * Adds entry to Transaction log, logging interest added to account.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    double userDeposit = user.getAmountToDeposit();
+    int userOverDraftBalanceinPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID); 
+    int userBalanceinPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID); 
+    int customerDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID); 
+    
+    // Check deposit and user account if they quailifiy for interest feature
+    if (userDeposit < INTEREST_MIN_DEPOSIT || userOverDraftBalanceinPennies > 0 || userBalanceinPennies == 0) {
+      return "welcome";
+    }
 
-    return "welcome";
+    // Apply interest to account
+    int updatedCustomerDepositsForInterest = customerDepositsForInterest + 1;
+    if (updatedCustomerDepositsForInterest % INTEREST_NUM_DEPOSIT_REQ == 0) {
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int accuredIntrestinPennies = (int) Math.round(BALANCE_INTEREST_RATE * userBalanceinPennies) - userBalanceinPennies;
 
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, accuredIntrestinPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate,userID,currentTime,TRANSACTION_HISTORY_INTEREST_ACTION,accuredIntrestinPennies);
+      updatedCustomerDepositsForInterest = 0;
+    }
+
+    // Update interest feature depoist counter
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, updatedCustomerDepositsForInterest);
+    
+    return "account_info";
   }
 
 }
