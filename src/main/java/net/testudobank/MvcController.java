@@ -47,10 +47,12 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_DEPOSISTS_INTEREST = "Interest";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double BALANCE_INTEREST_RATE = 1.5;
+  private static int DEPOSITS_INTEREST_RATE = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -344,6 +346,8 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      int curCustomerNumberOfDeposistsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,curCustomerNumberOfDeposistsForInterest+1);
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -806,6 +810,28 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    String userID = user.getUsername();
+
+    int currCustomerNumberOfDeposistsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+    // Applies interest and resets number of deposits for interest counter if interest applied
+    if (currCustomerNumberOfDeposistsForInterest == DEPOSITS_INTEREST_RATE) {
+
+      // Applies interest 
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestInPennies = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
+      int newUserBalanceInPennies = userBalanceInPennies + interestInPennies;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newUserBalanceInPennies);
+
+      // Resets number of deposits for interest counter
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,0); 
+
+      // Adds interest to transaction history
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSISTS_INTEREST, interestInPennies);
+      
+    }
+    
     return "welcome";
 
   }
