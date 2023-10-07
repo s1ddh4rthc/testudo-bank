@@ -47,6 +47,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_INTEREST_RECEIVED_ACTION = "InterestReceived";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -357,8 +358,15 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+    // apply interest after valid deposit
+    if (userDepositAmt >= 20) {
+      int currentNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currentNumberOfDeposits + 1);
+      
+      applyInterest(user);
+    }
+
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -799,15 +807,33 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Apply interest to user balance on every fifth deposit if user has no overdraft balance.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userId = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    if (TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userId) > 0) {
+      return "welcome";
+    }
+
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userId);
+    if (numberOfDepositsForInterest % 5 == 0) {
+      int customerBlanace = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId);
+      int interestGained = (int)(customerBlanace * (BALANCE_INTEREST_RATE - 1));
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userId, interestGained);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(
+        jdbcTemplate, 
+        userId, 
+        currentTime, 
+        TRANSACTION_HISTORY_INTEREST_RECEIVED_ACTION, 
+        interestGained);
+    }
 
     return "welcome";
-
   }
 
 }

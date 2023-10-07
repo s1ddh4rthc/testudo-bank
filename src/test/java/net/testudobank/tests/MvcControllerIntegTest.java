@@ -1582,4 +1582,84 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+
+
+  public Map<String, Object> getCustomerDatMap() {
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customerDataMap = customersTableData.get(0);
+    return customerDataMap;
+  }
+
+  /*
+   * Test that interest is applied every fifth transaction, 
+   * that the first four transactions and subsequent transactions do not accrue interest.
+   */
+  @Test
+  public void testInterestAppliedEveryFiveTransactions() throws ScriptException {
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(
+      dbDelegate, 
+      CUSTOMER1_ID, 
+      CUSTOMER1_PASSWORD, 
+      CUSTOMER1_FIRST_NAME, 
+      CUSTOMER1_LAST_NAME, 
+      CUSTOMER1_BALANCE_IN_PENNIES, 
+      0);
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20;
+
+    for (int numValidDeposits = 1; numValidDeposits <= 4; numValidDeposits++) {
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      Map<String, Object> customerDataMap = getCustomerDatMap();
+      List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+      double CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT = CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * numValidDeposits);
+      int CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT);
+      assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES, customerDataMap.get("Balance"));
+
+      assertEquals(numValidDeposits, transactionHistoryTableData.size());
+    }
+
+    // fifth deposit should apply interest
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    Map<String, Object> customerDataMap = getCustomerDatMap();
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    double INTEREST_RATE = 1.015;
+
+    double CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT = (CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5)) * INTEREST_RATE;
+    int CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT);
+    assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES, customerDataMap.get("Balance"));
+
+    assertEquals(6, transactionHistoryTableData.size());
+
+    // sixth deposit does not apply interest
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    Map<String, Object> customerDataMap = getCustomerDatMap();
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    double CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT = ((CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5)) * INTEREST_RATE) + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    int CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT);
+    assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES, customerDataMap.get("Balance"));
+
+    assertEquals(7, transactionHistoryTableData.size());
+  }
 }
