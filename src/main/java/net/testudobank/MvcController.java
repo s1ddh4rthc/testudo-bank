@@ -40,6 +40,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES = 2000;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -356,10 +357,14 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
-
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
+
+    // update interest
+    if (userDepositAmtInPennies > MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES && userOverdraftBalanceInPennies == 0) {
+        applyInterest(user);
+    }
+
     return "account_info";
   }
 	
@@ -804,10 +809,27 @@ public class MvcController {
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  public String applyInterest(@ModelAttribute("user") User user) { 
+    String userID = user.getUsername();
+    int numDepositsForInterest = user.getNumDepositsForInterest();
+    if (numDepositsForInterest >= 5) {
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int balanceWithInterestInPennies = convertDollarsToPennies(user.getBalance() * BALANCE_INTEREST_RATE);
 
-    return "welcome";
+      // update balance
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceWithInterestInPennies);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest%5);
 
+      // update transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, convertDollarsToPennies(user.getAmountToDeposit()));
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      int currDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currDepositsForInterest++);
+      return "welcome";
+    }
+    
   }
 
 }
