@@ -47,6 +47,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_INTEREST_RATE_APPLY_ACTION = "InterestApply";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -251,6 +252,10 @@ public class MvcController {
     return dateTime;
   }
 
+  // Calculates the interest earned based on INTEREST_RATE and the pennyAmount variable
+  private static int applyInterestRateToPennyAmount(int pennyAmount){
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
   // HTML POST HANDLERS ////
 
   /**
@@ -410,7 +415,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -806,8 +811,50 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+
+    String userID = user.getUsername();
+    int validDepositForInterestInPennies = 20 * 100; // 20$ minimum valid deposit
+
+    // reading TransactionHistory table for information on latest deposit size
+    List<Map<String, Object>> transactionEntries = TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, 1);
+    Map<String, Object> transactionEntry = transactionEntries.get(0);
+    int userDepositAmtInPennies = (int) transactionEntry.get("Amount");
+
+    // ensure that the most recent deposit was >$20
+    if (userDepositAmtInPennies >= validDepositForInterestInPennies) {
+
+      // ensure that the customer's account is not in overdraft
+      int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+
+      if (userOverdraftBalanceInPennies <= 0) {
+
+        // find and either increment the number of deposits, or set to 0 and apply interest rate
+        int userNumberOfDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+        if (userNumberOfDeposits == 4) { // since we start at 0 deposits, at the 5th deposit we will see 4 deposits (have been made)
+
+          int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+          int userBalanceAfterInterestInPennies = (int)((double) userBalanceInPennies * BALANCE_INTEREST_RATE);
+          int interestGainedInPennies = userBalanceAfterInterestInPennies - userBalanceInPennies;
+
+          // set the customer's new balance to be old balance + interest earned
+          TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, userBalanceAfterInterestInPennies);
+
+          // add a new interest apply action to the TransactionHistory table, 
+          String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+          TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_RATE_APPLY_ACTION, interestGainedInPennies);
+          
+          // reset
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+          return "account_info";
+        } else {
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumberOfDeposits + 1);
+        }
+      }
+    }
     return "welcome";
 
+    
   }
 
 }
