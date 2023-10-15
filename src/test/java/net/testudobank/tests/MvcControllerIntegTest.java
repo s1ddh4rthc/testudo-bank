@@ -1796,8 +1796,11 @@ public class MvcControllerIntegTest {
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  /*
+   * Test if interest are being applied every 5 transactions
+   */
   @Test
-  public static void testCaseofInterestRate() throws SQLException, ScriptException {
+  public static void testIfInterestApplied() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 100;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID,
@@ -1814,10 +1817,79 @@ public class MvcControllerIntegTest {
     controller.submitDeposit(user1);
     controller.submitDeposit(user1);
     controller.submitDeposit(user1);
+    
+    double expectedNumOfDeposits = 4;
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
     controller.submitDeposit(user1);
+
+    /* NumOfDeposits will reset to 0 at 5th transaction */
+    expectedNumOfDeposits = 0;
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+
 
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + totalDeposit) * 1.015;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) user1.getBalance());
+
+    /*NumOfDeposits will increase to 1 */
+    controller.submitDeposit(user1);
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+
   }
+
+  @Test
+  public static void testIfInterestAppliedBelow20() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 100;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID,
+        CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME,
+        CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    //Include $19.99 test case
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99;
+    User user1 = new User();
+    user1.setUsername(CUSTOMER1_ID);
+    user1.setPassword(CUSTOMER1_PASSWORD);
+    user1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    
+    controller.submitDeposit(user1);
+    double totalDeposit = CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    double expectedNumOfDeposits = 0;
+    // expectedNumOfDeposits wont increase because it < 20.00
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 30.00;
+    totalDeposit += 3 * CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    controller.submitDeposit(user1);
+    controller.submitDeposit(user1);
+    controller.submitDeposit(user1);
+    
+    expectedNumOfDeposits = 3;
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.00;
+    controller.submitDeposit(user1);
+    controller.submitDeposit(user1);
+    totalDeposit += 2 * CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+    
+    //Include $20.01 test case
+    CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01;
+    controller.submitDeposit(user1);
+    controller.submitDeposit(user1);
+    totalDeposit += 2 * CUSTOMER1_AMOUNT_TO_DEPOSIT;
+
+    /* NumOfDeposits will reset to 0 at 5th transaction */
+    expectedNumOfDeposits = 0;
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + totalDeposit) * 1.015;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) user1.getBalance());
+
+    /*NumOfDeposits will increase to 1 */
+    controller.submitDeposit(user1);
+    assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+    
+  }
+
 }

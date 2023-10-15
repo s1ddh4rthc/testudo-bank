@@ -98,6 +98,7 @@ public class MvcController {
   public String showDepositForm(Model model) {
     User user = new User();
     model.addAttribute("user", user);
+    applyInterest(user);
     return "deposit_form";
   }
 
@@ -307,11 +308,19 @@ public class MvcController {
     }
   }
 
-  /*This function check the validation of deposits and increase NumDepositsForInterest */
+  /*
+   * This function check the validation of deposits and increase
+   * NumDepositsForInterest
+   */
   public void increaseNumDepositsForInterest(@ModelAttribute("user") User user, double amount) {
     double RequireAmountForInterest = 20.00;
     if (amount >= RequireAmountForInterest) {
-      user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+      String userID = user.getUsername();
+      user.setNumDepositsForInterest(
+          TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
+          user.getNumDepositsForInterest());
+
     }
   }
 
@@ -379,6 +388,7 @@ public class MvcController {
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
       increaseNumDepositsForInterest(user, userDepositAmt);
+
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -397,9 +407,9 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
+    
     updateAccountInfo(user);
     applyInterest(user);
-    updateAccountInfo(user);
     return "account_info";
   }
 
@@ -891,11 +901,15 @@ public class MvcController {
   public String applyInterest(@ModelAttribute("user") User user) {
     if (user.getNumDepositsForInterest() == 5 && user.getBalance() >= 0.0) {
       String userID = user.getUsername();
-      double balanceAfterInterest = (user.getBalance() * BALANCE_INTEREST_RATE);
-      user.setBalance(balanceAfterInterest);
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID,
-          convertDollarsToPennies(balanceAfterInterest));
+      double balanceAfterInterestinDollars = user.getBalance() * BALANCE_INTEREST_RATE;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID,
+          convertDollarsToPennies(balanceAfterInterestinDollars));
+      user.setBalance(balanceAfterInterestinDollars);
+
       user.setNumDepositsForInterest(0);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
+          user.getNumDepositsForInterest());
+
       return "account_info";
     } else {
       return "welcome";
