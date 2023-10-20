@@ -1582,14 +1582,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
-
-
-  public Map<String, Object> getCustomerDatMap() {
-    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
-    Map<String, Object> customerDataMap = customersTableData.get(0);
-    return customerDataMap;
-  }
-
   /*
    * Test that interest is applied every fifth transaction, 
    * that the first four transactions and subsequent transactions do not accrue interest.
@@ -1609,14 +1601,10 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20;
 
     for (int numValidDeposits = 1; numValidDeposits <= 4; numValidDeposits++) {
-      User customer1DepositFormInputs = new User();
-      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
-      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
-      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
-
+      User customer1DepositFormInputs = MvcControllerIntegTestHelpers.createCustomerDepositFormInputs(CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_AMOUNT_TO_DEPOSIT);
       controller.submitDeposit(customer1DepositFormInputs);
 
-      Map<String, Object> customerDataMap = getCustomerDatMap();
+      Map<String, Object> customerDataMap = getCustomerDataMap();
       List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
 
       double CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT = CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * numValidDeposits);
@@ -1627,39 +1615,76 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
 
     // fifth deposit should apply interest
-    User customer1DepositFormInputs = new User();
-    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
-    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
-    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    User customer1FifthDepositFormInputs = MvcControllerIntegTestHelpers.createCustomerDepositFormInputs(CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    controller.submitDeposit(customer1FifthDepositFormInputs);
 
-    controller.submitDeposit(customer1DepositFormInputs);
+    Map<String, Object> customerDataMapFifthDeposit = getCustomerDataMap();
+    List<Map<String,Object>> transactionHistoryTableDataFifthDeposit = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
 
-    Map<String, Object> customerDataMap = getCustomerDatMap();
-    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    final double INTEREST_RATE = 1.015;
 
-    double INTEREST_RATE = 1.015;
+    final double CUSTOMER1_EXPECTED_BALANCE_AFTER_FIFTH_DEPOSIT = (CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5)) * INTEREST_RATE;
+    final int CUSTOMER1_EXPECTED_BALANCE_AFTER_FIFTH_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_FIFTH_DEPOSIT);
+    assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_FIFTH_DEPOSIT_IN_PENNIES, customerDataMapFifthDeposit.get("Balance"));
 
-    double CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT = (CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5)) * INTEREST_RATE;
-    int CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT);
-    assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES, customerDataMap.get("Balance"));
-
-    assertEquals(6, transactionHistoryTableData.size());
+    assertEquals(6, transactionHistoryTableDataFifthDeposit.size());
 
     // sixth deposit does not apply interest
-    User customer1DepositFormInputs = new User();
-    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
-    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
-    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    User customer1DepositFormInputsSixthDeposit = MvcControllerIntegTestHelpers.createCustomerDepositFormInputs(CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    controller.submitDeposit(customer1DepositFormInputsSixthDeposit);
 
-    controller.submitDeposit(customer1DepositFormInputs);
+    Map<String, Object> customerDataMapSixthDeposit = getCustomerDataMap();
+    List<Map<String,Object>> transactionHistoryTableDataSixthDeposit = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
 
-    Map<String, Object> customerDataMap = getCustomerDatMap();
-    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    double CUSTOMER1_EXPECTED_BALANCE_AFTER_SIXTH_DEPOSIT = ((CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5)) * INTEREST_RATE) + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    int CUSTOMER1_EXPECTED_BALANCE_AFTER_SIXTH_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_SIXTH_DEPOSIT);
+    assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_SIXTH_DEPOSIT_IN_PENNIES, customerDataMapSixthDeposit.get("Balance"));
 
-    double CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT = ((CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5)) * INTEREST_RATE) + CUSTOMER1_AMOUNT_TO_DEPOSIT;
-    int CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT);
-    assertEquals(CUSTOMER1_EXPECTED_BALANCE_AFTER_DEPOSIT_IN_PENNIES, customerDataMap.get("Balance"));
+    assertEquals(7, transactionHistoryTableDataSixthDeposit.size());
+  }
 
-    assertEquals(7, transactionHistoryTableData.size());
+  /*
+   * Test that NumDepositsForInterest only increments for deposits greater than or equal to 20 dollars
+   */
+  public void testCustomerNumberOfDepositsIncrement() throws ScriptException {
+    double CUSTOMER1_BALANCE = 0.0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate,
+    CUSTOMER1_ID, 
+    CUSTOMER1_PASSWORD, 
+    CUSTOMER1_FIRST_NAME, 
+    CUSTOMER1_LAST_NAME, 
+    CUSTOMER1_BALANCE_IN_PENNIES, 
+    0);
+
+    // NumDepositsForInterest increments for a deposit of 20 dollars
+    User customer1DepositFormInputsAt20 = MvcControllerIntegTestHelpers.createCustomerDepositFormInputs(CUSTOMER1_ID, CUSTOMER1_PASSWORD, 20.0);
+    controller.submitDeposit(customer1DepositFormInputsAt20);
+
+    Map<String, Object> customerDataMap = getCustomerDataMap();
+    assertEquals(1, (int)customerDataMap.get("NumDepositsForInterest"));
+
+    // NumDepositsForInterest does not increment for deposit under 20 dollars
+    User customer1DepositFormInputsUnder20 = MvcControllerIntegTestHelpers.createCustomerDepositFormInputs(CUSTOMER1_ID, CUSTOMER1_PASSWORD, 19.99);
+    controller.submitDeposit(customer1DepositFormInputsUnder20);
+
+    Map<String, Object> customerDataMapUnder20 = getCustomerDataMap();
+    assertEquals(1, (int)customerDataMapUnder20.get("NumDepositsForInterest"));
+
+    // NumDepositsForInterest increments for deposit over 20 dollars
+    User customer1DepostFormInputsOver20 = MvcControllerIntegTestHelpers.createCustomerDepositFormInputs(CUSTOMER1_ID, CUSTOMER1_PASSWORD, 20.01);
+    controller.submitDeposit(customer1DepostFormInputsOver20);
+
+    Map<String, Object> customerDataMapOver20 = getCustomerDataMap();
+    assertEquals(2, (int)customerDataMapOver20.get("NumDepositsForInterest"));
+  }
+
+  /*
+   * Helper to get customer data map for testing.
+   */
+  public Map<String, Object> getCustomerDataMap() {
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customerDataMap = customersTableData.get(0);
+    return customerDataMap;
   }
 }
