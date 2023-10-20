@@ -43,6 +43,7 @@ public class MvcController {
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "InterestApplied";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -98,7 +99,6 @@ public class MvcController {
   public String showDepositForm(Model model) {
     User user = new User();
     model.addAttribute("user", user);
-    applyInterest(user);
     return "deposit_form";
   }
 
@@ -311,16 +311,17 @@ public class MvcController {
   /*
    * This function check the validation of deposits and increase
    * NumDepositsForInterest
+   * 
+   * @param user, amountofDeposits
    */
-  public void increaseNumDepositsForInterest(@ModelAttribute("user") User user, double amount) {
+  private void increaseNumDepositsForInterest(@ModelAttribute("user") User user, double amountofDeposits) {
     double RequireAmountForInterest = 20.00;
-    if (amount >= RequireAmountForInterest) {
+    if (amountofDeposits >= RequireAmountForInterest) {
       String userID = user.getUsername();
       user.setNumDepositsForInterest(
           TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1);
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
           user.getNumDepositsForInterest());
-
     }
   }
 
@@ -388,7 +389,6 @@ public class MvcController {
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
       increaseNumDepositsForInterest(user, userDepositAmt);
-
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -407,9 +407,9 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
-    
     updateAccountInfo(user);
     applyInterest(user);
+    updateAccountInfo(user);
     return "account_info";
   }
 
@@ -901,15 +901,22 @@ public class MvcController {
   public String applyInterest(@ModelAttribute("user") User user) {
     if (user.getNumDepositsForInterest() == 5 && user.getBalance() >= 0.0) {
       String userID = user.getUsername();
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
       double balanceAfterInterestinDollars = user.getBalance() * BALANCE_INTEREST_RATE;
+      int interestAmount = convertDollarsToPennies((user.getBalance() * (BALANCE_INTEREST_RATE - 1)));
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID,
           convertDollarsToPennies(balanceAfterInterestinDollars));
       user.setBalance(balanceAfterInterestinDollars);
 
+      // update transaction log
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate,
+          userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION,
+          interestAmount);
+
       user.setNumDepositsForInterest(0);
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,
           user.getNumDepositsForInterest());
-
       return "account_info";
     } else {
       return "welcome";

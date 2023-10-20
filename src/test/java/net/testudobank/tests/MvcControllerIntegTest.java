@@ -1808,6 +1808,7 @@ public class MvcControllerIntegTest {
         CUSTOMER1_BALANCE_IN_PENNIES, 0);
 
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 30;
+    int expectedTransactionHistoryTableSize = 6;
     User user1 = new User();
     user1.setUsername(CUSTOMER1_ID);
     user1.setPassword(CUSTOMER1_PASSWORD);
@@ -1821,7 +1822,9 @@ public class MvcControllerIntegTest {
     double expectedNumOfDeposits = 4;
     assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
     controller.submitDeposit(user1);
-
+    List<Map<String, Object>> transactionHistoryTableData = jdbcTemplate
+        .queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(expectedTransactionHistoryTableSize, transactionHistoryTableData.size());
     /* NumOfDeposits will reset to 0 at 5th transaction */
     expectedNumOfDeposits = 0;
     assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
@@ -1830,21 +1833,24 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + totalDeposit) * 1.015;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) user1.getBalance());
-
+    
+    //AFTER 5 DEPOSITS
     /*NumOfDeposits will increase to 1 */
     controller.submitDeposit(user1);
     assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
+    expectedTransactionHistoryTableSize = 7;
+    assertEquals(expectedTransactionHistoryTableSize, transactionHistoryTableData.size());
 
   }
 
   @Test
-  public static void testIfInterestAppliedBelow20() throws SQLException, ScriptException {
+  public static void testIfInterestAppliedBelowAndAbove20() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 100;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID,
         CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME,
         CUSTOMER1_BALANCE_IN_PENNIES, 0);
-    //Include $19.99 test case
+    //$19.99 test case
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99;
     User user1 = new User();
     user1.setUsername(CUSTOMER1_ID);
@@ -1855,7 +1861,7 @@ public class MvcControllerIntegTest {
     controller.submitDeposit(user1);
     double totalDeposit = CUSTOMER1_AMOUNT_TO_DEPOSIT;
     double expectedNumOfDeposits = 0;
-    // expectedNumOfDeposits wont increase because it < 20.00
+    // expectedNumOfDeposits will NOT increase because it < 20.00
     assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
 
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 30.00;
@@ -1871,7 +1877,7 @@ public class MvcControllerIntegTest {
     totalDeposit += 2 * CUSTOMER1_AMOUNT_TO_DEPOSIT;
     assertEquals(expectedNumOfDeposits, user1.getNumDepositsForInterest());
     
-    //Include $20.01 test case
+    //$20.01 test case
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01;
     controller.submitDeposit(user1);
     controller.submitDeposit(user1);
