@@ -21,6 +21,7 @@ import org.testcontainers.ext.ScriptUtils;
 
 import net.testudobank.MvcController;
 import net.testudobank.tests.MvcControllerIntegTest;
+import net.testudobank.User;
 
 public class MvcControllerIntegTestHelpers {
   // Fetches DB credentials to initialize jdbcTemplate client
@@ -112,5 +113,14 @@ public class MvcControllerIntegTestHelpers {
   // Converts the java.util.Date object into the LocalDateTime returned by the MySQL DB
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) { 
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+  }
+
+  // Creates a user with form inputs filled for deposit
+  public static User createCustomerDepositFormInputs(String userName, String password, double amountToDeposit) {
+    User customerDepositFormInputs = new User();
+    customerDepositFormInputs.setUsername(userName);
+    customerDepositFormInputs.setPassword(password);
+    customerDepositFormInputs.setAmountToDeposit(amountToDeposit);
+    return customerDepositFormInputs;
   }
 }
