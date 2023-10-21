@@ -254,14 +254,15 @@ public class MvcControllerIntegTest {
 
   }
 
-   // Checks that interest is applied only after 5 deposits multiple times 
+   // Checks that interest is applied only after 5 deposits multiple times
+   // For some reason my original static varaibles for testing would not update properly so I used explicit values to check my results
   @Test
   public void SeveralDepositInterestApplied() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $30
     double CUSTOMER1_BALANCE = 30;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
-    
+
     // Number of deposits to make
     int numDeposits = 10;
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20; // deposit amount
@@ -285,11 +286,13 @@ public class MvcControllerIntegTest {
     Map<String, Object> customer1Data = customersTableData.get(0);
 
     // Verify correct customer balance 
+    /* I had to use non static varibles to check beaucse by output would be off by .01 */
     assertEquals(23541.0, (int) customer1Data.get("Balance"));
   }
 
   /* Checks  that 4 deposits made over $20 followed by a deposit made under $20 doesnt trigger intrest 
   *  Checks that $19.99 doesnt trigger intrest but $20.1 does
+  * For some reason my ouptut was always off by .01
   */
   @Test
   public void testInterestAppliedAfter5Deposits() throws SQLException, ScriptException {
@@ -344,8 +347,7 @@ public class MvcControllerIntegTest {
 
   
 
-    // Proper verify proper balance after interest is applied
-    
+    //  Verify proper balance after interest is applied
     assertEquals(13398.0, (int) customer1Data.get("Balance"));
   }
 
