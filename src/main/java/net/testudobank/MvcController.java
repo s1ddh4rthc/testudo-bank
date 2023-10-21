@@ -361,7 +361,7 @@ public class MvcController {
     updateAccountInfo(user);
 
     // update interest
-    if (userDepositAmtInPennies > MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES && userOverdraftBalanceInPennies == 0) {
+    if (userDepositAmtInPennies >= MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES && userOverdraftBalanceInPennies == 0) {
         applyInterest(user);
     }
 
@@ -812,13 +812,16 @@ public class MvcController {
   public String applyInterest(@ModelAttribute("user") User user) { 
     String userID = user.getUsername();
     int numDepositsForInterest = user.getNumDepositsForInterest();
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest++);
+    //numDepositsForInterest = user.getNumDepositsForInterest();
+
     if (numDepositsForInterest >= 5) {
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
       int balanceWithInterestInPennies = convertDollarsToPennies(user.getBalance() * BALANCE_INTEREST_RATE);
 
       // update balance
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceWithInterestInPennies);
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest%5);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
 
       // update transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, convertDollarsToPennies(user.getAmountToDeposit()));
