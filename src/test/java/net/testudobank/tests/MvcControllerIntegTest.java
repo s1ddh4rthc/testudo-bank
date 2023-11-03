@@ -1827,6 +1827,119 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
   }
 
+  /* Custom Crypto Tests written by Akshay Kapur */
+
+/**
+   * The test will buy Eth, buy Sol, and sell Sol it will also check to make sure each transaction is being recorded
+   */
+  @Test
+  public void testCryptoBuyEthSol_SellSol() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+    assertEquals(cryptoTransactionTester.numTransactions, 0);
+
+    CryptoTransaction cryptoTransactionEth = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionEth);
+    assertEquals(cryptoTransactionTester.numTransactions, 1);
+
+    CryptoTransaction cryptoTransactionSol = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionSol);
+    assertEquals(cryptoTransactionTester.numTransactions, 2);
+
+    CryptoTransaction cryptoTransactionSolSell = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(.05)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.05)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionSolSell);
+    assertEquals(cryptoTransactionTester.numTransactions, 3);
+  }
+
+
+  /**
+   * The test will make sure that no bitcoin can not be bought as the crypto name is not in the database
+   */
+  @Test
+  public void testNoBuyBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+    assertEquals(cryptoTransactionTester.numTransactions, 0);
+
+    CryptoTransaction cryptoTransactionBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBTC);
+    assertEquals(cryptoTransactionTester.numTransactions, 0);
+
+    
+    String returnedPage = cryptoTransactionTester.page;
+    assertEquals("welcome", returnedPage);
+  }
+
+  /**
+   * The test will make sure that no bitcoin can not be sold as the crypto name is not in the database
+   */
+  @Test
+  public void testNoSellBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+    assertEquals(cryptoTransactionTester.numTransactions, 0);
+
+    CryptoTransaction cryptoTransactionBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBTC);
+    assertEquals(cryptoTransactionTester.numTransactions, 0);
+
+    
+    String returnedPage = cryptoTransactionTester.page;
+    assertEquals("welcome", returnedPage);
+  }
 
   /**
    * Test that no crypto buy transaction occurs when the user password is incorrect
