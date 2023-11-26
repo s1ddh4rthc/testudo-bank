@@ -93,6 +93,19 @@ CREATE TABLE CryptoHistory (
 cursor.execute(create_cryptohistory_table_sql)
 
 
+# Make empty SavingsAccounts table
+create_savingsaccounts_table_sql = '''
+CREATE TABLE SavingsAccounts (
+  CustomerID varchar(255),
+  FirstName varchar(255),
+  LastName varchar(255),
+  Balance int,
+  numWithdrawals int
+
+);
+'''
+cursor.execute(create_savingsaccounts_table_sql)
+
 
 # The two sets created below are used to ensure that this
 # automated, randomized process does not accidentally 
