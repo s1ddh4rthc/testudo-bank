@@ -131,6 +131,21 @@ public class MvcController {
 		return "withdraw_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "withdrawsavings_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's withdraw form input.
+   * 
+   * @param model
+   * @return "withdraw_form" page
+   */
+  @GetMapping("/withdrawsavings")
+	public String showWithdrawSavingsForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "withdrawsavings_form";
+	}
+
   /**
    * HTML GET request handler that serves the "dispute_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
