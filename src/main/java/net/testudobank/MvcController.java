@@ -101,6 +101,21 @@ public class MvcController {
 		return "deposit_form";
 	}
 
+   /**
+   * HTML GET request handler that serves the "depositsavings_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's deposit form input.
+   * 
+   * @param model
+   * @return "depositsavings_form" page
+   */
+  @GetMapping("/depositsavings")
+	public String showDepositSavingsForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "depositsavings_form";
+	}
+
   /**
    * HTML GET request handler that serves the "withdraw_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
