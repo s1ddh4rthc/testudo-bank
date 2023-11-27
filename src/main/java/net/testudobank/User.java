@@ -27,7 +27,7 @@ public class User {
 	private double balance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
-	private double savingsbalance;
+	private double savingsBalance;
 
   @Setter @Getter @PositiveOrZero
 	private double overDraftBalance;

@@ -86,6 +86,22 @@ public class MvcController {
 		return "login_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "savingslogin_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's login form input.
+   * 
+   * @param model
+   * @return "login_form" page
+   */
+  @GetMapping("/loginsavings")
+	public String showSavingsLoginForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
+
+		return "loginsavings_form";
+	}
+
   /**
    * HTML GET request handler that serves the "deposit_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
@@ -243,7 +259,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, SavingsBalance,  NumWithdraws  FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -281,6 +297,29 @@ public class MvcController {
     return dateTime;
   }
 
+  /*modify */
+/* Savings Account helper methods */
+  /**
+   * Helper method that queries the MySQL DB for the customer Savings account info (First Name, Last Name, and Balance)
+   * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
+   * 
+   * @param user
+   */
+  private void updateSavingsAccountInfo(User user) {
+  
+    String getUserNameAndSavingsBalanceAndNumWithdrawls = String.format("SELECT FirstName, LastName, Balance, numWithdrawals FROM savingsaccounts WHERE CustomerID='%s';", user.getUsername());
+    
+    List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndSavingsBalanceAndNumWithdrawls);
+    Map<String,Object> userData = queryResults.get(0);
+
+   
+
+    user.setFirstName((String)userData.get("FirstName"));
+    user.setLastName((String)userData.get("LastName"));
+    user.setSavingsBalance((int)userData.get("SavingsBalance")/100.0);
+   
+    user.setNumWithdraws(user.getNumWithdraws());
+  }
   // HTML POST HANDLERS ////
 
   /**
@@ -318,6 +357,47 @@ public class MvcController {
       return "welcome";
     }
 	}
+
+  /**
+   * HTML POST request handler that uses user input from Savings' Login Form page to determine 
+   * login success or failure.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct, the "account_info" page is served to the customer
+   * with all account details retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/loginsavings")
+	public String submitSavingsLoginForm(@ModelAttribute("user") User user) {
+    // Print user's existing fields for debugging
+		System.out.println(user);
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    if (userPasswordAttempt.equals(userPassword)) {
+      updateSavingsAccountInfo(user);
+
+      return "accountsavings_info";
+    } else {
+      return "welcome";
+    }
+	}
+
+
+
+
+
 
   /**
    * HTML POST request handler for the Deposit Form page.
