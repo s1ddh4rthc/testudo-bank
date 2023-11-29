@@ -157,7 +157,7 @@ for i in range(num_customers_to_add):
     # all customers start with Savings balance of 0
     # all customers start with a numWithdrawls of 0
     insert_savingsaccounts_sql = '''
-    INSERT INTO Savingsaccounts
+    INSERT INTO SavingsAccounts
     VALUES  ({0},{1},{2},{3},{4});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",

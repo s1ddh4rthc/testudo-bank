@@ -128,6 +128,10 @@ public class TestudoBankRepository {
     String balanceIncreaseSql = String.format("UPDATE Customers SET Balance = Balance + %d WHERE CustomerID='%s';", increaseAmtInPennies, customerID);
     jdbcTemplate.update(balanceIncreaseSql);
   }
+    public static void increaseCustomerSavingsCashBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseSavingsAmtInPennies) {
+    String savingsBalanceIncreaseSql = String.format("UPDATE SavingsAccounts SET Balance = Balance + %d WHERE CustomerID='%s';", increaseSavingsAmtInPennies, customerID);
+    jdbcTemplate.update(savingsBalanceIncreaseSql);
+  }
 
   public static void initCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {
     // TODO: this currently does not check if row with customerID and cryptoName already exists, and can create a duplicate row!

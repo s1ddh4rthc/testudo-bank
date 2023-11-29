@@ -48,3 +48,12 @@ CREATE TABLE CryptoHistory (
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
 );
+
+CREATE TABLE SavingsAccounts (
+  CustomerID varchar(255),
+  FirstName varchar(255),
+  LastName varchar(255),
+  Balance int,
+  numWithdrawals int
+
+);

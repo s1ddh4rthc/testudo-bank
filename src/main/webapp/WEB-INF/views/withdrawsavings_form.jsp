@@ -42,8 +42,8 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
 
-      <form:label path="amountToWithdraw">Amount to Withdraw ($):</form:label>
-			<form:input path="amountToWithdraw"/><br/>	
+      <form:label path="savingsAmountToWithdraw">Amount to Withdraw ($):</form:label>
+			<form:input path="savingsAmountToWithdraw"/><br/>	
 				
 			<form:button>Withdraw From Savings</form:button>
 		</form:form>

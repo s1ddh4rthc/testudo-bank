@@ -42,8 +42,8 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
 
-      <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
-			<form:input path="amountToDeposit"/><br/>	
+      <form:label path="savingsAmountToDeposit">Amount to Deposit ($):</form:label>
+			<form:input path="savingsAmountToDeposit"/><br/>	
 				
 			<form:button>Deposit Savings</form:button>
 		</form:form>

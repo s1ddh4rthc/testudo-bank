@@ -31,7 +31,7 @@
 	<div align="center">
 		<h2><span>${user.firstName}</span> <span>${user.lastName}</span> Bank Account Info</h2>
     <span>Username: </span><span>${user.username}</span><br/>
-		<span>Balance: $</span><span>${user.balance}</span><br/>
+		<span>Balance: $</span><span>${user.savingsBalance}</span><br/>
    
     <br/>
     <a href='/depositsavings'>Deposit</a>

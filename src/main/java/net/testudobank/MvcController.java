@@ -226,7 +226,7 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
-  //// HELPER METHODS ////
+   //// HELPER METHODS ////
 
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
@@ -259,7 +259,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, SavingsBalance,  NumWithdraws  FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -307,7 +307,7 @@ public class MvcController {
    */
   private void updateSavingsAccountInfo(User user) {
   
-    String getUserNameAndSavingsBalanceAndNumWithdrawls = String.format("SELECT FirstName, LastName, Balance, numWithdrawals FROM savingsaccounts WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndSavingsBalanceAndNumWithdrawls = String.format("SELECT FirstName, LastName, Balance, numWithdrawals FROM SavingsAccounts WHERE CustomerID='%s';", user.getUsername());
     
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndSavingsBalanceAndNumWithdrawls);
     Map<String,Object> userData = queryResults.get(0);
@@ -316,9 +316,8 @@ public class MvcController {
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
-    user.setSavingsBalance((int)userData.get("SavingsBalance")/100.0);
-   
-    user.setNumWithdraws(user.getNumWithdraws());
+    user.setSavingsBalance((int)userData.get("Balance")/100.0);
+    user.setNumWithdraws((int) userData.get("numWithdrawals"));
   }
   // HTML POST HANDLERS ////
 
@@ -394,7 +393,45 @@ public class MvcController {
     }
 	}
 
+  /**
+   * HTML POST request handler for the Savings Deposit Form page.
+    
+   * @param user
+   * @return "account_info" page if valid deposit request. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("depositsavings")
+  public String submitSavingsDeposit(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // Negative deposit amount is not allowed
+    double userSavingsDepositAmt = user.getSavingsAmountToDeposit();
+    System.out.print( user.getSavingsAmountToDeposit());
+    if ( userSavingsDepositAmt < 0) {
+      return "welcome";
+    }
+    
+    //// Complete Deposit Transaction ////
+    int userSavingsDepositAmtInPennies = convertDollarsToPennies( userSavingsDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
+    System.out.println(userSavingsDepositAmtInPennies);
+
+     // Update user Savings Balance based on deposit 
+      TestudoBankRepository.increaseCustomerSavingsCashBalance(jdbcTemplate, userID, userSavingsDepositAmtInPennies);
+    
+
+    // update Model so that View can access new main balance, overdraft balance, and logs
+  
+    updateSavingsAccountInfo(user);
+    return "accountsavings_info";
+  }
 
 
 
