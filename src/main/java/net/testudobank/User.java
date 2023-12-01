@@ -114,6 +114,6 @@ public class User {
 
   //Withdraw counter
   @Setter @Getter
-  private int numWithdraws;
+  private int numWithdrawls;
 
 }

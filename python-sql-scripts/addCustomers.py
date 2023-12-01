@@ -100,7 +100,7 @@ CREATE TABLE SavingsAccounts (
   FirstName varchar(255),
   LastName varchar(255),
   Balance int,
-  numWithdrawals int
+  numWithdrawls int
 
 );
 '''
