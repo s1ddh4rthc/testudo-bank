@@ -427,7 +427,7 @@ public class MvcController {
       TestudoBankRepository.increaseCustomerSavingsCashBalance(jdbcTemplate, userID, userSavingsDepositAmtInPennies);
     
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
+    // update Model so that View can access new savings balance, 
   
     updateSavingsAccountInfo(user);
     return "accountsavings_info";
@@ -594,6 +594,61 @@ public class MvcController {
     return "account_info";
 
   }
+/*TODO:  
+ *  
+ *  - implement limited withdrawl functionality to both dposits and savings 
+*/
+
+/**
+   * HTML POST request handler for the WithdrawSavings Form page.
+   * 
+   * If the withdraw amount exceeds the user's current main savings balance, the transaction is ignored.
+   * If numwithdraws is 3 the transaction is also ignored 
+   * @param user
+   * @return "account_info" page if withdraw request is valid. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/withdrawsavings")
+  public String submitWithdrawSavings(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+   
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // Negative deposit amount is not allowed
+    double userSavingsWithdrawAmt = user.getSavingsAmountToWithdraw();
+    if (userSavingsWithdrawAmt < 0) {
+      return "welcome";
+    }
+
+    //// check if withdraw is greater than balance  ////
+    int userWSavingsithdrawAmtInPennies = convertDollarsToPennies(userSavingsWithdrawAmt); // dollar amounts stored as pennies to avoid floating point errors
+    int userSavingsBlance = TestudoBankRepository.getCustomerSavingsBalanceInPennies(jdbcTemplate, userID);
+    
+    if (userWSavingsithdrawAmtInPennies > userSavingsBlance) {
+      return "welcome";
+    }
+
+    //Complete Transaction
+    int userSavingsBalanceInPennies = TestudoBankRepository.getCustomerSavingsBalanceInPennies(jdbcTemplate, userID);
+    // simple, non-overdraft withdraw case
+      TestudoBankRepository.decreaseCustomerSavingsBalance(jdbcTemplate, userID, userWSavingsithdrawAmtInPennies);
+    
+  
+
+   // update Model so that View can access new savings balance, 
+  
+    updateSavingsAccountInfo(user);
+    return "accountsavings_info";
+
+  }
+
 
   /**
    * HTML POST request handler for the Dispute Form page.

@@ -26,6 +26,11 @@ public class TestudoBankRepository {
     int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
     return userBalanceInPennies;
   }
+    public static int getCustomerSavingsBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getUserBalanceSql =  String.format("SELECT Balance FROM SavingsAccounts WHERE CustomerID='%s';", customerID);
+    int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
+    return userBalanceInPennies;
+  }
 
   public static Optional<Double> getCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {
     String getUserCryptoBalanceSql = "SELECT CryptoAmount FROM CryptoHoldings WHERE CustomerID= ? AND CryptoName= ?;";
@@ -146,6 +151,11 @@ public class TestudoBankRepository {
 
   public static void decreaseCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
     String balanceDecreaseSql = String.format("UPDATE Customers SET Balance = Balance - %d WHERE CustomerID='%s';", decreaseAmtInPennies, customerID);
+    jdbcTemplate.update(balanceDecreaseSql);
+  }
+
+  public static void decreaseCustomerSavingsBalance(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
+    String balanceDecreaseSql = String.format("UPDATE SavingsAccounts SET Balance = Balance - %d WHERE CustomerID='%s';", decreaseAmtInPennies, customerID);
     jdbcTemplate.update(balanceDecreaseSql);
   }
 

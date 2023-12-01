@@ -35,7 +35,7 @@
 </head>
 <body>
 	<div align="center">
-		<form:form action="withdrawdsavings" method="post" modelAttribute="user">
+		<form:form action="withdrawsavings" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>
 			
