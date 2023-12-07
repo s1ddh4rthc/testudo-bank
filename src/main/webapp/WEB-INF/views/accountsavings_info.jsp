@@ -32,8 +32,8 @@
 		<h2><span>${user.firstName}</span> <span>${user.lastName}</span> Bank Account Info</h2>
     <span>Username: </span><span>${user.username}</span><br/>
 		<span>Balance: $</span><span>${user.savingsBalance}</span><br/>
-    <span>Withdrawls left:</span><span>${3 - user.numWithdrawls}</span><br/>
-    <span>Make a deposit to reset number of withdrawls </span>
+    <span>Withdrawals left:</span><span>${3 - user.numWithdrawals}</span><br/>
+    <span>Make a deposit to reset number of withdrawals </span>
    
     <br/>
     <a href='/depositsavings'>Deposit</a>

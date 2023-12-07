@@ -325,17 +325,17 @@ public class MvcController {
    */
   private void updateSavingsAccountInfo(User user) {
 
-    String getUserNameAndSavingsBalanceAndNumWithdrawls = String.format(
-        "SELECT FirstName, LastName, Balance, numWithdrawls FROM SavingsAccounts WHERE CustomerID='%s';",
+    String getUserNameAndSavingsBalanceAndNumWithdrawals = String.format(
+        "SELECT FirstName, LastName, Balance, numWithdrawals FROM SavingsAccounts WHERE CustomerID='%s';",
         user.getUsername());
 
-    List<Map<String, Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndSavingsBalanceAndNumWithdrawls);
+    List<Map<String, Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndSavingsBalanceAndNumWithdrawals);
     Map<String, Object> userData = queryResults.get(0);
 
     user.setFirstName((String) userData.get("FirstName"));
     user.setLastName((String) userData.get("LastName"));
     user.setSavingsBalance((int) userData.get("Balance") / 100.0);
-    user.setNumWithdrawls((int) userData.get("numWithdrawls"));
+    user.setNumWithdrawals((int) userData.get("numWithdrawals"));
   }
   // HTML POST HANDLERS ////
 
@@ -459,8 +459,8 @@ public class MvcController {
     // Update user Savings Balance based on deposit
     TestudoBankRepository.increaseCustomerSavingsCashBalance(jdbcTemplate, userID, userSavingsDepositAmtInPennies);
 
-    // Reset number of user withdrawls
-    TestudoBankRepository.resetCustomerWithdrawls(jdbcTemplate, userID);
+    // Reset number of user withdrawals
+    TestudoBankRepository.resetCustomerWithdrawals(jdbcTemplate, userID);
 
     // update Model so that View can access new savings balance,
 
@@ -705,7 +705,7 @@ public class MvcController {
     TestudoBankRepository.decreaseCustomerSavingsBalance(jdbcTemplate, userID, userWSavingsithdrawAmtInPennies);
 
     // Increase withdraw count
-    TestudoBankRepository.increaseCustomerWithdrawls(jdbcTemplate, userID);
+    TestudoBankRepository.increaseCustomerWithdrawals(jdbcTemplate, userID);
 
     // update Model so that View can access new savings balance,
 

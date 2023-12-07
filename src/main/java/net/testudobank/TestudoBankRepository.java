@@ -159,13 +159,13 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceDecreaseSql);
   }
 
-  public static void increaseCustomerWithdrawls(JdbcTemplate jdbcTemplate, String customerID ) {
-    String increaseCustomerWithdrawls = String.format("UPDATE SavingsAccounts SET numWithdrawls = numWithdrawls + 1 WHERE CustomerID='%s';", customerID);
-    jdbcTemplate.update(increaseCustomerWithdrawls);
+  public static void increaseCustomerWithdrawals(JdbcTemplate jdbcTemplate, String customerID ) {
+    String increaseCustomerWithdrawals = String.format("UPDATE SavingsAccounts SET numWithdrawals = numWithdrawals + 1 WHERE CustomerID='%s';", customerID);
+    jdbcTemplate.update(increaseCustomerWithdrawals);
   }
-   public static void resetCustomerWithdrawls(JdbcTemplate jdbcTemplate, String customerID ) {
-    String resetCustomerWithdrawls = String.format("UPDATE SavingsAccounts SET numWithdrawls = 0 WHERE CustomerID='%s';", customerID);
-    jdbcTemplate.update(resetCustomerWithdrawls);
+   public static void resetCustomerWithdrawals(JdbcTemplate jdbcTemplate, String customerID ) {
+    String resetCustomerWithdrawals = String.format("UPDATE SavingsAccounts SET numWithdrawals = 0 WHERE CustomerID='%s';", customerID);
+    jdbcTemplate.update(resetCustomerWithdrawals);
   }
   
   public static void decreaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double decreaseAmt) {
