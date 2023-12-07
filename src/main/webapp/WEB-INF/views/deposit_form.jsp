@@ -44,6 +44,9 @@
 
       <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
 			<form:input path="amountToDeposit"/><br/>	
+
+      <form:label path="amountToDepositInEuro">Amount to Deposit (Euro):</form:label>
+			<form:input path="amountToDepositInEuro"/><br/>	
 				
 			<form:button>Deposit</form:button>
 		</form:form>

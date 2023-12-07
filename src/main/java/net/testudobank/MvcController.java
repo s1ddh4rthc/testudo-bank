@@ -36,6 +36,7 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
+  public final static double CONVERSION_RATE = 0.90;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
@@ -44,6 +45,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_INTEREST_ACTION = "InterestApplied";
+  public static String TRANSACTION_HISTORY_INTERNATIONAL_ACTION = "InternationalTransaction";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -361,7 +363,11 @@ public class MvcController {
 
     // Negative deposit amount is not allowed
     double userDepositAmt = user.getAmountToDeposit();
+    double userDepositAmtInEuro = user.getAmountToDepositInEuro();
     if (userDepositAmt < 0) {
+      return "welcome";
+    }
+    if (userDepositAmtInEuro < 0) {
       return "welcome";
     }
 
@@ -372,6 +378,8 @@ public class MvcController {
                                                                               // by this deposit
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate,
         userID);
+    int userDepositAmtInEuroInPennies = convertDollarsToPennies(convertEuroToDollars(userDepositAmtInEuro));
+    userDepositAmtInPennies += userDepositAmtInEuroInPennies;
     if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
       // update overdraft balance in Customers table, and log the repayment in
       // OverdraftLogs table.
@@ -401,6 +409,10 @@ public class MvcController {
           TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
     } else {
       // Adds deposit to transaction history
+      if (userDepositAmtInEuro != 0) {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
+            TRANSACTION_HISTORY_INTERNATIONAL_ACTION, userDepositAmtInEuroInPennies);
+      }
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
           TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
@@ -411,6 +423,11 @@ public class MvcController {
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
+  }
+
+  /* This method convert the amount of Euro currency to dollars */
+  private static int convertEuroToDollars(double amtInEuro) {
+    return (int) amtInEuro * (int) CONVERSION_RATE;
   }
 
   /**
@@ -455,7 +472,11 @@ public class MvcController {
 
     // Negative deposit amount is not allowed
     double userWithdrawAmt = user.getAmountToWithdraw();
+    double userWithdrawAmtInEuro = user.getAmountToWithdrawInEuro();
     if (userWithdrawAmt < 0) {
+      return "welcome";
+    }
+    if (userWithdrawAmtInEuro < 0) {
       return "welcome";
     }
 
@@ -467,6 +488,8 @@ public class MvcController {
     int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate,
         userID);
+    int userWithdrawAmtInEuroInPennies = convertDollarsToPennies(convertEuroToDollars(userWithdrawAmtInEuro));
+    userWithdrawAmtInPennies += userWithdrawAmtInEuroInPennies;
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into
                                                            // overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
@@ -502,6 +525,10 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
           TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
     } else {
+      if (userWithdrawAmtInEuro != 0) {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
+            TRANSACTION_HISTORY_INTERNATIONAL_ACTION, userWithdrawAmtInEuroInPennies);
+      }
       // Adds withdraw to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
           TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
@@ -859,7 +886,6 @@ public class MvcController {
     if (!cryptoBalance.isPresent()) {
       return "welcome";
     }
-
     // check if user has required crypto balance
     // TODO: comparing doubles like this is probably not a good idea
     if (cryptoBalance.get() < cryptoAmountToSell) {
@@ -867,7 +893,6 @@ public class MvcController {
     }
 
     double cryptoValueInDollars = cryptoPriceClient.getCurrentCryptoValue(cryptoToBuy) * cryptoAmountToSell;
-
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
     user.setAmountToDeposit(cryptoValueInDollars);

@@ -44,6 +44,9 @@
 
       <form:label path="amountToWithdraw">Amount to Withdraw ($):</form:label>
 			<form:input path="amountToWithdraw"/><br/>	
+
+      <form:label path="amountToWithdraw">Amount to Withdraw (Euro):</form:label>
+			<form:input path="amountToWithdraw"/><br/>	
 				
 			<form:button>Withdraw</form:button>
 		</form:form>

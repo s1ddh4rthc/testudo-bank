@@ -45,10 +45,14 @@ public class User {
   @Setter @Getter @Positive
   private double amountToDeposit;
 
+  @Setter @Getter @Positive
+  private double amountToDepositInEuro;
   //// Withdraw Fields ////
 
   @Setter @Getter @Positive
   private double amountToWithdraw;
+  @Setter @Getter @Positive
+  private double amountToWithdrawInEuro;
 
   //// Transfer Fields ////
 
