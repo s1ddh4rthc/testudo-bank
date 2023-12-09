@@ -15,6 +15,12 @@ public class TestudoBankRepository {
     return customerPassword;
   }
 
+   public static String getUserWithdrawals(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerWithdrawalsSql = String.format("SELECT numWithdrawals FROM SavingsAccounts WHERE CustomerID='%s';", customerID);
+    String customerwithdrawals= jdbcTemplate.queryForObject(getCustomerWithdrawalsSql, String.class);
+    return customerwithdrawals;
+  }
+
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
     int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);

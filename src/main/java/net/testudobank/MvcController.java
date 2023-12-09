@@ -463,7 +463,7 @@ public class MvcController {
     TestudoBankRepository.resetCustomerWithdrawals(jdbcTemplate, userID);
 
     // update Model so that View can access new savings balance,
-
+    
     updateSavingsAccountInfo(user);
     return "accountsavings_info";
   }
@@ -686,9 +686,17 @@ public class MvcController {
 
     // Zero or  negative  withdraw amount is not allowed
     double userSavingsWithdrawAmt = user.getSavingsAmountToWithdraw();
-    if (userSavingsWithdrawAmt <= 0) {
+    if (userSavingsWithdrawAmt < 0) {
       return "welcome";
     }
+
+   //Had to verify user withdrwals this way b/c using user.getuserWithdrawlas returned 0 even though they were updated 
+    int userWithdrawals =  Integer.valueOf(TestudoBankRepository.getUserWithdrawals(jdbcTemplate, userID));
+      System.out.println(userWithdrawals);
+    if (userWithdrawals  == 3){
+      return "welcome";
+    }
+  
 
     //// check if withdraw is greater than balance ////
     int userWSavingsithdrawAmtInPennies = convertDollarsToPennies(userSavingsWithdrawAmt); // dollar amounts stored as
