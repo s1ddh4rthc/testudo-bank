@@ -39,9 +39,13 @@ public class MvcControllerIntegTestHelpers {
 
     String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
+
+    // Inserts customer into SavingsAccounts. For simplicity customer has same balance in checkings and savings 
+    String insertCustomerSavingsAccountSQL = String.format("INSERT INTO SavingsAccounts VALUES ('%s', '%s', '%s', %d, %d)", ID, firstName, lastName, balance, 0);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSavingsAccountSQL);
   }
 
-  // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
+  // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes 
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
     addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
   }

@@ -699,18 +699,18 @@ public class MvcController {
   
 
     //// check if withdraw is greater than balance ////
-    int userWSavingsithdrawAmtInPennies = convertDollarsToPennies(userSavingsWithdrawAmt); // dollar amounts stored as
+    int userSavingsWithdrawAmtInPennies = convertDollarsToPennies(userSavingsWithdrawAmt); // dollar amounts stored as
                                                                                            // pennies to avoid floating
                                                                                            // point errors
     int userSavingsBlance = TestudoBankRepository.getCustomerSavingsBalanceInPennies(jdbcTemplate, userID);
 
-    if (userWSavingsithdrawAmtInPennies > userSavingsBlance) {
+    if (userSavingsWithdrawAmtInPennies > userSavingsBlance) {
       return "welcome";
     }
 
     // Complete Transaction
 
-    TestudoBankRepository.decreaseCustomerSavingsBalance(jdbcTemplate, userID, userWSavingsithdrawAmtInPennies);
+    TestudoBankRepository.decreaseCustomerSavingsBalance(jdbcTemplate, userID, userSavingsWithdrawAmtInPennies);
 
     // Increase withdraw count
     TestudoBankRepository.increaseCustomerWithdrawals(jdbcTemplate, userID);
