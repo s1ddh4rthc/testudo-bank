@@ -147,6 +147,19 @@ public class MvcController {
 	}
 
   /**
+   * HTML GET request handler that serves the "request_loan" page to the user.
+   * 
+   * @param model
+   * @return "request_loan" page
+   */
+  @GetMapping("/requestLoan")
+  public String showRequestLoanForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "requestloan_form";
+  }
+
+  /**
    * HTML GET request handler that serves the "buycrypto_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
    * the user's input for buying cryptocurrency.
@@ -623,6 +636,18 @@ public class MvcController {
     updateAccountInfo(sender);
 
     return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for the Request Loan Form page.
+   * 
+   * @param user
+   * @return "account_info" page if loan request successful. Otherwise, redirect to welcome page.
+   */
+  @PostMapping("/requestloan")
+  public String requestLoan(@ModelAttribute("user") User user) {
+    // TODO Implement loan request functionality
+    return "welcome";
   }
 
   /**
