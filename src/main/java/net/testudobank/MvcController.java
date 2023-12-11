@@ -344,6 +344,24 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+
+      // tally deposit for interest count and apply interest if appropriate
+      // Checking if more than $20 is deposited
+      if (userDepositAmtInPennies > 2000) {
+        int newDepositForInterestCount = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, newDepositForInterestCount);
+
+        // add 1.5% APY if this is the 5th deposit
+        if (newDepositForInterestCount > 0 && newDepositForInterestCount % 5 == 0) {
+          // decrement count because depositing interest below will increment count again, updating it correctly
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, newDepositForInterestCount - 1);
+          int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+          int newBalanceWithInterestInPennies = (int) (currentBalanceInPennies * BALANCE_INTEREST_RATE);
+          int depositAmtWithInterestInPennies = newBalanceWithInterestInPennies - currentBalanceInPennies;
+          TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalanceWithInterestInPennies);
+          TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, depositAmtWithInterestInPennies);
+        }
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -805,9 +823,14 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    int numDepositsForInterest = user.getNumDepositsForInterest();
 
-    return "welcome";
-
+    // if numdepositsforinterest = num % 5 then a new interest deposit was just made
+    if (numDepositsForInterest > 0 && numDepositsForInterest % 5 == 0) {
+      // redirecting because interest deposit was just made
+      return "account_info";
+    } else {
+      return "welcome";
+    }
   }
-
 }
