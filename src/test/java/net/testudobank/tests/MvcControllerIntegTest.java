@@ -500,6 +500,42 @@ public class MvcControllerIntegTest {
     assertEquals(CUSTOMER1_SAVING_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
   }
 
+  /*Verifies that withdraws exceding Savings blance by a small (.01) pennies amount don't get posted  
+   * This Test fails beacuse there is a bug where converting user balance and withraw amount to pennies seems to ignore 
+   * differences of .01
+   * @throws SQLException
+   * @throws ScriptException
+   */
+//   @Test
+//   public void testSavingsWithdrawSmallExceeded() throws SQLException, ScriptException {
+//     // initialize customer1 with a balance of $100. this will be represented as
+//     // pennies in DB.
+//     double CUSTOMER1_SAVING_BALANCE = 19.98;
+//     int CUSTOMER1_SAVING_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers
+//         .convertDollarsToPennies(CUSTOMER1_SAVING_BALANCE);
+//     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+//         CUSTOMER1_LAST_NAME, CUSTOMER1_SAVING_BALANCE_IN_PENNIES, 0);
+
+//     // Prepare Withdraw Form to withdraw $1099 from this customer's account.
+//     double CUSTOMER1_SAVINGS_AMOUNT_TO_WITHDRAW = 19.99;
+//     User customer1SavingsWithdrawFormInputs = new User();
+//     customer1SavingsWithdrawFormInputs.setUsername(CUSTOMER1_ID);
+//     customer1SavingsWithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+//     customer1SavingsWithdrawFormInputs.setSavingsAmountToWithdraw(CUSTOMER1_SAVINGS_AMOUNT_TO_WITHDRAW);
+
+//     // Check the response when the withdraw request is submitted. This should return
+//     // the user back to the home screen due to an invalid request
+//     String responsePage = controller.submitWithdrawSavings(customer1SavingsWithdrawFormInputs);
+//     assertEquals("welcome", responsePage);
+
+//     // Fetch customer1's data from DB
+//     List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM SavingsAccounts;");
+
+//     // Since the request did not go through, the balance is supposed to stay the
+//     // same.
+//     Map<String, Object> customer1Data = customersTableData.get(0);
+//     assertEquals(CUSTOMER1_SAVING_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+//   }
   /*
    * Liquidity Test
    * Verifies users cant make more than 3 withdrawals in a row
