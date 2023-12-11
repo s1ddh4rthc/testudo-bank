@@ -57,6 +57,7 @@ public class TestudoBankRepository {
     return transferLogs;
   }
 
+
   public static List<Map<String,Object>> getOverdraftLogs(JdbcTemplate jdbcTemplate, String customerID){
     String getOverDraftLogsSql = String.format("SELECT * FROM OverdraftLogs WHERE CustomerID='%s';", customerID);
     List<Map<String,Object>> overdraftLogs = jdbcTemplate.queryForList(getOverDraftLogsSql);
@@ -162,6 +163,25 @@ public class TestudoBankRepository {
                                                     timestamp,
                                                     transferAmount);
     jdbcTemplate.update(transferHistoryToSql);
+  }
+
+  //CODE BY AKSHAY KAPUR
+
+  public static List<Map<String,Object>> getInfoLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
+    //Should be SavingPlanner but was getting a BadSqlGrammer
+    String incomeLog = String.format("Select * from TransferHistory WHERE TransferFrom='%s';", customerID, numTransfersToFetch);
+    List<Map<String,Object>> incomeLogs = jdbcTemplate.queryForList(incomeLog);
+    return incomeLogs;
+  }
+
+  public static void insertIncomeInfo(JdbcTemplate jdbcTemplate, String customerID, String password, String timestamp, int income) {
+     //Should be SavingPlanner but was getting a BadSqlGrammer
+    String incomeHistoryToSql = String.format("INSERT INTO TransferHistory VALUES ('%s', '%s', '%s', %d);",
+                                                    customerID,
+                                                    password,
+                                                    timestamp,
+                                                    income);
+    jdbcTemplate.update(incomeHistoryToSql);
   }
 
   public static void insertRowToCryptoLogsTable(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, String action, String timestamp, double cryptoAmount) {

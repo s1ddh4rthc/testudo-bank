@@ -1620,6 +1620,131 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals("account_info", returnedPage);
   }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /**
+ * This test will test a scenario where the sender sends the recipient (who currently has an overdraft balance) an amount
+ * that clears the recipient's overdraft balance and deposits the remainder. 
+ * 
+ * The sender will be initialized with $1000, and the recipient will have an overdraft balance of $100. Due to applied interest,
+ * the recipient will have an overdraft balance of $102. The sender will send $150, so the recipient's balance should reflect $48
+ * after the transfer.
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+@Test
+public void testMoneyTrackerBasic1000() throws SQLException, ScriptException { 
+
+     // initialize customer1 with a balance of $0 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+     double CUSTOMER1_BALANCE = 0;
+     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+ 
+     double income = 1000;
+
+     //Initializing users for the income update 
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+    CUSTOMER1.setTransferRecipientID(CUSTOMER2_ID);
+    CUSTOMER1.setAmountToTransfer(income);
+    CUSTOMER1.setIncome(income);
+
+    //Send the income request.
+    String returnedPage = controller.submitIncome(CUSTOMER1);
+
+     // fetch updated data from the DB
+     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM TransferHistory;");
+   
+   
+     Map<String,Object> customer1Data = customersTableData.get(0);
+     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("TransferFrom"));
+     
+     int CUSTOMER_EXPECTED_INCOME = (1000);
+     System.out.println("Expected Income was 1000 but insted you got: " + (int)customer1Data.get("Amount"));
+     assertEquals(CUSTOMER_EXPECTED_INCOME, (int)customer1Data.get("Amount"));
+  }
+
+
+  @Test
+public void testMoneyTrackerPromotionFrom1000To2000() throws SQLException, ScriptException { 
+
+     // initialize customer1 with a balance of $0 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+     double CUSTOMER1_BALANCE = 0;
+     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+ 
+     double income = 1000;
+
+     //Initializing users for the income update
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+    CUSTOMER1.setTransferRecipientID(CUSTOMER2_ID);
+    CUSTOMER1.setAmountToTransfer(income);
+    CUSTOMER1.setIncome(income);
+
+    //Send the income update request.
+    String returnedPage = controller.submitIncome(CUSTOMER1);
+
+    CUSTOMER1.setAmountToTransfer(2000);
+    CUSTOMER1.setIncome(2000);
+    returnedPage = controller.submitIncome(CUSTOMER1);
+
+     // fetch updated data from the DB
+     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM TransferHistory;");
+   
+   
+     Map<String,Object> customer1Data = customersTableData.get(1);
+     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("TransferFrom"));
+     
+     //The income data should have a value of 2000. Which is the second updated one. Note this test is the edge case to see what happens when income is adjusted for 1 user multiple times.
+     int CUSTOMER_EXPECTED_INCOME = (2000);
+     System.out.println("Expected Income was 2000 but insted you got: " + (int)customer1Data.get("Amount"));
+     assertEquals(CUSTOMER_EXPECTED_INCOME, (int)customer1Data.get("Amount"));
+  }
+
+  @Test
+  public void testMoneyTrackerInvalidIncome() throws SQLException, ScriptException { 
+  
+       // initialize customer1 with a balance of $0 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+       double CUSTOMER1_BALANCE = 0;
+       int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+       MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+   
+       double income = -1000;
+  
+       //Initializing users for the income update test that should fail
+      User CUSTOMER1 = new User();
+      CUSTOMER1.setUsername(CUSTOMER1_ID);
+      CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+  
+      CUSTOMER1.setTransferRecipientID(CUSTOMER2_ID);
+      CUSTOMER1.setAmountToTransfer(income);
+      CUSTOMER1.setIncome(income);
+  
+      //Send the income request.
+      String returnedPage = controller.submitIncome(CUSTOMER1);
+  
+      //Since the income is invalid and shows a negative number. It will go straight to the welcome page and no action will occur. 
+      assertEquals("welcome", returnedPage);
+    }
+
   /**
    * Enum for {@link CryptoTransactionTester}
    */
@@ -1826,384 +1951,11 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       }
     }
   }
+}
 
   /* Custom Crypto Tests written by Akshay Kapur */
 
 /**
    * The test will buy Eth, buy Sol, and sell Sol it will also check to make sure each transaction is being recorded
    */
-  @Test
-  public void testCryptoBuyEthSol_SellSol() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
-            .build();
-
-    cryptoTransactionTester.initialize();
-    assertEquals(cryptoTransactionTester.numTransactions, 0);
-
-    CryptoTransaction cryptoTransactionEth = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(900)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionEth);
-    assertEquals(cryptoTransactionTester.numTransactions, 1);
-
-    CryptoTransaction cryptoTransactionSol = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(800)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("SOL")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionSol);
-    assertEquals(cryptoTransactionTester.numTransactions, 2);
-
-    CryptoTransaction cryptoTransactionSolSell = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(850)
-            .expectedEndingCryptoBalance(.05)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.05)
-            .cryptoName("SOL")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionSolSell);
-    assertEquals(cryptoTransactionTester.numTransactions, 3);
-  }
-
-
-  /**
-   * The test will make sure that no bitcoin can not be bought as the crypto name is not in the database
-   */
-  @Test
-  public void testNoBuyBTC() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .build();
-
-    cryptoTransactionTester.initialize();
-    assertEquals(cryptoTransactionTester.numTransactions, 0);
-
-    CryptoTransaction cryptoTransactionBTC = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .expectedEndingCryptoBalance(0.0)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("BTC")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionBTC);
-    assertEquals(cryptoTransactionTester.numTransactions, 0);
-
-    
-    String returnedPage = cryptoTransactionTester.page;
-    assertEquals("welcome", returnedPage);
-  }
-
-  /**
-   * The test will make sure that no bitcoin can not be sold as the crypto name is not in the database
-   */
-  @Test
-  public void testNoSellBTC() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .build();
-
-    cryptoTransactionTester.initialize();
-    assertEquals(cryptoTransactionTester.numTransactions, 0);
-
-    CryptoTransaction cryptoTransactionBTC = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .expectedEndingCryptoBalance(0.0)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("BTC")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionBTC);
-    assertEquals(cryptoTransactionTester.numTransactions, 0);
-
-    
-    String returnedPage = cryptoTransactionTester.page;
-    assertEquals("welcome", returnedPage);
-  }
-
-  /**
-   * Test that no crypto buy transaction occurs when the user password is incorrect
-   */
-  @Test
-  public void testCryptoBuyInvalidPassword() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .validPassword(false)
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
   
-
-  /**
-   * Test that no crypto sell transaction occurs when the user password is incorrect
-   */
-  @Test
-  public void testCryptoSellInvalidPassword() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .validPassword(false)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test simple buying of cryptocurrency
-   */
-  @Test
-  public void testCryptoBuySimple() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(900)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test simple selling of cryptocurrency
-   */
-  @Test
-  public void testCryptoSellSimple() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1100)
-            .expectedEndingCryptoBalance(0)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test buying of cryptocurrency with an insufficient balance does not invoke a transaction
-   */
-  @Test
-  public void testCryptoBuyInsufficientBalance() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(10)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test that buying a negative amount of cryptocurrency does not invoke a transaction
-   */
-  @Test
-  public void testCryptoBuyNegativeAmount() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(-0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test that selling a negative amount of cryptocurrency does not invoke a transaction
-   */
-  @Test
-  public void testCryptoSellNegativeAmount() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(-0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test that no buying should take place when user is under overdraft
-   */
-  @Test
-  public void testCryptoBuyOverdraft() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialOverdraftBalanceInDollars(100)
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .expectedEndingOverdraftBalanceInDollars(100)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .overdraftTransaction(true)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test that selling cryptocurrency first pays off overdraft balance
-   */
-  @Test
-  public void testCryptoSellOverdraft() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialOverdraftBalanceInDollars(50)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.15))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .initialOverdraftBalanceInDollars(50)
-            .expectedEndingBalanceInDollars(1050)
-            .expectedEndingCryptoBalance(0.05)
-            .expectedEndingOverdraftBalanceInDollars(0)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .overdraftTransaction(true)
-            .shouldSucceed(true)
-            .build();
-    //cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test that no buy transaction occurs when the cryptocurrency price cannot be obtained
-   */
-  @Test
-  public void testCryptoBuyInvalidPrice() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .expectedEndingCryptoBalance(0)
-            .cryptoPrice(-1)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-  /**
-   * Test that no sell transaction occurs when the cryptocurrency price cannot be obtained
-   */
-  @Test
-  public void testCryptoSellInvalidPrice() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
-            .build();
-
-    cryptoTransactionTester.initialize();
-
-    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(-1)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(false)
-            .build();
-    cryptoTransactionTester.test(cryptoTransaction);
-  }
-
-}

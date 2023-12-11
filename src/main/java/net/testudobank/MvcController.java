@@ -135,6 +135,21 @@ public class MvcController {
 		return "dispute_form";
 	}
 
+  /*
+   * HTML GET request handler that serves the "money tracker" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's dispute form input.
+   * 
+   */
+  @GetMapping("/money_tracker")
+	public String showMoneyForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "money_tracker";
+	}
+
+
+
   /**
    * HTML GET request handler that serves the "transfer_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
@@ -211,6 +226,12 @@ public class MvcController {
       transferHistoryOutput += transferLog + HTML_LINE_BREAK;
     }
 
+    List<Map<String,Object>> incomeLogs = TestudoBankRepository.getInfoLogs(jdbcTemplate, user.getUsername(), 1);
+    String incomeOutput = HTML_LINE_BREAK;
+    for(Map<String, Object> incomeLog : incomeLogs){
+      incomeOutput += incomeLog + HTML_LINE_BREAK;
+    }
+
     List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
     StringBuilder cryptoHistoryOutput = new StringBuilder(HTML_LINE_BREAK);
     for (Map<String, Object> cryptoLog : cryptoLogs) {
@@ -236,6 +257,7 @@ public class MvcController {
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
+    user.setIncomeList(incomeOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
@@ -563,6 +585,40 @@ public class MvcController {
 
     updateAccountInfo(user);
 
+    return "account_info";
+  }
+
+
+  /**
+   * HTML POST request handler for the Money Tracker page.
+   * 
+   * The same username+password handling from the login page is used.
+   * 
+   * If the password attempt is correct, the user succesfully updates their income.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/money_tracker")
+  public String submitIncome(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    int userIncome = (int) (user.getIncome());
+    if(userIncome < 0) {
+      return "welcome";
+    }
+    user.setIncome(userIncome);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    TestudoBankRepository.insertIncomeInfo(jdbcTemplate, userID, userPassword, currentTime, userIncome);
+    
     return "account_info";
   }
 

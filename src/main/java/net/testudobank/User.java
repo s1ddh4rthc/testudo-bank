@@ -53,6 +53,11 @@ public class User {
   @Setter @Getter @Positive
   private double amountToWithdraw;
 
+  //// Income Fields ////
+
+  @Setter @Getter @Positive
+  private double income;
+
   //// Transfer Fields ////
 
   @Setter @Getter
@@ -74,6 +79,9 @@ public class User {
 
   @Setter @Getter
   private String cryptoHist;
+
+  @Setter @Getter
+  private String incomeList;
 
   @Setter @Getter @Positive
   private double amountToBuyCrypto;
