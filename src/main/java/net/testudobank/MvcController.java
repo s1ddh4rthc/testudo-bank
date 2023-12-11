@@ -40,6 +40,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES = 20000;
+  private final static int DAYS_TO_REPAY_LOAN = 30;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -50,7 +52,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double BALANCE_INTEREST_RATE = 1.015; 
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -641,13 +643,53 @@ public class MvcController {
   /**
    * HTML POST request handler for the Request Loan Form page.
    * 
+   * If username and password are correct, then check if the user is eligible for a loan.
+   * A user must have an account balance of more than $200 and the requested loan amount must be less
+   * than the user's current account balance. The user must also have no outstanding loans.
+   * If the user is eligible for a loan, then add the loan to the loan table and return the
+   * "account_info" page. If the user is ineligible, return the "loan_denied" page.
+   * 
    * @param user
-   * @return "account_info" page if loan request successful. Otherwise, redirect to welcome page.
+   * @return "account_info" page if loan request successful. "loan_denied" if loan user is ineligible for loan.
+   * Otherwise, direct to "welcome" page
    */
   @PostMapping("/requestloan")
   public String requestLoan(@ModelAttribute("user") User user) {
-    // TODO Implement loan request functionality
-    return "welcome";
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    // Invalid login handling
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    /// Ineligible user for loan handling ///
+
+    // User has outstanding loan
+    if (TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID)) {
+      return "loan_denied";
+    }
+
+    // User has less than $200 in balance
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (userBalanceInPennies < MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES) {
+      return "welcome";
+    }
+
+    // Requested loan amount is more than user balance
+    int requestedLoanAmountInPennies = convertDollarsToPennies(user.getLoanAmount());
+    if (requestedLoanAmountInPennies > userBalanceInPennies) {
+      return "welcome";
+    }
+
+    // Add loan to account
+    LocalDateTime loanRequestTime = LocalDateTime.now();
+    LocalDateTime loanDueTime = loanRequestTime.plusDays(DAYS_TO_REPAY_LOAN);
+    String loanDueDate = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(loanDueTime));
+    TestudoBankRepository.insertRowToLoansTable(jdbcTemplate, userID, requestedLoanAmountInPennies, loanDueDate);
+    
+    return "account_info";
   }
 
   /**

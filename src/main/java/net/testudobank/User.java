@@ -50,6 +50,11 @@ public class User {
   @Setter @Getter @Positive
   private double amountToWithdraw;
 
+  //// Loan Fields ////
+
+  @Setter @Getter @Positive
+  private double loanAmount;
+
   //// Transfer Fields ////
 
   @Setter @Getter

@@ -1,12 +1,16 @@
 package net.testudobank;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 
 public class TestudoBankRepository {
   public static String getCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
@@ -168,6 +172,11 @@ public class TestudoBankRepository {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
   }
+
+  public static void insertRowToLoansTable(JdbcTemplate jdbcTemplate, String customerID, int loanAmount, String loanDueDate) {
+    String insertLoanSql = "INSERT INTO Loans (CustomerID, LoanAmount, LoanDueDate) VALUES (?, ?, ?)";
+    jdbcTemplate.update(insertLoanSql, customerID, loanAmount, loanDueDate);
+  }
   
   public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 
     String getCustomerIDSql =  String.format("SELECT CustomerID FROM Customers WHERE CustomerID='%s';", customerID);
@@ -176,5 +185,16 @@ public class TestudoBankRepository {
     } else {
       return false;
     }
+  }
+  
+  public static boolean doesCustomerHaveLoan(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerIDSql = String.format("SELECT CustomerID FROM Loans WHERE CustomerID='%s';", customerID);
+    String customerIDFromLoansTable;
+    try {
+      customerIDFromLoansTable = jdbcTemplate.queryForObject(getCustomerIDSql, String.class);
+    } catch (EmptyResultDataAccessException e) {
+      customerIDFromLoansTable = null;
+    }
+    return customerIDFromLoansTable != null;
   }
 }
