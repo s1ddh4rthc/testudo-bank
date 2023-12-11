@@ -53,6 +53,12 @@ public class User {
   //// Loan Fields ////
 
   @Setter @Getter @Positive
+  private double loanRequestAmount;
+
+  @Setter @Getter
+  private String loanDueDate;
+
+  @Setter @Getter
   private double loanAmount;
 
   //// Transfer Fields ////

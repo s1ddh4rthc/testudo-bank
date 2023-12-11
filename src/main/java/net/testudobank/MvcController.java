@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -238,11 +239,20 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+    // get due date of open loan
+    String openLoanDueDate = TestudoBankRepository.getOpenLoanDueDate(jdbcTemplate, user.getUsername());
+
+    // get loan amount due
+    int loanAmountInPennies = TestudoBankRepository.getLoanAmountDueInPennies(jdbcTemplate, user.getUsername());
+    double loanAmount = loanAmountInPennies / 100.0;
+
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);
+    user.setLoanDueDate(openLoanDueDate);
+    user.setLoanAmount(loanAmount);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);

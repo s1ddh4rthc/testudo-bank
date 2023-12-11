@@ -42,8 +42,8 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>
 
-            <form:label path="loanAmount">Loan Amount ($):</form:label>
-			<form:input path="loanAmount"/><br/>
+            <form:label path="loanRequestAmount">Loan Amount ($):</form:label>
+			<form:input path="loanRequestAmount"/><br/>
 
             <form:button>Request Loan</form:button>
         </form:form>

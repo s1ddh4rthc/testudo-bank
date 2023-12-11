@@ -84,6 +84,28 @@ public class TestudoBankRepository {
     return numberOfDepositsForInterest;
   }
 
+  public static String getOpenLoanDueDate(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanDueDateSql = String.format("SELECT LoanDueDate FROM Loans WHERE CustomerID='%s';", customerID);
+    String loanDueDate;
+    try {
+      loanDueDate = jdbcTemplate.queryForObject(getLoanDueDateSql, String.class);
+    } catch (EmptyResultDataAccessException e) {
+      loanDueDate = "No open loans";
+    }
+    return loanDueDate;
+  }
+
+  public static int getLoanAmountDueInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanAmountDueSql = String.format("SELECT LoanAmount FROM Loans WHERE CustomerID='%s';", customerID);
+    int loanAmount;
+    try {
+      loanAmount = jdbcTemplate.queryForObject(getLoanAmountDueSql, Integer.class);
+    } catch (EmptyResultDataAccessException e) {
+      loanAmount = 0;
+    }
+    return loanAmount;
+  }
+
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
     String customerInterestDepositsSql = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", numDepositsForInterest, customerID);
     jdbcTemplate.update(customerInterestDepositsSql);
