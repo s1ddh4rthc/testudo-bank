@@ -5,6 +5,7 @@
 <html>
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
+  <link rel="stylesheet" type="text/css" href="https://panko2128.github.io/tbcss/styles.css">
   <meta charset="ISO-8859-1">
   <title>Sell Cryptocurrency Form</title>
   <style type="text/css">
@@ -34,7 +35,11 @@
   </style>
 </head>
 <body>
-	<div align="center">
+  <div class="navbar">
+    <a href='/'>Home</a>
+  </div>
+  <br>
+	<div class="form-container">
 		<form:form action="sellcrypto" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>
@@ -53,7 +58,7 @@
 
 			<form:button>Sell Crypto</form:button>
 		</form:form>
-    <a href='/'>Home</a>
+    
 	</div>
 </body>
 </html>

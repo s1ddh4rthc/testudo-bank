@@ -5,6 +5,7 @@
 <html>
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
+  <link rel="stylesheet" type="text/css" href="https://panko2128.github.io/tbcss/styles.css">
   <meta charset="ISO-8859-1">
   <title>User Login Form</title>
   <style type="text/css">
@@ -34,9 +35,13 @@
   </style>
 </head>
 <body>
-	<div align="center">
-		<h2>Please sign in: </h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
+  <div class="navbar">
+    <a href='/'>Home</a>
+  </div>
+  <h2>Please sign in: </h2>
+  
+  <div class="form-container">
+		
 		<form:form action="login" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>
@@ -46,7 +51,14 @@
 				
 			<form:button>Log in</form:button>
 		</form:form>
-    <a href='/'>Home</a>
+
+    
+	<br>
 	</div>
+  <div>
+    <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
+  </div>
+  
+	<br>
 </body>
 </html>

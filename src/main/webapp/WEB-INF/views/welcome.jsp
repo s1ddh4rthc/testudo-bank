@@ -5,6 +5,7 @@
 <html>
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
+  <link rel="stylesheet" type="text/css" href="https://panko2128.github.io/tbcss/styles.css">
   <meta charset="ISO-8859-1">
   <title>Welcome Page</title>
   <style type="text/css">
@@ -35,18 +36,24 @@
 </head>
 
 <body>
-	<div align="center">
+	<div class="welcome-banner">
 		<h2>Welcome to Testudo Bank!</h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
-		<a href='/login'>View Account</a> <br/>
-    <a href='/deposit'>Deposit</a> <br/>
-    <a href='/withdraw'>Withdraw</a> <br/>
-    <a href='/dispute'>Dispute</a> <br/>
-    <a href='/transfer'>Transfer</a> <br/>
-    <a href='/buycrypto'>Buy Cryptocurrency</a>
-    <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
+    <div>
+      <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="width:100px;height:100px;">
+    </div>
 
+		
 	</div>
+  <br>
+  <div class="centered-buttons">
+    <a class="nav-button" href='/login'>View Account</a> <br />
+    <a class="nav-button" href='/deposit'>Deposit</a> <br />
+    <a class="nav-button" href='/withdraw'>Withdraw</a> <br />
+    <a class="nav-button" href='/dispute'>Dispute</a> <br />
+    <a class="nav-button" href='/transfer'>Transfer</a> <br />
+    <a class="nav-button" href='/buycrypto'>Buy Cryptocurrency</a> <br>
+    <a class="nav-button" href='/sellcrypto'>Sell Cryptocurrency</a> <br />
+  </div>
 </body>
 
 </html>
