@@ -55,6 +55,9 @@ public class User {
   @Setter @Getter @Positive
   private double loanRequestAmount;
 
+  @Setter @Getter @Positive
+  private double loanRepayAmount;
+
   @Setter @Getter
   private String loanDueDate;
 

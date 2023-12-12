@@ -163,6 +163,19 @@ public class MvcController {
   }
 
   /**
+   * HTML GET request handler that serves the "payloan_form" page to the user.
+   * 
+   * @param model
+   * @return "payloan_form" page
+   */
+  @GetMapping("/payLoan")
+  public String showPayLoanForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "payloan_form";
+  }
+
+  /**
    * HTML GET request handler that serves the "buycrypto_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
    * the user's input for buying cryptocurrency.
@@ -688,7 +701,7 @@ public class MvcController {
     }
 
     // Requested loan amount is more than user balance
-    int requestedLoanAmountInPennies = convertDollarsToPennies(user.getLoanAmount());
+    int requestedLoanAmountInPennies = convertDollarsToPennies(user.getLoanRequestAmount());
     if (requestedLoanAmountInPennies > userBalanceInPennies) {
       return "welcome";
     }
@@ -698,7 +711,70 @@ public class MvcController {
     LocalDateTime loanDueTime = loanRequestTime.plusDays(DAYS_TO_REPAY_LOAN);
     String loanDueDate = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(loanDueTime));
     TestudoBankRepository.insertRowToLoansTable(jdbcTemplate, userID, requestedLoanAmountInPennies, loanDueDate);
+
+    // update user account info so that loan appears in "account_info" page
+    updateAccountInfo(user);
     
+    return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for paying off loan.
+   * 
+   * If the username and password are correct, then check if the customer has an open loan.
+   * Subtract the amount entered by the customer from their balance and from the loan amount remaining.
+   * Redirect to error page if the user attempts to submit a repayment of more than their balance.
+   * If the user attempts to pay more than what is left on the loan, then only subtract up to the remaining
+   * loan amount.
+   * If the remaining loan amount reaches zero, remove the loan from the user.
+   * 
+   * @param user
+   * @return "account_info" if repayment successful, "loan_error" if repayment criteria not met.
+   */
+  @PostMapping("/payloan")
+  public String repayLoan(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    // Invalid login handling
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    /// Invalid Loan Repayment Handling ///
+
+    // User has no outstanding loan
+    if (TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID) == false) {
+      return "payloan_error";
+    }
+
+    // User attempts to pay more than what is currently in their balance
+    int submittedLoanRepayAmountInPennies = convertDollarsToPennies(user.getLoanRepayAmount());
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (submittedLoanRepayAmountInPennies > userBalanceInPennies) {
+      return "payloan_error";
+    }
+
+    /// Handle loan repayment ///
+
+    // calculate amount to be decreased
+    int remainingLoanAmountInPennies = TestudoBankRepository.getLoanAmountDueInPennies(jdbcTemplate, userID);
+    int loanRepayAmountInPennies = Math.min(remainingLoanAmountInPennies, submittedLoanRepayAmountInPennies);
+    
+    // subtract repaid amount from user balance
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, loanRepayAmountInPennies);
+
+    if (loanRepayAmountInPennies == remainingLoanAmountInPennies) {
+      // remove outstanding loan
+      TestudoBankRepository.deleteRowFromLoansTable(jdbcTemplate, userID);
+    } else {
+      TestudoBankRepository.decreaseRemainingLoanAmount(jdbcTemplate, userID, loanRepayAmountInPennies);
+    }
+
+    // update user account info so that updated loan amount appears in "account_info" page
+    updateAccountInfo(user);
+
     return "account_info";
   }
 

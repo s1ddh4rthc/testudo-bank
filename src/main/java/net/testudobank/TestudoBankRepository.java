@@ -31,6 +31,12 @@ public class TestudoBankRepository {
     return userBalanceInPennies;
   }
 
+  public static int getRemainingLoanAmountInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanAmountSql = String.format("SELECT LoanAmount FROM Loans WHERE CustomerID='%s';", customerID);
+    int loanAmountInPennies = jdbcTemplate.queryForObject(getLoanAmountSql, Integer.class);
+    return loanAmountInPennies;
+  }
+
   public static Optional<Double> getCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {
     String getUserCryptoBalanceSql = "SELECT CryptoAmount FROM CryptoHoldings WHERE CustomerID= ? AND CryptoName= ?;";
 
@@ -171,6 +177,11 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceDecreaseSql);
   }
 
+  public static void decreaseRemainingLoanAmount(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
+    String loanAmountDecreaseSql = String.format("UPDATE Loans SET LoanAmount = LoanAmount - %d WHERE CustomerID='%s';", decreaseAmtInPennies, customerID);
+    jdbcTemplate.update(loanAmountDecreaseSql);
+  }
+
   public static void decreaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double decreaseAmt) {
     String balanceDecreaseSql = "UPDATE CryptoHoldings SET CryptoAmount = CryptoAmount - ? WHERE CustomerID= ? AND CryptoName= ?";
     jdbcTemplate.update(balanceDecreaseSql, decreaseAmt, customerID, cryptoName);
@@ -179,6 +190,11 @@ public class TestudoBankRepository {
   public static void deleteRowFromOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp) {
     String deleteRowFromOverdraftLogsSql = String.format("DELETE from OverdraftLogs where CustomerID='%s' AND Timestamp='%s';", customerID, timestamp);
     jdbcTemplate.update(deleteRowFromOverdraftLogsSql);
+  }
+
+  public static void deleteRowFromLoansTable(JdbcTemplate jdbcTemplate, String customerID) {
+    String deleteRowFromLoansTableSql = String.format("DELETE from Loans where CustomerID='%s';", customerID);
+    jdbcTemplate.update(deleteRowFromLoansTableSql);
   }
 
   public static void insertRowToTransferLogsTable(JdbcTemplate jdbcTemplate, String customerID, String recipientID, String timestamp, int transferAmount) {
