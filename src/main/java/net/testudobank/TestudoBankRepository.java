@@ -31,12 +31,6 @@ public class TestudoBankRepository {
     return userBalanceInPennies;
   }
 
-  public static int getRemainingLoanAmountInPennies(JdbcTemplate jdbcTemplate, String customerID) {
-    String getLoanAmountSql = String.format("SELECT LoanAmount FROM Loans WHERE CustomerID='%s';", customerID);
-    int loanAmountInPennies = jdbcTemplate.queryForObject(getLoanAmountSql, Integer.class);
-    return loanAmountInPennies;
-  }
-
   public static Optional<Double> getCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {
     String getUserCryptoBalanceSql = "SELECT CryptoAmount FROM CryptoHoldings WHERE CustomerID= ? AND CryptoName= ?;";
 
