@@ -42,8 +42,13 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
 
-      <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
+      <form:label path="amountToDeposit">Amount to Deposit:</form:label>
 			<form:input path="amountToDeposit"/><br/>	
+
+      <form:label path="whichCurrency">Currency Code (Type 'EUR' or 'YEN', leave blank if using USD):</form:label>
+			<form:input path="whichCurrency"/><br/>
+
+      <p>Please note that a foreign transaction fee is applied to all transactions that do not use USD.</p>
 				
 			<form:button>Deposit</form:button>
 		</form:form>

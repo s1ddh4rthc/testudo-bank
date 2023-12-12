@@ -51,6 +51,9 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double FOREIGN_TRANSACTION_RATE = 2.25;
+  private static double EUR_RATE = 1.09;
+  private static double YEN_RATE = 0.007;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -325,7 +328,19 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
+
+    // Only transactions in USD, YEN, and EUR are supported, if field left blank, assume USD
+    String whichCurrency = user.getWhichCurrency();
+    if (whichCurrency != "USD" && whichCurrency != "YEN" && whichCurrency != "EUR" && !(whichCurrency.isEmpty())) {
+      return "welcome";
+    }
+
+    boolean isForeignTransaction = false;
+    if (whichCurrency == "EUR" && whichCurrency == "YEN") {
+      isForeignTransaction = true;
+    }
     
+
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
@@ -342,6 +357,17 @@ public class MvcController {
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
+    } else if (isForeignTransaction) {
+      int foreignFees;
+      if (whichCurrency == "EUR") {
+        int convertedAmountInPennies = (int)(userDepositAmtInPennies * EUR_RATE);
+        foreignFees = (int)(FOREIGN_TRANSACTION_RATE * convertedAmountInPennies);
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, (userDepositAmtInPennies-foreignFees));
+      } else if (whichCurrency == "YEN") {
+        int convertedAmountInPennies = (int)(userDepositAmtInPennies * YEN_RATE);
+        foreignFees = (int)(FOREIGN_TRANSACTION_RATE * convertedAmountInPennies);
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, (userDepositAmtInPennies-foreignFees));
+      }
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
@@ -354,7 +380,11 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
     } else {
       // Adds deposit to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      if (isForeignTransaction) {
+        TestudoBankRepository.insertRowToTransactionHistoryTableForeignTransaction(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies, whichCurrency);        
+      } else {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      }
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -391,6 +421,18 @@ public class MvcController {
       return "welcome";
     }
 
+    // makes sure currency type is supported
+    String whichCurrency = user.getWhichCurrencyWithdraw();
+    if (whichCurrency != "USD" && whichCurrency != "YEN" && whichCurrency != "EUR" && !(whichCurrency.isEmpty())) {
+      return "welcome";
+    }
+
+    boolean isForeignTransaction = false;
+    if (whichCurrency == "EUR" && whichCurrency == "YEN") {
+      isForeignTransaction = true;
+    }
+    
+
     // If customer already has too many reversals, their account is frozen. Don't complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES){
@@ -408,6 +450,18 @@ public class MvcController {
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    
+    int foreignFees;
+    if (whichCurrency == "EUR") {
+      int convertedAmountInPennies = (int)(userWithdrawAmtInPennies * EUR_RATE);
+      foreignFees = (int)(FOREIGN_TRANSACTION_RATE * convertedAmountInPennies);
+      userWithdrawAmtInPennies = userWithdrawAmtInPennies + foreignFees;
+    } else if (whichCurrency == "YEN") {
+      int convertedAmountInPennies = (int)(userWithdrawAmtInPennies * YEN_RATE);
+      foreignFees = (int)(FOREIGN_TRANSACTION_RATE * convertedAmountInPennies);
+      userWithdrawAmtInPennies = userWithdrawAmtInPennies + foreignFees;
+    }
+
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
       int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
@@ -425,6 +479,13 @@ public class MvcController {
 
       // increase overdraft balance by the withdraw amount after interest
       TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
+    
+    } else if (isForeignTransaction) { // foreign transaction
+      if (whichCurrency == "EUR") {
+        TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, (userWithdrawAmtInPennies));
+      } else if (whichCurrency == "YEN") {
+        TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, (userWithdrawAmtInPennies));
+      }
 
     } else { // simple, non-overdraft withdraw case
       TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
@@ -438,7 +499,7 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
     } else {
       // Adds withdraw to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTableForeignTransaction(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies, whichCurrency);
     }
 
   
