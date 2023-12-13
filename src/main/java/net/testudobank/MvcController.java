@@ -290,6 +290,26 @@ public class MvcController {
 	}
 
   /**
+   * Only adds deposit to transaction history if is not transfer
+   * 
+   * @param user
+   * @param currentTime
+   * @param userDepositAmtInPennies
+   */
+  public void addDepositToTransactionHistory(User user, String currentTime, int userDepositAmtInPennies) {
+    String userID = user.getUsername();
+    if (user.isTransfer()){
+      // Adds transaction recieve to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
+    } else if (user.isCryptoTransaction()) {
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
+    } else {
+      // Adds deposit to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+    }
+  }
+
+  /**
    * HTML POST request handler for the Deposit Form page.
    * 
    * If the user is currently not in overdraft, the deposit amount is simply
@@ -325,11 +345,12 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
-    
+  
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+
     if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
       // update overdraft balance in Customers table, and log the repayment in OverdraftLogs table.
       int newOverdraftBalanceInPennies = Math.max(userOverdraftBalanceInPennies - userDepositAmtInPennies, 0);
@@ -342,8 +363,12 @@ public class MvcController {
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
+      addDepositToTransactionHistory(user, currentTime, userDepositAmtInPennies);
+
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+
+      addDepositToTransactionHistory(user, currentTime, userDepositAmtInPennies);
 
       // tally deposit for interest count and apply interest if appropriate
       // Checking if more than $20 is deposited
@@ -353,8 +378,6 @@ public class MvcController {
 
         // add 1.5% APY if this is the 5th deposit
         if (newDepositForInterestCount > 0 && newDepositForInterestCount % 5 == 0) {
-          // decrement count because depositing interest below will increment count again, updating it correctly
-          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, newDepositForInterestCount - 1);
           int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
           int newBalanceWithInterestInPennies = (int) (currentBalanceInPennies * BALANCE_INTEREST_RATE);
           int depositAmtWithInterestInPennies = newBalanceWithInterestInPennies - currentBalanceInPennies;
@@ -362,17 +385,6 @@ public class MvcController {
           TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, depositAmtWithInterestInPennies);
         }
       }
-    }
-
-    // only adds deposit to transaction history if is not transfer
-    if (user.isTransfer()){
-      // Adds transaction recieve to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
-    } else if (user.isCryptoTransaction()) {
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
-    } else {
-      // Adds deposit to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
