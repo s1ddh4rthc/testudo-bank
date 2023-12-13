@@ -1618,11 +1618,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
       customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
 
-       // send request to the Deposit Form's POST handler in MvcController
+      // send request to the Deposit Form's POST handler in MvcController
       controller.submitDeposit(customer1DepositFormInputs);
     }
-
-   
 
     // fetch updated data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
@@ -1643,7 +1641,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
 
     // verify that there are 6 Deposits in TransactionHistory table (5 normal deposits and 1 for applied interest)
-    assertEquals(6, transactionHistoryTableData.size());
+    assertEquals(6, transactionHistoryTableData.size());    
+    
+    // verify that the Applird Interest Deposit's details are accurately logged in the TransactionHistory table
+    Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(5);
+    int CUSTOMER1_AMOUNT_TO_DEPOSIT_FOR_APPLIED_INTERST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(0.015*(CUSTOMER1_BALANCE + depositSum));
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_FOR_APPLIED_INTERST_IN_PENNIES);
   }
-  
+
 }
