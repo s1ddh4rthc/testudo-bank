@@ -1,9 +1,9 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ page language="java" contentType="text/html; charset=ISO-8859-1"
+    pageEncoding="ISO-8859-1"%>  
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
     <title>${user.firstName} ${user.lastName} - Testudo Bank</title>
     <style>
@@ -83,19 +83,10 @@
             color: white;
             text-decoration: none;
             border-radius: 5px;
-            transition: background-color 0.3s;
         }
 
         a.button:hover {
             background-color: #0056b3;
-        }
-
-        #balance-amount {
-        display: block;
-        margin-bottom: 15px;
-        font-size: 18px;
-        font-weight: bold;
-        color: #007bff;
         }
     </style>
 </head>
@@ -107,14 +98,10 @@
     </header>
 
     <div class="container">
-      <!-- <div class="info-box">
-          <label>Username:</label>
-          <span>${user.username}</span>
-      </div> -->
 
       <div class="info-box">
           <label>Balance:</label>
-          <span>$${user.balance}</span>
+          <span style="font-size: xxx-large;">$${user.balance}</span>
       </div>
 
       <div class="info-box">
@@ -172,7 +159,6 @@
           <a href='/withdraw' class='button'>Withdraw</a>
           <a href='/dispute' class='button'>Dispute</a>
           <a href='/transfer' class='button'>Transfer</a>
-          <!-- <a href='/' class='button'>Logout</a> -->
       </div>
     </div>
 </body>
