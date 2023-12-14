@@ -5,6 +5,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+
+import ch.qos.logback.core.joran.action.Action;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
@@ -197,8 +200,14 @@ public class MvcController {
 
     List<Map<String,Object>> transactionLogs = TestudoBankRepository.getRecentTransactions(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSACTIONS_DISPLAYED);
     String transactionHistoryOutput = HTML_LINE_BREAK;
-    for(Map<String, Object> transactionLog : transactionLogs){
-      transactionHistoryOutput += transactionLog + HTML_LINE_BREAK;
+    for(Map<String, Object> transactionLog : transactionLogs){ 
+      if(transactionLog.get("Action").equals(TRANSACTION_HISTORY_DEPOSIT_ACTION) || transactionLog.get("Action").equals(TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION) || transactionLog.get("Action").equals(TRANSACTION_HISTORY_CRYPTO_SELL_ACTION)) {
+        transactionHistoryOutput += "<p style=\"background-color: lightgreen;\">" + transactionLog + "</p>"+HTML_LINE_BREAK;
+      } else if (transactionLog.get("Action").equals(TRANSACTION_HISTORY_WITHDRAW_ACTION) || transactionLog.get("Action").equals(TRANSACTION_HISTORY_TRANSFER_SEND_ACTION) || transactionLog.get("Action").equals(TRANSACTION_HISTORY_CRYPTO_BUY_ACTION)) {
+        transactionHistoryOutput += "<p style=\"background-color: lightpink;\">" + transactionLog + "</p>"+HTML_LINE_BREAK;
+      } else {
+        transactionHistoryOutput += "<p style=\"background-color: lightgray;\">" + transactionLog + "</p>"+HTML_LINE_BREAK;
+      }
     }
 
     List<Map<String,Object>> transferLogs = TestudoBankRepository.getTransferLogs(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSFERS_DISPLAYED);
