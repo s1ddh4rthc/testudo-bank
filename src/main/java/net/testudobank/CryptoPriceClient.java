@@ -16,6 +16,9 @@ public class CryptoPriceClient {
      * @return
      */
     public double getCurrentCryptoValue(String cryptoName) {
+
+      System.out.println("Bhuvan was here!")
+
       if (cryptoName.equals("ETH")) {
         return getCurrentEthValue();
       } else if (cryptoName.equals("SOL")) {
