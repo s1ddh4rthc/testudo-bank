@@ -68,7 +68,7 @@ public class CryptoPriceClient {
       
       int sign = (Math.random() > 0.5) ? 1 : -1;
 
-      return 30 + (sign * Math.random() * 50);
+      return 95 + (sign * Math.random() * 50);
 
       // try {
       //     // return YahooFinance.get("SOL-USD").getQuote().getPrice().doubleValue();
