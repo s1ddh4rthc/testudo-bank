@@ -66,9 +66,11 @@ public class CryptoPriceClient {
     @Cacheable("sol-value")
     public double getCurrentSolValue() {
       
-      int sign = (Math.random() > 0.5) ? 1 : -1;
+      // Generate a positive random number between 0 and 50
+      double randomOffset = Math.random() * 50;
 
-      return 95 + (sign * Math.random() * 50);
+      // Add this positive number to 30
+      return 30 + randomOffset;
 
       // try {
       //     // return YahooFinance.get("SOL-USD").getQuote().getPrice().doubleValue();
