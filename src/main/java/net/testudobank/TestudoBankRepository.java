@@ -45,6 +45,9 @@ public class TestudoBankRepository {
     return userOverdraftBalanceInPennies;
   }
 
+  public static int applyInterestRateToPennyAmount(int pennyAmount){
+    return (int) (pennyAmount * MvcController.INTEREST_RATE);
+  }
   public static List<Map<String,Object>> getRecentTransactions(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
     String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
     List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
