@@ -251,6 +251,11 @@ public class MvcController {
     return dateTime;
   }
 
+  //Applies the interest rate to a specified amount of pennies
+    private int applyInterestRateToPennyAmount(int pennyAmount) {
+      return (int)(pennyAmount * INTEREST_RATE);
+  }
+
   // HTML POST HANDLERS ////
 
   /**
@@ -446,11 +451,6 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
 
-  }
-
-  //Applies the interest rate to a specified amount of pennies
-  private int applyInterestRateToPennyAmount(int pennyAmount) {
-      return (int)(pennyAmount * INTEREST_RATE);
   }
 
   /**
