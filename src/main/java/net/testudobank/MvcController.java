@@ -182,8 +182,6 @@ public class MvcController {
 
   //// HELPER METHODS ////
 
-
-
   /**
    * Helper method that calculates the interest on a provided amount of
    * money in the form of pennies.
@@ -194,7 +192,6 @@ public class MvcController {
   private int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
   }
-
 
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
