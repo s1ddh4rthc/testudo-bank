@@ -15,6 +15,9 @@ public class CryptoPriceClient {
      * Method to control which supported Cryptocurrency's price should be returned.
      * @return
      */
+
+     System.out.println("Siddharth was hear");
+     
     public double getCurrentCryptoValue(String cryptoName) {
       if (cryptoName.equals("ETH")) {
         return getCurrentEthValue();
