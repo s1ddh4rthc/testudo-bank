@@ -181,7 +181,9 @@ public class MvcController {
 	}
 
   //// HELPER METHODS ////
-
+  public static int applyInterestRateToPennyAmount(int pennyAmount) {
+        return (int) (pennyAmount * INTEREST_RATE);
+  }
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
    * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
@@ -406,7 +408,7 @@ public class MvcController {
     //// Complete Withdraw Transaction ////
     int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
-    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userBalanceInPennies = applyInterestRateToPennyAmount(userWithdrawAmtInPennies);
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
