@@ -251,7 +251,7 @@ public class MvcController {
     return dateTime;
   }
 
-  // Converts dollar amounts in frontend to penny representation in backend MySQL DB
+  // Applies the interest rate to a given penny amount
   private static int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
   }
