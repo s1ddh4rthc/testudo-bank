@@ -181,6 +181,7 @@ public class MvcController {
 	}
 
   //// HELPER METHODS ////
+
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
    * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
@@ -250,7 +251,7 @@ public class MvcController {
     return dateTime;
   }
 
-  // Applies interest rate to penny amount
+  // Helper method that applies interest rate to penny amount
   private static int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
   }
