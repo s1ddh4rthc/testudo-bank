@@ -364,7 +364,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    if (userDepositAmtInPennies > DEPOSIT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
+    if (userDepositAmtInPennies >= DEPOSIT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
       applyInterest(user);
     }
     updateAccountInfo(user);
