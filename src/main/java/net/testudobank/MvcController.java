@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private final static int DEPOSIT_THRESHOLD_FOR_INTEREST_IN_PENNIES = 2000;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -363,7 +364,9 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (userDepositAmtInPennies > DEPOSIT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
+      applyInterest(user);
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -803,13 +806,22 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Count the number of deposits for interest incentive.
+   * <p>
+   * Apply interest when necessary (on 5th deposit).
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    int numberOfDepositsForInterest = user.getNumDepositsForInterest();
+    numberOfDepositsForInterest++;
 
+    if (numberOfDepositsForInterest >= 5) {
+      user.setNumDepositsForInterest(0);
+      user.setBalance(BALANCE_INTEREST_RATE * user.getBalance());
+      return "account_info";
+    }
     return "welcome";
 
   }
