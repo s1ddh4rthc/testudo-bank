@@ -818,8 +818,9 @@ public class MvcController {
     numberOfDepositsForInterest++;
 
     if (numberOfDepositsForInterest >= 5) {
-      user.setNumDepositsForInterest(0);
-      user.setBalance(BALANCE_INTEREST_RATE * user.getBalance());
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
+      int new_balance = (int) BALANCE_INTEREST_RATE * TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), new_balance);
       return "account_info";
     }
     return "welcome";
