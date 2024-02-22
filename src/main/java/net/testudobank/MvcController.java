@@ -51,7 +51,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
-  private final static int DEPOSIT_THRESHOLD_FOR_INTEREST_IN_PENNIES = 2000;
+  private final static int DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES = 2000;
+  private final static int NUM_DEPOSITS_THRESHOLD_FOR_INTEREST = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -364,7 +365,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    if (userDepositAmtInPennies >= DEPOSIT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
+    if (userDepositAmtInPennies >= DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
       applyInterest(user);
     }
     updateAccountInfo(user);
@@ -817,14 +818,15 @@ public class MvcController {
     int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
     numberOfDepositsForInterest++;
     
-
-    if (numberOfDepositsForInterest >= 5) {
-      numberOfDepositsForInterest = 0;
+    if (numberOfDepositsForInterest >= NUM_DEPOSITS_THRESHOLD_FOR_INTEREST) { // apply interest and reset count in SQL DB
       int new_balance = (int) BALANCE_INTEREST_RATE * TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), new_balance);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
+
       return "account_info";
+    } else { // increment count in SQL DB
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numberOfDepositsForInterest);
     }
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numberOfDepositsForInterest);
 
     return "welcome";
 
