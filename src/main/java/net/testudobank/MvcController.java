@@ -814,15 +814,18 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-    int numberOfDepositsForInterest = user.getNumDepositsForInterest();
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
     numberOfDepositsForInterest++;
+    
 
     if (numberOfDepositsForInterest >= 5) {
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
+      numberOfDepositsForInterest = 0;
       int new_balance = (int) BALANCE_INTEREST_RATE * TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), new_balance);
       return "account_info";
     }
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numberOfDepositsForInterest);
+
     return "welcome";
 
   }
