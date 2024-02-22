@@ -38,7 +38,7 @@
     <span>Solana Coins Owned: </span><span>${user.solBalance}</span><br/>
     <span>Current $ETH Price: </span><span>${user.ethPrice}</span><br/>
     <span>Current $SOL Price: </span><span>${user.solPrice}</span><br/>
-    <span>Current Interest Rate: </span><span>${(user.balanceInterestRate - 1) * 100}</span><span>%</span><br/>
+    <span>Current Interest Rate: </span><span>${String.format("%.2f%%", (user.balanceInterestRate - 1) * 100)}</span><br/>
     <span>Re-payment logs: </span><span>${user.logs}</span><br/>
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
