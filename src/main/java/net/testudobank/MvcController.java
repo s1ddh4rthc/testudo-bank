@@ -40,6 +40,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int NUM_DEPOSITS_THRESHOLD_FOR_INTEREST = 5;
+  private final static int DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES = 2000;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -49,10 +51,9 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  private final static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
-  private final static int DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES = 2000;
-  private final static int NUM_DEPOSITS_THRESHOLD_FOR_INTEREST = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -240,6 +241,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setBalanceInterestRate(BALANCE_INTEREST_RATE);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -366,7 +368,7 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and logs
     if (userDepositAmtInPennies >= DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
-      applyInterest(user);
+      applyInterest(user, currentTime);
     }
     updateAccountInfo(user);
     return "account_info";
@@ -809,21 +811,28 @@ public class MvcController {
   /**
    * Count the number of deposits for interest incentive.
    * <p>
-   * Apply interest when necessary (on 5th deposit).
+   * Apply interest when necessary (on NUM_DEPOSITS_THRESHOLD_FOR_INTEREST-th deposit).
+   * <p> 
+   * Log the interest application in the Transaction History table.
    * 
    * @param user
+   * @param currentTime string formatted date time to ensure that all logs produced match
+   * the timestamp of the broader action (e.g. deposit submission).
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  public String applyInterest(@ModelAttribute("user") User user, String currentTime) {
     int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
     numberOfDepositsForInterest++;
     
     if (numberOfDepositsForInterest >= NUM_DEPOSITS_THRESHOLD_FOR_INTEREST) { // apply interest and reset count in SQL DB
-      int newBalance = (int) (BALANCE_INTEREST_RATE * TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername()));
+      int oldBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+      int newBalance = (int) (BALANCE_INTEREST_RATE * oldBalance);
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalance);
 
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED, newBalance - oldBalance);
 
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
       return "account_info";
     } else { // increment count in SQL DB
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numberOfDepositsForInterest);
