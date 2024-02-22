@@ -819,8 +819,9 @@ public class MvcController {
     numberOfDepositsForInterest++;
     
     if (numberOfDepositsForInterest >= NUM_DEPOSITS_THRESHOLD_FOR_INTEREST) { // apply interest and reset count in SQL DB
-      int new_balance = (int) BALANCE_INTEREST_RATE * TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), new_balance);
+      int newBalance = (int) (BALANCE_INTEREST_RATE * TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername()));
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalance);
+
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
 
       return "account_info";
