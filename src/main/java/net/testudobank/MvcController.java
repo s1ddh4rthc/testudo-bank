@@ -805,9 +805,20 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    int numDeposits = user.getNumDepositsForInterest();
+    double depositValue = user.getAmountToDeposit();
+    double overdraftBalance = user.getOverDraftBalance();
+    double userBalance = user.getBalance();
+
+    if (userBalance > 0 && overdraftBalance > 0 && depositValue >= 20) {
+        user.setNumDepositsForInterest(numDeposits++);
+        if (user.getNumDepositsForInterest() % 5 == 0) {
+            user.setBalance(userBalance * BALANCE_INTEREST_RATE);
+            user.setNumDepositsForInterest(0);
+            return "account_info";
+        }
+    }
 
     return "welcome";
-
   }
-
 }
