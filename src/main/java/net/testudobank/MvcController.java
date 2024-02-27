@@ -344,11 +344,19 @@ public class MvcController {
       // add any excess deposit amount to main balance in Customers table
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
+        // if the balance increase is over $20, increment num deposits for use in calculating interest
+        if (mainBalanceIncreaseAmtInPennies > 2000) {
+          user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+        }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      // if the deposit amount is over $20, increment num deposits for use in calculating interest
+      if (userDepositAmtInPennies > 2000) {
+        user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -810,7 +818,8 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
+    // need to apply interest
+    // add transaction
     return "welcome";
 
   }
