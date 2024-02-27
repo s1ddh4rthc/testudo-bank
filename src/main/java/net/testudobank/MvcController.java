@@ -358,7 +358,9 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (userDepositAmtInPennies >= 2000) {
+      applyInterest(user);
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -799,12 +801,32 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Apply interest rate of @param BALANCE_INTEREST_RATE to user balance which @param numberOfDepositsForInterest reaches 5
+   * Then insert amount of interest into Transaction History table in database and updates user parameters accordingly
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    int numberOfDepositsForInterestBefore = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    user.setNumDepositsForInterest(numberOfDepositsForInterestBefore + 1);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterestBefore + 1);
+    int numberOfDepositsForInterestAfter = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+    // Check if user has a balance over 0 and they have made enough deposits to get interest
+    if(userBalanceInPennies > 0 && numberOfDepositsForInterestAfter >= 5) {
+      int amountOfInterestInPennies = (int) Math.ceil(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) * (BALANCE_INTEREST_RATE - 1));
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterestAfter - 5);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (userBalanceInPennies + amountOfInterestInPennies));
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, amountOfInterestInPennies);
+      updateAccountInfo(user);
+      return "account_info";
+    }
 
     return "welcome";
 
