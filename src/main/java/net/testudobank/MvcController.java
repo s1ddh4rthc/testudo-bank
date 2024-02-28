@@ -811,8 +811,23 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+    int balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, CRYPTO_HISTORY_BUY_ACTION);
 
+    if (balance > 0 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, CRYPTO_HISTORY_BUY_ACTION) == 0) {
+
+      if (user.getAmountToDeposit() >= 20) {
+
+        int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, CRYPTO_HISTORY_BUY_ACTION);
+        numDeposits += 1;
+
+        if (numDeposits == 5) {
+          numDeposits = 0;
+          int newBalanceInPennies = (int) (balance * BALANCE_INTEREST_RATE);
+          TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, CRYPTO_HISTORY_BUY_ACTION, newBalanceInPennies);
+        }
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CRYPTO_HISTORY_BUY_ACTION, numDeposits);
+      }
+    }
+    return "account_info";
   }
-
 }
