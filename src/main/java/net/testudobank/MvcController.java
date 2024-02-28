@@ -806,8 +806,27 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
-
+    // This method borrows much of its functionality from the withdraw() method
+    String userID = user.getUsername();
+    
+    // check that user is eligible for interest applied to their account (requirements
+    // are outlined in the Interest Feature Design document)
+    if (user.getBalance() == 0 || 
+        user.getOverDraftBalance() > 0 ||
+        user.getNumDepositsForInterest() % 5 != 0 ||
+        user.getAmountToDeposit() <= 20) {
+      return "welcome";
+    } else {
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      // Apply interest to the user's account. Convert the balance to pennies
+      int balanceAfterInterest = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
+      // Change the user's number of deposits and balance
+      int numberOfDepositsIncremented = user.getNumDepositsForInterest() + 1;
+      // Apply changes to the DB
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceAfterInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsIncremented);
+      return "account_info";
+    }
   }
 
 }
