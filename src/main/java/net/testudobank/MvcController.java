@@ -799,15 +799,40 @@ public class MvcController {
   }
 
   /**
-   * 
+   * In this approach, customers will be awarded interest on their balance for every 5 deposits they
+make into their account, starting from the first deposit they make after the feature has been
+introduced. To ensure that customers aren’t committing fraud by splitting up one deposit into
+multiple, we will only count a deposit towards the number required for interest if it is above $20.
+
+The interest rate feature will require testing as it will cost Testudo Bank a lot of money to have to
+make sure that everyone is gaining interest. Some test cases that need to be looked into:
+Interest is being applied every 5 transactions.
+Interest is not being applied for every transaction after the 5th. The count should reset to
+zero to make sure that interest is not continually applied.
+Interest is being applied only if the deposits are above $20.
+Interest is being applied if the deposit is $20.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    double amtDeposited =  user.getAmountToDeposit();
+    int balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    if( amtDeposited >= 20 ){
+      System.out.println("greater than 20");
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDeposits + 1);
+    }
+
+    if( (numDeposits + 1) == 5 ){
+      System.out.println("greater than 5 depositis. apply interest");
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(balance * BALANCE_INTEREST_RATE));
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+    }
 
     return "welcome";
-
   }
 
 }
