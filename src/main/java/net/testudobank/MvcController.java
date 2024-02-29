@@ -252,8 +252,8 @@ public class MvcController {
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
-  private static int applyInterestRateToPennyAmount(int pennyAmount) {
-    return (int) (pennyAmount * INTEREST_RATE);
+  private static int applyInterestRateToPennyAmount(int pennyAmount, double interestRate) {
+    return (int) (pennyAmount * interestRate);
   }
 
   // HTML POST HANDLERS ////
@@ -346,7 +346,8 @@ public class MvcController {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         // if the balance increase is over $20, increment num deposits for use in calculating interest
         if (mainBalanceIncreaseAmtInPennies > 2000) {
-          user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+          int numDepositsForInterest = user.getNumDepositsForInterest() + 1;
+          user.setNumDepositsForInterest(numDepositsForInterest);
         }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
@@ -355,7 +356,10 @@ public class MvcController {
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
       // if the deposit amount is over $20, increment num deposits for use in calculating interest
       if (userDepositAmtInPennies > 2000) {
-        user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+        System.out.println("prev num deposits: " + user.getNumDepositsForInterest());
+        int numDepositsForInterest = user.getNumDepositsForInterest() + 1;
+        user.setNumDepositsForInterest(numDepositsForInterest);
+        System.out.println("new num deposits: " + user.getNumDepositsForInterest());
       }
     }
 
@@ -371,6 +375,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    System.out.println("about to call applyInterest() and user's numDeposits for interest is " + user.getNumDepositsForInterest());
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -423,7 +428,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies, INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -818,9 +823,25 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-    // need to apply interest
-    // add transaction
-    return "welcome";
+    
+    if (user.getNumDepositsForInterest() == 5) {
+      String userID = user.getUsername();
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      // need to apply interest 
+      int userBalanceInPennies = convertDollarsToPennies(user.getBalance());
+      int interestAmtInPennies = applyInterestRateToPennyAmount(userBalanceInPennies, BALANCE_INTEREST_RATE);
+      System.out.println("applied interest");
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestAmtInPennies);
+      // Adds deposit to transaction history
+      
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmtInPennies);
+      //user.setNumDepositsForInterest(0);
+      return "account_info";
+    } else {
+      return "welcome";
+    }
+    
+    
 
   }
 
