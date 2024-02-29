@@ -21,6 +21,9 @@ public class User {
   private String firstName;
 
   @Setter @Getter
+  private int transactionCount;
+
+  @Setter @Getter
   private String lastName;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
