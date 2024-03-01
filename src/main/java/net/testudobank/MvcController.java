@@ -830,7 +830,7 @@ public class MvcController {
     if (numberOfDepositsForInterest % 5 == 0) {
       int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
 
       return "account_info";
     } 
