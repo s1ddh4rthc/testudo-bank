@@ -803,7 +803,9 @@ public class MvcController {
   }
 
   /**
-   * 
+   * This function applies interest on the account balance if the user has a positive account balance
+   * and no overdraft balance, and if the transaction number is a multiple of 5 with no more than 5
+   * interest applications total. TransactionsHistory table is updated.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
@@ -831,24 +833,4 @@ public class MvcController {
     user.getUsername(), (oldNumDepositsForInterest + 1));
     return "welcome";
   }
-
-  // public String applyInterest(@ModelAttribute("user") User user) {
-  //   if (user.getBalance() > 0 && user.getOverDraftBalance() == 0) {
-  //     if (user.getAmountToDeposit() >= 20 && ((user.getNumDepositsForInterest() + 1) % 5) == 0 
-  //         && (user.getNumDepositsForInterest() + 1) != 0 && (user.getNumDepositsForInterest() + 1) / 5 <= 5) {
-  //           double oldBalance = user.getBalance();
-  //           double newBalance = oldBalance * BALANCE_INTEREST_RATE;
-  //           user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
-  //           user.setBalance(newBalance);
-  //           String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-  //           int userDepositAmtInPennies = convertDollarsToPennies(newBalance - oldBalance);
-  //           TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), userDepositAmtInPennies);
-  //           TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
-  //           return "account_info";
-  //       } 
-  //   }
-  //   user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
-  //   return "welcome";
-  // }
-
 }
