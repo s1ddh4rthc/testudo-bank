@@ -827,8 +827,8 @@ public class MvcController {
       //apply interest
       int currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       int newBalance = (int)(currBalance * BALANCE_INTEREST_RATE);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalance);
-      //update transaction history
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, (newBalance-currBalance));
+      TestudoBankRepository.interestamount
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate,  userID, currentTime, "Interest Applied", (newBalance-currBalance) );
     }
     return "account_info";
