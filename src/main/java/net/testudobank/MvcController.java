@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -43,6 +44,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -357,10 +359,25 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    String redirectPage = "account_info";
+    // Check deposit amount if its > $20.00 and they're not in overdraft, if it is then increase the deposits by one 
+    if(userDepositAmtInPennies > 2000 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) <= 0) {
+      int currentDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+
+      if(currentDeposits == 5) {
+        redirectPage = applyInterest(user);
+        //If interest is applied, insert interest into the transaction history
+        if(redirectPage.equals("account_info")) {
+          TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, userDepositAmtInPennies);
+        }
+      }
+      else {
+         TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currentDeposits);
+      }
+    }
+
     updateAccountInfo(user);
-    return "account_info";
+    return redirectPage;
   }
 	
   /**
@@ -805,9 +822,20 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userName = user.getUsername();
 
-    return "welcome";
+    //If they have balance or an overdraft, no interest will be applied
+    if(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userName) == 0 
+    || TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userName) > 0) {
+      return "welcome";
+    }
 
+    //Apply the interest and reset the customer number of deposits
+    int currBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userName);
+    currBalanceInPennies = (int)(currBalanceInPennies * BALANCE_INTEREST_RATE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userName, 0);
+    TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userName, currBalanceInPennies);
+    return "account_info";
   }
 
 }
