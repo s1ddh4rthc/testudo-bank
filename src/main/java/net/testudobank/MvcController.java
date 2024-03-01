@@ -816,6 +816,8 @@ public class MvcController {
       return "welcome";
     }
     String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+
 
     if(user.getAmountToDeposit()>20){
       int curr = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
@@ -826,6 +828,8 @@ public class MvcController {
       int currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       int newBalance = (int)(currBalance * BALANCE_INTEREST_RATE);
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalance);
+      //update transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate,  userID, currentTime, "Interest Applied", (newBalance-currBalance) );
     }
     return "account_info";
 
