@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double MINIMUM_DEPOSIT_FOR_INTEREST = 20.0;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -814,28 +815,33 @@ public class MvcController {
     
     double mostRecentDeposit = user.getAmountToDeposit();
 
-    if (user.getOverDraftBalance() > 0 || user.getBalance() < 0 || mostRecentDeposit < 20){
+    if (user.getOverDraftBalance() > 0 || user.getBalance() < 0 || mostRecentDeposit < MINIMUM_DEPOSIT_FOR_INTEREST){
       return "welcome";
     }
 
-    user.setNumDepositsForInterest( user.getNumDepositsForInterest()+1);
-
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
     int numDeposits = user.getNumDepositsForInterest();
+    String userId = user.getUsername();
+
+    String pageToReturn = "welcome";
     if (numDeposits % 5 == 0){
+
       double initialBalance = user.getBalance();
       int initialBalanceInPennies = (int)(initialBalance *100) ;
       double newBalance = initialBalance * MvcController.BALANCE_INTEREST_RATE;
       int newBalanceInPennies = (int)(newBalance*100);
-      user.setBalance(newBalance);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalanceInPennies);
+      pageToReturn = "account_info";
       String currTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, newBalanceInPennies-initialBalanceInPennies);
-    }
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numDeposits%5);
-    
-    
+      int interestAcrrued = newBalanceInPennies-initialBalanceInPennies;
 
-    return "account_info";
+      user.setBalance(newBalance);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userId, newBalanceInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userId, currTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAcrrued);
+    }
+
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userId, numDeposits%5);
+    
+    return pageToReturn;
 
   }
 
