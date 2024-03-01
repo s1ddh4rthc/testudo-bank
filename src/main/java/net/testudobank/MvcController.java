@@ -803,15 +803,45 @@ public class MvcController {
   }
 
   /**
-   * 
+   * This function applies interest on the current user's account balance if there are more than five transactions with a deposit
+   * value greater than or equal to 20 dollars. Customers who are in overdraft or have no money with the bank are not eligible to receive
+   * interest on their balance. TransactionHistoryTable is also updated. 
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    String username = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, username);
+    double depositAmount =  user.getAmountToDeposit();
+
+    int balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, username);
+    int overDraft = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, username);
+
+    if(overDraft > 0 || balance <= 0) {
+      return "Welcome";
+    }
+
+    if(depositAmount >= 20){
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, username, numDeposits + 1);
+    }
+
+    numDeposits++;
+
+    if(numDeposits == 5){
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, username, (int)(balance * BALANCE_INTEREST_RATE));
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, username, 0);
+
+      int new_balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, username);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, username, currentTime, "TRANSACTION_HISTORY_DEPOSIT_ACTION Applied", new_balance - balance);
+      return "account_info";
+    }
+
     return "welcome";
 
   }
-
+  
 }
