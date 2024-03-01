@@ -360,8 +360,8 @@ public class MvcController {
     }
 
     String redirectPage = "account_info";
-    // Check deposit amount if its > $20.00, if it is then increase the deposits by one
-    if(userDepositAmtInPennies > 2000) {
+    // Check deposit amount if its > $20.00 and they're not in overdraft, if it is then increase the deposits by one 
+    if(userDepositAmtInPennies > 2000 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) > 0) {
       int currentDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
 
       // >= 5 incase user has overdraft/no money in the account but has valid deposits saved up
