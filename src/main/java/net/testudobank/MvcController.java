@@ -806,6 +806,8 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    //TODO: Add Transaction History Changes
+
     // This method borrows much of its functionality from the withdraw() method
     String userID = user.getUsername();
     
@@ -819,12 +821,10 @@ public class MvcController {
     } else {
       int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       // Apply interest to the user's account. Convert the balance to pennies
-      int balanceAfterInterest = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
-      // Change the user's number of deposits and balance
-      int numberOfDepositsIncremented = user.getNumDepositsForInterest() + 1;
+      int increasebalanceAfterInterest = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE) - userBalanceInPennies;
       // Apply changes to the DB
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceAfterInterest);
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsIncremented);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, increasebalanceAfterInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0); //reset the number of deposits to 0
       return "account_info";
     }
   }
