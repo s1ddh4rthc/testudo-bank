@@ -346,8 +346,7 @@ public class MvcController {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         // if the balance increase is over $20, increment num deposits for use in calculating interest
         if (mainBalanceIncreaseAmtInPennies > 2000) {
-          int numDepositsForInterest = user.getNumDepositsForInterest() + 1;
-          user.setNumDepositsForInterest(numDepositsForInterest);
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1));
         }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
@@ -356,10 +355,7 @@ public class MvcController {
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
       // if the deposit amount is over $20, increment num deposits for use in calculating interest
       if (userDepositAmtInPennies > 2000) {
-        System.out.println("prev num deposits: " + user.getNumDepositsForInterest());
-        int numDepositsForInterest = user.getNumDepositsForInterest() + 1;
-        user.setNumDepositsForInterest(numDepositsForInterest);
-        System.out.println("new num deposits: " + user.getNumDepositsForInterest());
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1));
       }
     }
 
@@ -375,7 +371,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    System.out.println("about to call applyInterest() and user's numDeposits for interest is " + user.getNumDepositsForInterest());
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -823,19 +818,17 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-    
-    if (user.getNumDepositsForInterest() == 5) {
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()) == 5) {
       String userID = user.getUsername();
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
       // need to apply interest 
-      int userBalanceInPennies = convertDollarsToPennies(user.getBalance());
-      int interestAmtInPennies = applyInterestRateToPennyAmount(userBalanceInPennies, BALANCE_INTEREST_RATE);
-      System.out.println("applied interest");
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestAmtInPennies);
+      int customerBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestAmtInPennies = (int) (customerBalance * 0.015);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, applyInterestRateToPennyAmount(customerBalance, BALANCE_INTEREST_RATE));
       // Adds deposit to transaction history
-      
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmtInPennies);
-      //user.setNumDepositsForInterest(0);
+      // Reset num deposits back to 0 in database
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
       return "account_info";
     } else {
       return "welcome";
