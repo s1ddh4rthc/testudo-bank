@@ -803,14 +803,45 @@ public class MvcController {
   }
 
   /**
+   * called within the submitDeposit method to check whether a customer has accrued interest on their balance. 
    * 
-   * 
+   * This function applies interest on the customer's account balance for every 5th deposit they make over $20. If the customer is  
+   * in overdraft or if the deposit is less than $20, no interest is applied. The transaction history table is also updated if
+   * interest is applied. 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
 
-    return "welcome";
+    // make sure deposit is over 20 and customer not in overdraft
+    if (user.getAmountToDeposit() >= 20.00 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0) {
+      int updatedDeposits  = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      
+      // increment number of deposits
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, updatedDeposits + 1);
+      
+      // every 5th one, apply interest rate and add to transaction history table
+      if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) % 5 == 0) {
+        double currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        double updatedBalance = (currBalance * BALANCE_INTEREST_RATE) - currBalance;
+        
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, (int) updatedBalance);
+        
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+        String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+        
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION,(int) updatedBalance);
+        
+        return "account info";
+      }
+      return "welcome";
+    }
+    
+    else {
+      return "welcome";
+    }
 
   }
 
