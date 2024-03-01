@@ -820,16 +820,18 @@ Interest is being applied if the deposit is $20.
     int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
     double amtDeposited =  user.getAmountToDeposit();
     int balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
     if( amtDeposited >= 20 ){
-      System.out.println("greater than 20");
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDeposits + 1);
     }
 
     if( (numDeposits + 1) == 5 ){
-      System.out.println("greater than 5 depositis. apply interest");
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(balance * BALANCE_INTEREST_RATE));
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)(balance * BALANCE_INTEREST_RATE));
+
+      return "account_info";
     }
 
     return "welcome";
