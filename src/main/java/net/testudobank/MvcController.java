@@ -812,6 +812,7 @@ public class MvcController {
     double depositValue = user.getAmountToDeposit();
     double overdraftBalance = user.getOverDraftBalance();
     double userBalance = user.getBalance();
+    String ret = "";
     if (userBalance > 0 && overdraftBalance <= 0 && depositValue >= 20) { // conditions
         numDeposits++;
         user.setNumDepositsForInterest(numDeposits);
@@ -824,11 +825,12 @@ public class MvcController {
             String date = SQL_DATETIME_FORMATTER.format(new java.util.Date());
             int interestAmount = newBalancePennies - balanceInPennies;
             TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), date, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmount);
+            ret = "account_info";
         }
         TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numDeposits%5);
-        return "account_info";
     }
+    ret = "welcome";
 
-    return "welcome";
+    return ret;
   }
 }
