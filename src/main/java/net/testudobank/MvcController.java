@@ -372,8 +372,8 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // Adds to Number of Deposits For Interest for customer if deposit is 20 dollars or above
-    if (userDepositAmtInPennies >= MIN_NUM_TO_COUNT_AS_DEPOSIT) { 
+    // Adds to Number of Deposits For Interest for customer if deposit is 20 dollars or above and user has no overdraft
+    if (userDepositAmtInPennies >= MIN_NUM_TO_COUNT_AS_DEPOSIT && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) <= 0) { 
       int currentNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
       int newNumDepositsForInterest = currentNumDepositsForInterest + 1;
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, newNumDepositsForInterest);
@@ -845,8 +845,10 @@ public class MvcController {
         TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userName, afterInterest);
         TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userName, RESET_NUM_DEPOSITS_FOR_INTEREST);
 
+        int interestEarned = afterInterest - currentBalanceInPennies;
+
         // Updates the Transaction History Table to include the new balance after interest rate is applied
-        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userName, timeOfInterestApplied, TRANSACTION_HISTORY_DEPOSIT_ACTION, afterInterest);
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userName, timeOfInterestApplied, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestEarned);
 
         return "account_info";
 
