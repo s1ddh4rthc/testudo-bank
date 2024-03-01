@@ -4,25 +4,26 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
 import yahoofinance.YahooFinance;
 
 import java.io.IOException;
 
 @Component
 public class CryptoPriceClient {
+
     /**
      * Method to control which supported Cryptocurrency's price should be returned.
+     *
      * @return
      */
     public double getCurrentCryptoValue(String cryptoName) {
-      if (cryptoName.equals("ETH")) {
-        return getCurrentEthValue();
-      } else if (cryptoName.equals("SOL")) {
-        return getCurrentSolValue();
-      } else {
-        return -1;
-      }
+        if (cryptoName.equals("ETH")) {
+            return getCurrentEthValue();
+        } else if (cryptoName.equals("SOL")) {
+            return getCurrentSolValue();
+        } else {
+            return -1;
+        }
     }
 
     /**
@@ -38,18 +39,17 @@ public class CryptoPriceClient {
      */
     @Cacheable("eth-value")
     public double getCurrentEthValue() {
-
-      int sign = (Math.random() > 0.5) ? 1 : -1;
-
-      return 1650 + (sign * Math.random() * 500); 
-      
-      // try {
-      //   // return YahooFinance.get("ETH-USD").getQuote().getPrice().doubleValue();
-      //   } catch (IOException e1) {
-      //       // Print Stack Trace for Debugging
-      //       e1.printStackTrace();
-      //       return -1;
-      //   }
+        // Generate a positive random number between 0 and 500
+        double randomOffset = Math.random() * 500;
+        // Always add this positive number to 1650
+        return 1650 + randomOffset;
+        // try {
+        //   // return YahooFinance.get("ETH-USD").getQuote().getPrice().doubleValue();
+        //   } catch (IOException e1) {
+        //       // Print Stack Trace for Debugging
+        //       e1.printStackTrace();
+        //       return -1;
+        //   }
     }
 
     /**
@@ -65,23 +65,21 @@ public class CryptoPriceClient {
      */
     @Cacheable("sol-value")
     public double getCurrentSolValue() {
-      
-      int sign = (Math.random() > 0.5) ? 1 : -1;
-
-      return 30 + (sign * Math.random() * 50);
-
-      // try {
-      //     // return YahooFinance.get("SOL-USD").getQuote().getPrice().doubleValue();
-      //   } catch (IOException e1) {
-      //       // Print Stack Trace for Debugging
-      //       e1.printStackTrace();
-      //       return -1;
-      //   }
+        // Generate a positive random number between 0 and 50
+        double randomOffset = Math.random() * 50;
+        // Add this positive number to 30
+        return 30 + randomOffset;
+        // try {
+        //     // return YahooFinance.get("SOL-USD").getQuote().getPrice().doubleValue();
+        //   } catch (IOException e1) {
+        //       // Print Stack Trace for Debugging
+        //       e1.printStackTrace();
+        //       return -1;
+        //   }
     }
 
-
     /**
-     * Clear the cached price of ethereum.
+     * Clear the cached price of Solana.
      * <p>
      * This method is scheduled to run every 30 seconds.
      */
@@ -99,5 +97,4 @@ public class CryptoPriceClient {
     @CacheEvict("eth-value")
     public void clearEthPriceCache() {
     }
-
 }

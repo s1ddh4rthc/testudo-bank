@@ -827,9 +827,7 @@ public class MvcController {
       // Apply interest to the user's account. Convert the balance to pennies
       if (numberOfDeposits % 5 == 0) {
         int balanceAfterInterest = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
-        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceAfterInterest);
-        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0); //reset the number of deposits to 0
-        
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceAfterInterest);        
         // Save the transaction history
         String currTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
         TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceAfterInterest-userBalanceInPennies);
