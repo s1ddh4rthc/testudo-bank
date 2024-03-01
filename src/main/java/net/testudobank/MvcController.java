@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double DEPOSITS_BEFORE_INTERESTS = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -811,8 +812,22 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    if(user.getOverDraftBalance()<0){
+      return "welcome";
+    }
+    String userID = user.getUsername();
 
-    return "welcome";
+    if(user.getAmountToDeposit()>20){
+      int curr = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, curr+1);
+    }
+    if(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) % DEPOSITS_BEFORE_INTERESTS == 0){
+      //apply interest
+      int currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int newBalance = (int)(currBalance * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalance);
+    }
+    return "account_info";
 
   }
 
