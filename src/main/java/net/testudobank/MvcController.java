@@ -358,7 +358,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    if (userDepositAmtInPennies >= 2000) {
+    if (userDepositAmtInPennies >= 2000 && TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) > 0) {
       applyInterest(user);
     }
     updateAccountInfo(user);
