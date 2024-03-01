@@ -260,7 +260,7 @@ public class MvcController {
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
   }
-
+  
   // HTML POST HANDLERS ////
 
   /**
@@ -367,12 +367,16 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
+    int currentNumDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID); 
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,currentNumDeposits + 1);
+    user.setNumDepositsForInterest(currentNumDeposits + 1); 
+    
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
 	
+
   /**
    * HTML POST request handler for the Withdraw Form page.
    * 
@@ -816,8 +820,19 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+      
+    String userID = user.getUsername();
 
-  }
+      int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
+  
+      if (numberOfDepositsForInterest % 5 == 0) {
+        int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
+  
+        return "account_info";
+      } 
+        return "welcome";
+      }
 
 }
