@@ -809,9 +809,46 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
+    int oldNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+    if (user.getAmountToDeposit() >= 20) {
+      if (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername()) > 0 && 
+      TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, user.getUsername()) == 0) {
+        if (((oldNumDepositsForInterest + 1) % 5) == 0 
+          && (oldNumDepositsForInterest + 1) != 0 && (oldNumDepositsForInterest + 1) / 5 <= 5) {
+            TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, 
+              user.getUsername(), (oldNumDepositsForInterest + 1));
+            int oldBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+            int newBalance = (int)(oldBalance * BALANCE_INTEREST_RATE);
+            TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalance);
+            String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+            int userDepositAmtInPennies = (newBalance - oldBalance);
+            TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+            return "account_info";
+        } 
+      }
+    }
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, 
+    user.getUsername(), (oldNumDepositsForInterest + 1));
     return "welcome";
-
   }
+
+  // public String applyInterest(@ModelAttribute("user") User user) {
+  //   if (user.getBalance() > 0 && user.getOverDraftBalance() == 0) {
+  //     if (user.getAmountToDeposit() >= 20 && ((user.getNumDepositsForInterest() + 1) % 5) == 0 
+  //         && (user.getNumDepositsForInterest() + 1) != 0 && (user.getNumDepositsForInterest() + 1) / 5 <= 5) {
+  //           double oldBalance = user.getBalance();
+  //           double newBalance = oldBalance * BALANCE_INTEREST_RATE;
+  //           user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+  //           user.setBalance(newBalance);
+  //           String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+  //           int userDepositAmtInPennies = convertDollarsToPennies(newBalance - oldBalance);
+  //           TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, user.getUsername(), userDepositAmtInPennies);
+  //           TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+  //           return "account_info";
+  //       } 
+  //   }
+  //   user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+  //   return "welcome";
+  // }
 
 }
