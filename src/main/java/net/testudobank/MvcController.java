@@ -43,6 +43,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -820,19 +821,20 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-      
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());  
     String userID = user.getUsername();
 
-      int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
-  
-      if (numberOfDepositsForInterest % 5 == 0) {
-        int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
-  
-        return "account_info";
-      } 
-        return "welcome";
-      }
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
+    
+    if (numberOfDepositsForInterest % 5 == 0) {
+      int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_ACTION, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
+
+      return "account_info";
+    } 
+      return "welcome";
+    }
 
 }
