@@ -33,11 +33,14 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
+  private final static double BALANCE_INTEREST_RATE = 1.015;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES = 2000;
+  private final static int DEPOSIT_TRIGGER_NUM_FOR_INTEREST = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -48,7 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -301,6 +304,8 @@ public class MvcController {
    * If the user is in overdraft, the deposit amount first pays off the overdraft balance,
    * and any excess deposit amount is added to the main balance.
    * 
+   * If the user has made 5 payments of $20 or more, apply interest to their balance with the APY.
+   * 
    * @param user
    * @return "account_info" page if valid deposit request. Otherwise, redirect to "welcome" page.
    */
@@ -356,6 +361,10 @@ public class MvcController {
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
     } else {
+      // Increment number of deposits for interest trigger if transaction amount is greater than 20 dollars
+      if (userDepositAmtInPennies >= MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID)+1);
+      }
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
@@ -802,13 +811,27 @@ public class MvcController {
   }
 
   /**
-   * 
-   * 
+   * If we have reached the threshold for interest to be paid, apply interest to balance in pennies
+   * Pays out no interest if user is in overdraft because their balance is 0
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) == DEPOSIT_TRIGGER_NUM_FOR_INTEREST) {
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,0);
+      int interestGainedAmtInPennies =  (int) ((userBalanceInPennies*BALANCE_INTEREST_RATE) - userBalanceInPennies);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestGainedAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestGainedAmtInPennies);
+     
+      updateAccountInfo(user);
+
+      return "account_info";
+    }
     return "welcome";
 
   }
