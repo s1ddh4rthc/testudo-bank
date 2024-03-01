@@ -251,11 +251,6 @@ public class MvcController {
     return dateTime;
   }
 
-  // Applies the interest rate to the penny amount
-  private static int applyInterestRateToPennyAmount(int pennyAmount) {
-    return (int)(pennyAmount * INTEREST_RATE)
-  }
-
   // HTML POST HANDLERS ////
 
   /**
@@ -408,6 +403,7 @@ public class MvcController {
       return "welcome";
     }
 
+    
     //// Complete Withdraw Transaction ////
     int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt); // dollar amounts stored as pennies to avoid floating point errors
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
@@ -415,7 +411,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -805,12 +801,27 @@ public class MvcController {
 
   /**
    * 
+   * This function adds the interest to the amount the user is trying to deposit if:
+   * - Is a factor of 5
+   * - Deposit amount is bigger than 20
+   * 
+   * If both are true then interest is applied. Increments the amount of deposits by 1.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    if (user.getNumDepositsForInterest() % 5 == 0 && user.getAmountToDeposit() >= 20){
+      user.setAmountToDeposit(user.getAmountToDeposit() * 1.5);
+      user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+      submitDeposit(user);
+
+      return "account_info";
+    }
+
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
+    submitDeposit(user);
     return "welcome";
 
   }
