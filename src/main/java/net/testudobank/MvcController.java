@@ -237,7 +237,7 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setNumDepositsForInterest(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()));
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -358,6 +358,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -799,14 +800,42 @@ public class MvcController {
   }
 
   /**
+   * If the number of account deposits is a valid deposit of above 20$, the account has no overdraft balance, and
+   * the deposit number is a multiple of 5 we apply the interest of 1.5% to the account balance.
    * 
+   * If interest is applied we redirect to the account_info page, otherwise the welcome page.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+   
+    
+    double mostRecentDeposit = user.getAmountToDeposit();
+
+    if (user.getOverDraftBalance() > 0 || user.getBalance() < 0 || mostRecentDeposit < 20){
+      return "welcome";
+    }
+
+    user.setNumDepositsForInterest( user.getNumDepositsForInterest()+1);
+
+    int numDeposits = user.getNumDepositsForInterest();
+    if (numDeposits % 5 == 0){
+      double initialBalance = user.getBalance();
+      int initialBalanceInPennies = (int)(initialBalance *100) ;
+      double newBalance = initialBalance * MvcController.BALANCE_INTEREST_RATE;
+      int newBalanceInPennies = (int)(newBalance*100);
+      user.setBalance(newBalance);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalanceInPennies);
+      String currTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, newBalanceInPennies-initialBalanceInPennies);
+    }
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numDeposits%5);
+    
+    
+
+    return "account_info";
 
   }
 
