@@ -823,11 +823,12 @@ public class MvcController {
 
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());  
     String userID = user.getUsername();
+    double amtDeposited = user.getAmountToDeposit()
 
     int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
     TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
     
-    if (numberOfDepositsForInterest % 5 == 0) {
+    if ((numberOfDepositsForInterest % 5 == 0) && (amtDeposited >= 20)) {
       int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
