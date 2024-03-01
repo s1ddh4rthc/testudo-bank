@@ -364,8 +364,7 @@ public class MvcController {
     if(userDepositAmtInPennies > 2000 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) <= 0) {
       int currentDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
 
-      // >= 5 incase user has overdraft/no money in the account but has valid deposits saved up
-      if(currentDeposits >= 5) {
+      if(currentDeposits == 5) {
         redirectPage = applyInterest(user);
         //If interest is applied, insert interest into the transaction history
         if(redirectPage.equals("account_info")) {
