@@ -799,15 +799,38 @@ public class MvcController {
   }
 
   /**
-   * 
+   * If the user is currently not in overdraft, and five transactions
+   * of at least $20 have been completed since the last time interest was 
+   * applied, then the interest will be applied to the account.
+   * <p>
+   * This applied interest will be marked as a deposit in the Transaction
+   * History.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    double overDraftBalance = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    // Checks if overdraft balance is zero and the number of deposits for interest
+    // is equal to five.
+    if(overDraftBalance == 0 && numDeposits == 5) {
+      // Calculates interest using the BALANCE_INTEREST_RATE constant
+      int interest = (int)(TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) * BALANCE_INTEREST_RATE);
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      
+      // Resets the number of deposits to zero.      
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
 
+      // Increases customer balance by the interest and adds this interest to the Transaction History as a deposit
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interest);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interest);
+      updateAccountInfo(user);
+      return "account_info";
+    }
+    // Overdraft balance is not equal to zero or the number of deposits for interest does not equal five.
     return "welcome";
-
   }
 
 }
