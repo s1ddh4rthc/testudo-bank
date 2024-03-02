@@ -357,6 +357,12 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+    // Increases the number of deposits for interest by one if deposit is over $20.
+    if(userDepositAmtInPennies >= 2000) {
+      int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDeposits);
+    }
+
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
     updateAccountInfo(user);
