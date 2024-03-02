@@ -352,7 +352,8 @@ public class MvcController {
     } else { // simple deposit case
       // If deposit amount is >= 20 and no overdraft, then interest can apply
       int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
-      if (userDepositAmtInPennies >= MIN_DEPOSIT_AMOUNT_FOR_INTEREST) {
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID); // Fetch balance
+      if (userDepositAmtInPennies >= MIN_DEPOSIT_AMOUNT_FOR_INTEREST && userBalanceInPennies > 0) {
         numDepositsForInterest = numDepositsForInterest + 1;
         TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest);
       }
