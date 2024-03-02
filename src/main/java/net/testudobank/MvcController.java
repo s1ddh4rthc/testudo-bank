@@ -51,6 +51,8 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double INTEREST_DEPOSIT_THRESHHOLD = 20.00;
+  private static int DEPOSITS_REQUIRED_FOR_INTEREST = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -355,6 +357,13 @@ public class MvcController {
     } else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+    }
+
+    // only add to interest count if over required threshhold
+    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID); 
+    if (userDepositAmt >= INTEREST_DEPOSIT_THRESHHOLD && balanceInPennies >= 0) {
+      int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDeposits + 1);
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -798,16 +807,32 @@ public class MvcController {
     }
   }
 
-  /**
+  /** 
+   * If the account is not in overdraft and the user has made the required number of valid deposits, 
+   * the interest rate will be applied and the balance will be increased. The number
+   * of valid deposits is set to 0 once interest has been applied.
    * 
+   * If the user does not have enough valid desposits or the account is in overdraft,
+   * the user is redirected to the welcome page.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
-    return "welcome";
-
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID); 
+    int balanceWithInterest = (int) (balanceInPennies * BALANCE_INTEREST_RATE);
+    int interestAmount = balanceWithInterest - balanceInPennies;
+    // check if the user has enough valid deposits and is not in overdraft
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) >= DEPOSITS_REQUIRED_FOR_INTEREST && balanceInPennies > 0) {
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceWithInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmount);
+      return "account_info";
+    } else {
+      return "welcome";
+    }
   }
 
 }
