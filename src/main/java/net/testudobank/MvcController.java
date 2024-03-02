@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -82,7 +83,6 @@ public class MvcController {
 	public String showLoginForm(Model model) {
 		User user = new User();
     model.addAttribute("user", user);
-
 		return "login_form";
 	}
 
@@ -803,12 +803,54 @@ public class MvcController {
   }
 
   /**
+   * ApplyInterest Method that applies interest on savings for loyal customers.
    * 
+   * If user has no overdraft and a balance above $0, customers get a 1.5% interest rate applied to their current balance
+   * on their 5th deposit. Each deposit has to be above $20 to count towards the 5 deposits. If all above conditions are met
+   * 1.5% of the customers balance after 5th deposit is calculated and added to the customers account.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
+
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    int numberOfUserDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    int currentUserBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // getting the last transaction from customer to see if it was above $20 since this method is called AFTER depositing.
+    List<Map<String,Object>> userLastTransactionData = TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, 1); 
+    int userLastTransactionAmount = (int)userLastTransactionData.get(0).get("Amount");
+
+    
+    //checking if customer has overdraft, a balance > 0 and if the last deposit was > $20
+
+    if (userOverdraftBalanceInPennies == 0 && currentUserBalance > 0 && userLastTransactionAmount >= 2000){ 
+
+      // adding to variable for number of deposits before interest offer is applied
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfUserDepositsForInterest + 1);
+      numberOfUserDepositsForInterest += 1;
+
+      // checking if 5 eligible deposits have been done by the customer
+
+      if (numberOfUserDepositsForInterest == 5){
+
+        // calculating new user balance and applying interest offer
+
+        String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+        int newUserBalance = (int)(currentUserBalance * BALANCE_INTEREST_RATE);
+        int addedDollarAmount = newUserBalance - currentUserBalance;
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        numberOfUserDepositsForInterest = 0;
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newUserBalance);
+
+        // updating TransactionHistory 
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, addedDollarAmount);
+        return "account_info"; 
+      }
+    }
 
     return "welcome";
 
