@@ -40,6 +40,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int NUM_DEPOSITS_BEFORE_INTEREST = 5;
+  private final static int MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES = 2000;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -238,6 +240,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setInterestRate(BALANCE_INTEREST_RATE);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -363,8 +366,12 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
+
+    if (userDepositAmtInPennies - userOverdraftBalanceInPennies >= MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES) {
+      applyInterest(user, currentTime);
+    }
+
     return "account_info";
   }
 	
@@ -415,8 +422,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
-      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
+      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
       // IMPORTANT: Compare new overdraft balance to max overdraft limit AFTER applying the interest rate!
@@ -804,13 +810,34 @@ public class MvcController {
   }
 
   /**
-   * 
+   * If the number of deposits is greater than or equal to NUM_DEPOSITS_BEFORE_INTEREST,
+   * apply the interest rate to the balance.
+   * <p>
+   * If interest is applied, add the transaction to the Transaction History table.
    * 
    * @param user
+   * @param time timestamp of the most recent deposit to be logged with the interest transaction in the Transaction History table.
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  public String applyInterest(@ModelAttribute("user") User user, String time) {
 
+    int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+    numDeposits++;
+    
+    if (numDeposits >= NUM_DEPOSITS_BEFORE_INTEREST) {
+      int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+      int updatedBalanceInPennies = (int) (BALANCE_INTEREST_RATE * balanceInPennies);
+
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), updatedBalanceInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), time, TRANSACTION_HISTORY_DEPOSIT_ACTION, updatedBalanceInPennies - balanceInPennies);
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
+      return "account_info";
+
+    } else {
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numDeposits);
+    }
+    
     return "welcome";
 
   }
