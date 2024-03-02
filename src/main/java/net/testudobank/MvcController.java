@@ -271,7 +271,6 @@ public class MvcController {
    * @param (Int) pennyAmount
    * @return (Int) pennyAmount x interest
    */
-
   private static int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
   }
@@ -401,7 +400,12 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
-    applyInterest(user);
+    int currentDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currentDeposits);
+
+    if (currentDeposits >= 5) {
+      applyInterest(user, currentTime);
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -885,16 +889,25 @@ public class MvcController {
   }
 
   /**
+   * Helper function to apply interest to customer's balance and update the
+   * database based on the interest accrued.
    * 
-   * 
-   * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome"
-   *         page.
+   * @param user, currentTime
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  private void applyInterest(@ModelAttribute("user") User user, String currentTime) {
 
-    return "welcome";
+    // get customer's balance and calculate interest
+    String userID = user.getUsername();
+    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int interestInPennies = (int) (balanceInPennies * BALANCE_INTEREST_RATE);
 
+    // Apply interest to customer's balance
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestInPennies);
+
+    // insert interest accrual into transaction history
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
+        "Interest Accrual for 5 Deposits",
+        interestInPennies);
   }
 
 }
