@@ -360,7 +360,8 @@ public class MvcController {
     }
 
     // only add to interest count if over required threshhold
-    if (userDepositAmt >= INTEREST_DEPOSIT_THRESHHOLD) {
+    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID); 
+    if (userDepositAmt >= INTEREST_DEPOSIT_THRESHHOLD && balanceInPennies >= 0) {
       int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDeposits + 1);
     }
