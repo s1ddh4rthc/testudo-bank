@@ -358,6 +358,11 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    if (userDepositAmtInPennies > 2000) {
+      int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      numDepositsForInterest++;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest);
+    }
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -805,8 +810,33 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    double depAmount = user.getAmountToDeposit();
 
-    return "welcome";
+    //check that interest can be applied
+    int overdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    if (overdraftBalanceInPennies > 0 || userBalanceInPennies == 0) { //no interest to apply or existing over
+      return "welcome";
+    }
+
+    int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+    if (numDepositsForInterest % 5 == 0) {
+      int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int customerCashBalanceInPenniesWithInterest = (int) (customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, customerCashBalanceInPenniesWithInterest);
+      //reset numdeps to 0
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      int interestAmountPennies = customerCashBalanceInPennies - userBalanceInPennies;
+
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, SQL_DATETIME_FORMATTER.format( new java.util.Date()), userID, interestAmountPennies);
+
+    }
+    //check if numdeposits is mult of 5 so it can be app
+    //
+    return "account_info";
 
   }
 
