@@ -877,13 +877,41 @@ public class MvcController {
   }
 
   /**
+   * Customers will be rewarded interest for consistently depositing money into their accounts. 
    * 
+   * If the account is not already in overdraft and the user has made at least 5 deposits into
+   * their account, then the interest rate will be applied and their balance will increase. 
+   * 
+   * A valid deposit is one that is greater than $20. And after every five deposits, they
+   * will get interest awarded.
+   * 
+   * If the user does not have enough valid deposits or their account is in overdraft then the 
+   * user will be redirected to the welcome page.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome"
    *         page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int numUserDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    double userDepositAmt = user.getAmountToDeposit();
+    int balanceWithInterest = (int)(userBalanceInPennies * BALANCE_INTEREST_RATE);
+
+    if(userDepositAmt >= 20 && userBalanceInPennies >= 0){
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numUserDeposits+1);
+    }
+
+    if(numUserDeposits == 5 && userBalanceInPennies >= 0){
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, balanceWithInterest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, balanceWithInterest);
+
+      return "account_info";
+    }
 
     return "welcome";
 
