@@ -824,6 +824,7 @@ public class MvcController {
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterestAfter - 5);
       TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (userBalanceInPennies + amountOfInterestInPennies));
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, amountOfInterestInPennies);
+      user.setNumDepositsForInterest(numberOfDepositsForInterestAfter - 5);
       updateAccountInfo(user);
       return "account_info";
     }
