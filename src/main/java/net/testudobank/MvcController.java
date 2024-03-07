@@ -1,24 +1,22 @@
 package net.testudobank;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.util.Map;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashSet;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-
-import java.util.Optional;
-import java.util.Set;
-
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
 public class MvcController {
