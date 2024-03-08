@@ -43,6 +43,7 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
+  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -183,6 +184,16 @@ public class MvcController {
   //// HELPER METHODS ////
 
   /**
+   * Applies the defined interest rate to a given amount in pennies.
+   * 
+   * @param pennyAmount The amount in pennies to which the interest rate will be applied.
+   * @return The amount after applying the interest rate
+   */
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+  
+  /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
    * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
    * 
@@ -250,7 +261,7 @@ public class MvcController {
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
   }
-
+  
   // HTML POST HANDLERS ////
 
   /**
@@ -357,12 +368,16 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
+    int currentNumDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID); 
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,currentNumDeposits + 1);
+    user.setNumDepositsForInterest(currentNumDeposits + 1); 
+    
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
 	
+
   /**
    * HTML POST request handler for the Withdraw Form page.
    * 
@@ -410,7 +425,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -806,8 +821,22 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());  
+    String userID = user.getUsername();
+    double amtDeposited = user.getAmountToDeposit()
 
-  }
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
+    
+    if ((numberOfDepositsForInterest % 5 == 0) && (amtDeposited >= 20)) {
+      int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
+
+      return "account_info";
+    } 
+      return "welcome";
+    }
 
 }
+
