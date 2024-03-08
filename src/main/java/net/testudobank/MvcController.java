@@ -41,6 +41,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
+  public static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
@@ -362,7 +363,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    updateAccountInfo(user)
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -806,7 +806,7 @@ public class MvcController {
   /**
    * This function applies interest on the current user's account balance if there are more than five transactions with a deposit
    * value greater than or equal to 20 dollars. Customers who are in overdraft or have no money with the bank are not eligible to receive
-   * interest on their balance. TransactionHistoryTable is also updated. 
+   * interest on their balance. TransactionHistoryTable is also updated
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
@@ -837,7 +837,7 @@ public class MvcController {
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, username, 0);
 
       int new_balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, username);
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, username, currentTime, "TRANSACTION_HISTORY_DEPOSIT_ACTION Applied", new_balance - balance);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, username, currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED, new_balance - balance);
       return "account_info";
     }
 
