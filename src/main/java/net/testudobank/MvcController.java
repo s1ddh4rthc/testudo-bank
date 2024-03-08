@@ -325,6 +325,14 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
+    //If deposit amount is greater than or equal to 20, the global counter is incremented. 
+    if (userDepositAmt >= 20) {
+
+      int numdepositcounter = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      numdepositcounter = numdepositcounter + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numdepositcounter);
+
+    }
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -804,7 +812,28 @@ public class MvcController {
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
+  //interest function applies if there is a balance and no overdraft balance. When 5 transactions greater than or equal to 20 dollars are made,
+  //the interest is applied to their balance and the user is alerted in the transaction history table. 
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userId = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+    if (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId) == 0 || TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userId) > 0) {
+      
+      return "welcome";
+
+    }
+
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userId) == 5) {
+
+      double newbalance = 0;
+      double oldbalance = 0;
+      oldbalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId);
+      newbalance = (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId)) * BALANCE_INTEREST_RATE;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userId, (int) newbalance);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userId, 0);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userId, currentTime, "Interest rate applied after 5 deposits", (int) (newbalance - oldbalance));
+      return "account_info";
+    }
 
     return "welcome";
 
