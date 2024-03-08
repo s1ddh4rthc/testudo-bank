@@ -51,7 +51,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
-  private final static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
+  public static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
 
