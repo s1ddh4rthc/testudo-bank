@@ -362,6 +362,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user)
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
