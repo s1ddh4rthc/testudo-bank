@@ -41,6 +41,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
+  public static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
@@ -245,6 +246,10 @@ public class MvcController {
     return (int) (dollarAmount * 100);
   }
 
+  private static int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+
   // Converts LocalDateTime to Date variable
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
@@ -410,7 +415,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -799,15 +804,45 @@ public class MvcController {
   }
 
   /**
-   * 
+   * This function applies interest on the current user's account balance if there are more than five transactions with a deposit
+   * value greater than or equal to 20 dollars. Customers who are in overdraft or have no money with the bank are not eligible to receive
+   * interest on their balance. TransactionHistoryTable is also updated
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    String username = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    int numDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, username);
+    double depositAmount =  user.getAmountToDeposit();
+
+    int balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, username);
+    int overDraft = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, username);
+
+    if(overDraft > 0 || balance <= 0) {
+      return "Welcome";
+    }
+
+    if(depositAmount >= 20){
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, username, numDeposits + 1);
+    }
+
+    numDeposits++;
+
+    if(numDeposits == 5){
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, username, (int)(balance * BALANCE_INTEREST_RATE));
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, username, 0);
+
+      int new_balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, username);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, username, currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED, new_balance - balance);
+      return "account_info";
+    }
+
     return "welcome";
 
   }
-
+  
 }
