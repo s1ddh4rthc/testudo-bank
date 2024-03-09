@@ -157,164 +157,6 @@ public class MvcControllerIntegTest {
   }
 
   /**
-   * This test will create sample deposits for multiple customers simulatenously
-   * and make various deposits on accounts with no overdraft. It checks to ensure
-   * the interest rates apply when successful.
-   * 
-   * @throws SQLException
-   * @throws ScriptException
-   */
-  @Test
-  public void testPromotionalInterestRateSucceedsWhenEligible() throws SQLException, ScriptException {
-    /* Customer with no money starting off */
-    double CUSTOMER1_BALANCE = 0;
-    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
-        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
-
-    /* Customer with some money starting off */
-    double CUSTOMER2_BALANCE = 100;
-    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME,
-        CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
-
-    /* Customers to create with set password and customer IDs */
-    User customer1FormDeposits = new User();
-    customer1FormDeposits.setUsername(CUSTOMER1_ID);
-    customer1FormDeposits.setPassword(CUSTOMER1_PASSWORD);
-
-    User customer2FormDeposits = new User();
-    customer2FormDeposits.setUsername(CUSTOMER2_ID);
-    customer2FormDeposits.setPassword(CUSTOMER2_PASSWORD);
-
-    // Data from SQL to confirm everything is good
-    Map<String, Object> customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    Map<String, Object> customer2Data = retrieveSQLData(CUSTOMER2_ID);
-
-    // Ensures balances and deposits for interest are properly set up
-    assertEquals(CUSTOMER1_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
-    assertEquals(CUSTOMER2_BALANCE_IN_PENNIES, (int) customer2Data.get("Balance"));
-    assertEquals(0, (int) customer1Data.get("NumDepositsForInterest"));
-    assertEquals(0, (int) customer2Data.get("NumDepositsForInterest"));
-
-    // Making first deposit, one is eligible and the other isn't
-    customer1FormDeposits.setAmountToDeposit(20); // $20, eligible
-    customer2FormDeposits.setAmountToDeposit(19.99); // $19.99, ineligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    // Ensures that num deposits for interest is correct
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(1, customer1Data.get("NumDepositsForInterest"));
-    assertEquals(0, customer2Data.get("NumDepositsForInterest"));
-
-    // Second deposit, one is eligible and the other isn't
-    customer1FormDeposits.setAmountToDeposit(19.99); // $19.99, ineligible
-    customer2FormDeposits.setAmountToDeposit(20); // $20, eligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(1, customer1Data.get("NumDepositsForInterest"));
-    assertEquals(1, customer2Data.get("NumDepositsForInterest"));
-
-    // Third deposit, both are eligible
-    customer1FormDeposits.setAmountToDeposit(20); // $20, eligible
-    customer2FormDeposits.setAmountToDeposit(25); // $25, eligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(2, customer1Data.get("NumDepositsForInterest"));
-    assertEquals(2, customer2Data.get("NumDepositsForInterest"));
-
-    // Fourth deposit, both are eligible
-    customer1FormDeposits.setAmountToDeposit(30); // $30, eligible
-    customer2FormDeposits.setAmountToDeposit(125); // $125, eligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(3, customer1Data.get("NumDepositsForInterest"));
-    assertEquals(3, customer2Data.get("NumDepositsForInterest"));
-
-    // Fifth deposit, both are eligible
-    customer1FormDeposits.setAmountToDeposit(75); // $75, eligible
-    customer2FormDeposits.setAmountToDeposit(90); // $90, eligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(4, customer1Data.get("NumDepositsForInterest"));
-    assertEquals(4, customer2Data.get("NumDepositsForInterest"));
-
-    // Sixth deposit, both are ineligible
-    customer1FormDeposits.setAmountToDeposit(0); // $0, ineligible
-    customer2FormDeposits.setAmountToDeposit(0); // $0, ineligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(4, customer1Data.get("NumDepositsForInterest"));
-    assertEquals(4, customer2Data.get("NumDepositsForInterest"));
-
-    // Seventh deposit, both are eligible
-    LocalDateTime timeWhenCustomer1FifthDepositSent = MvcControllerIntegTestHelpers
-        .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
-    customer1FormDeposits.setAmountToDeposit(2330); // $2330, eligible
-
-    LocalDateTime timeWhenCustomer2FifthDepositSent = MvcControllerIntegTestHelpers
-        .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
-    customer2FormDeposits.setAmountToDeposit(950); // $125, eligible
-    controller.submitDeposit(customer1FormDeposits);
-    controller.submitDeposit(customer2FormDeposits);
-
-    // Checks that the number of deposits for interest got reset
-    customer1Data = retrieveSQLData(CUSTOMER1_ID);
-    customer2Data = retrieveSQLData(CUSTOMER2_ID);
-    assertEquals(0, customer1Data.get("NumDepositsForInterest")); // 13 , interest 14
-    assertEquals(0, customer2Data.get("NumDepositsForInterest")); // 15 interest, 16
-
-    // Checks that the transaction log contains the correct entry for the interest
-    // rate deposit
-    List<Map<String, Object>> transactionHistoryTableData = jdbcTemplate
-        .queryForList("SELECT * FROM TransactionHistory;");
-
-    /*
-     * 37.42 is the interest accumulated for customer 1, index 13 is interest
-     * applied for customer 1
-     */
-    Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(13);
-    int CUSTOMER1_INTEREST_RATE_DEPOSIT = MvcControllerIntegTestHelpers
-        .convertDollarsToPennies(37.42);
-    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenCustomer1FifthDepositSent,
-        CUSTOMER1_ID,
-        MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_INTEREST_RATE_DEPOSIT);
-
-    /*
-     * 19.94 is the interest accumulated for customer 3, index 15 is interest
-     * applied for customer 2 (very last of 16 transactions made)
-     */
-    Map<String, Object> customer2TransactionLog = transactionHistoryTableData.get(15);
-    int CUSTOMER2_INTEREST_RATE_DEPOSIT = MvcControllerIntegTestHelpers
-        .convertDollarsToPennies(19.94);
-    MvcControllerIntegTestHelpers.checkTransactionLog(customer2TransactionLog, timeWhenCustomer2FifthDepositSent,
-        CUSTOMER2_ID,
-        MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER2_INTEREST_RATE_DEPOSIT);
-
-    // Ensures that balance includes interest and transaction history includes
-    // interest added transaction
-    assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(2532.40), (int) customer1Data.get("Balance"));
-    assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(1349.92), (int) customer2Data.get("Balance"));
-  }
-
-  /**
    * Verifies the simplest withdraw case.
    * The customer's Balance in the Customers table should be decreased,
    * and the Withdraw should be logged in the TransactionHistory table.
@@ -1462,6 +1304,164 @@ public class MvcControllerIntegTest {
 
     // Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
+  }
+
+  /**
+   * This test will create sample deposits for multiple customers simulatenously
+   * and make various deposits on accounts with no overdraft. It checks to ensure
+   * the interest rates apply when successful.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testPromotionalInterestRateSucceedsWhenEligible() throws SQLException, ScriptException {
+    /* Customer with no money starting off */
+    double CUSTOMER1_BALANCE = 0;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    /* Customer with some money starting off */
+    double CUSTOMER2_BALANCE = 100;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME,
+        CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    /* Customers to create with set password and customer IDs */
+    User customer1FormDeposits = new User();
+    customer1FormDeposits.setUsername(CUSTOMER1_ID);
+    customer1FormDeposits.setPassword(CUSTOMER1_PASSWORD);
+
+    User customer2FormDeposits = new User();
+    customer2FormDeposits.setUsername(CUSTOMER2_ID);
+    customer2FormDeposits.setPassword(CUSTOMER2_PASSWORD);
+
+    // Data from SQL to confirm everything is good
+    Map<String, Object> customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    Map<String, Object> customer2Data = retrieveSQLData(CUSTOMER2_ID);
+
+    // Ensures balances and deposits for interest are properly set up
+    assertEquals(CUSTOMER1_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(CUSTOMER2_BALANCE_IN_PENNIES, (int) customer2Data.get("Balance"));
+    assertEquals(0, (int) customer1Data.get("NumDepositsForInterest"));
+    assertEquals(0, (int) customer2Data.get("NumDepositsForInterest"));
+
+    // Making first deposit, one is eligible and the other isn't
+    customer1FormDeposits.setAmountToDeposit(20); // $20, eligible
+    customer2FormDeposits.setAmountToDeposit(19.99); // $19.99, ineligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    // Ensures that num deposits for interest is correct
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(1, customer1Data.get("NumDepositsForInterest"));
+    assertEquals(0, customer2Data.get("NumDepositsForInterest"));
+
+    // Second deposit, one is eligible and the other isn't
+    customer1FormDeposits.setAmountToDeposit(19.99); // $19.99, ineligible
+    customer2FormDeposits.setAmountToDeposit(20); // $20, eligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(1, customer1Data.get("NumDepositsForInterest"));
+    assertEquals(1, customer2Data.get("NumDepositsForInterest"));
+
+    // Third deposit, both are eligible
+    customer1FormDeposits.setAmountToDeposit(20); // $20, eligible
+    customer2FormDeposits.setAmountToDeposit(25); // $25, eligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(2, customer1Data.get("NumDepositsForInterest"));
+    assertEquals(2, customer2Data.get("NumDepositsForInterest"));
+
+    // Fourth deposit, both are eligible
+    customer1FormDeposits.setAmountToDeposit(30); // $30, eligible
+    customer2FormDeposits.setAmountToDeposit(125); // $125, eligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(3, customer1Data.get("NumDepositsForInterest"));
+    assertEquals(3, customer2Data.get("NumDepositsForInterest"));
+
+    // Fifth deposit, both are eligible
+    customer1FormDeposits.setAmountToDeposit(75); // $75, eligible
+    customer2FormDeposits.setAmountToDeposit(90); // $90, eligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(4, customer1Data.get("NumDepositsForInterest"));
+    assertEquals(4, customer2Data.get("NumDepositsForInterest"));
+
+    // Sixth deposit, both are ineligible
+    customer1FormDeposits.setAmountToDeposit(0); // $0, ineligible
+    customer2FormDeposits.setAmountToDeposit(0); // $0, ineligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(4, customer1Data.get("NumDepositsForInterest"));
+    assertEquals(4, customer2Data.get("NumDepositsForInterest"));
+
+    // Seventh deposit, both are eligible
+    LocalDateTime timeWhenCustomer1FifthDepositSent = MvcControllerIntegTestHelpers
+        .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    customer1FormDeposits.setAmountToDeposit(2330); // $2330, eligible
+
+    LocalDateTime timeWhenCustomer2FifthDepositSent = MvcControllerIntegTestHelpers
+        .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    customer2FormDeposits.setAmountToDeposit(950); // $125, eligible
+    controller.submitDeposit(customer1FormDeposits);
+    controller.submitDeposit(customer2FormDeposits);
+
+    // Checks that the number of deposits for interest got reset
+    customer1Data = retrieveSQLData(CUSTOMER1_ID);
+    customer2Data = retrieveSQLData(CUSTOMER2_ID);
+    assertEquals(0, customer1Data.get("NumDepositsForInterest")); // 13 , interest 14
+    assertEquals(0, customer2Data.get("NumDepositsForInterest")); // 15 interest, 16
+
+    // Checks that the transaction log contains the correct entry for the interest
+    // rate deposit
+    List<Map<String, Object>> transactionHistoryTableData = jdbcTemplate
+        .queryForList("SELECT * FROM TransactionHistory;");
+
+    /*
+     * 37.42 is the interest accumulated for customer 1, index 13 is interest
+     * applied for customer 1
+     */
+    Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(13);
+    int CUSTOMER1_INTEREST_RATE_DEPOSIT = MvcControllerIntegTestHelpers
+        .convertDollarsToPennies(37.42);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenCustomer1FifthDepositSent,
+        CUSTOMER1_ID,
+        MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_INTEREST_RATE_DEPOSIT);
+
+    /*
+     * 19.94 is the interest accumulated for customer 3, index 15 is interest
+     * applied for customer 2 (very last of 16 transactions made)
+     */
+    Map<String, Object> customer2TransactionLog = transactionHistoryTableData.get(15);
+    int CUSTOMER2_INTEREST_RATE_DEPOSIT = MvcControllerIntegTestHelpers
+        .convertDollarsToPennies(19.94);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer2TransactionLog, timeWhenCustomer2FifthDepositSent,
+        CUSTOMER2_ID,
+        MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER2_INTEREST_RATE_DEPOSIT);
+
+    // Ensures that balance includes interest and transaction history includes
+    // interest added transaction
+    assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(2532.40), (int) customer1Data.get("Balance"));
+    assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(1349.92), (int) customer2Data.get("Balance"));
   }
 
   /**
