@@ -811,10 +811,10 @@ public class MvcController {
     double overdraftBalance = user.getOverDraftBalance();
     double userBalance = user.getBalance();
     String ret = "";
-    if (userBalance > 0 && overdraftBalance <= 0 && depositValue >= 20) { // conditions
+    if (userBalance >= 0 && overdraftBalance <= 0 && depositValue >= 20) { 
         numDeposits++;
         user.setNumDepositsForInterest(numDeposits);
-        if (user.getNumDepositsForInterest() % 5 == 0) { // every 5th deposit
+        if (numDeposits % 5 == 0) { 
             int balanceInPennies = (int)(userBalance * 100);
             double newBalance = userBalance * BALANCE_INTEREST_RATE;
             int newBalancePennies = (int)(newBalance * 100);        
