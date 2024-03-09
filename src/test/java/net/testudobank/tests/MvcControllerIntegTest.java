@@ -139,7 +139,7 @@ public class MvcControllerIntegTest {
   }
 
   @Test
-  public void testApplyInterestOnFifthDeposit() throws SQLException, ScriptException {
+  public void testInterestFeature() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
@@ -161,13 +161,14 @@ public class MvcControllerIntegTest {
 
     // send request to the Deposit Form's POST handler in MvcController
     controller.submitDeposit(customer1DepositFormInputs);
+    CUSTOMER1_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
 
     // add second deposit and submit
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 32.34;
     CUSTOMER1_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
     controller.submitDeposit(customer1DepositFormInputs);
-
+    
     // add third deposit and submit
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 52.34;
     CUSTOMER1_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
@@ -184,6 +185,7 @@ public class MvcControllerIntegTest {
     CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.34;
     customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
     controller.submitDeposit(customer1DepositFormInputs);
+    CUSTOMER1_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
 
     // fetch updated data from the DB
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
@@ -194,8 +196,8 @@ public class MvcControllerIntegTest {
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
-    // verify customer balance was increased by the last deposit AND the interest was applied after
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT) * 1.015;
+    // verify interest was applied on customer balance
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE ) * 1.015;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
 
