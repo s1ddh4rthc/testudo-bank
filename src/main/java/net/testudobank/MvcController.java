@@ -822,7 +822,8 @@ public class MvcController {
     String userID = user.getUsername();
     double userDepositAmt = user.getAmountToDeposit();
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
-    if (userDepositAmt >= 20 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0 && TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) != 0) {
+    if (userDepositAmt >= 20 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0
+      && TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) != 0) {
       int NumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
       // Apply interest after every 5 deposits
       if (NumDepositsForInterest == 5) {
