@@ -359,10 +359,10 @@ public class MvcController {
 
     // Apply Interest Logic
     String finalPage = "welcome"; // default page is "welcome", but can change to account_info if interest is applied
-    if (userDepositAmtInPennies > 2000) {
+    if (userDepositAmtInPennies >= 2000) {
       int userNumDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumDeposits); // increment the # of deposits
-      // Increment the number of deposits the user has made, if the deposit is over $20.00
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumDeposits % 5); // increment the # of deposits
+      // Increment the number of deposits the user has made, if the deposit is at least $20.00
       finalPage = applyInterest(user);
     }
 
