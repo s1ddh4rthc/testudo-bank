@@ -3,6 +3,7 @@ package net.testudobank.tests;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.beans.Transient;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import net.testudobank.MvcController;
+import net.testudobank.TestudoBankRepository;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
@@ -139,6 +141,260 @@ public class MvcControllerIntegTest {
   }
 
   /**
+   * Verifies that on the fifth interest-qualifying deposit, the balance interest 
+   * rate is applied. The customer's balance should increase by the added deposit plus the 
+   * interest rate applied to the account balance after the deposit.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one had qualified,
+   * interest would have been added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAppliedAfterFiveDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $30.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 30.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $130 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = BALANCE_INTEREST_RATE * (CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+  /**
+   * Verifies the balance interest rate isn't applied continually after the fifth deposit.
+   * This checks to ensure the customer's balance only increases by the deposit amount added.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made five interest-qualifying deposits, so the next deposit shouldn't 
+   * cause interest to be applied to the balance.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestNotAppliedContinuallyAfterFifthDeposit() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 150.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 5;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $50.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 50.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify that the balance interest rate wasn't applied to customer 1's balance 
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+  /**
+   * Verifies the balance interest rate isn't applied if the deposit isn't over $20.
+   * In this test case, the deposit is $10, so the test checks to ensure the customer's balance 
+   * only increases by the deposit amount added.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one had qualified,
+   * interest would have been added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAppliedForDepositsOver20Dollars() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $10.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 10.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify that the balance interest rate wasn't applied to customer 1's balance 
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
+  /**
+   * Verifies the balance interest rate is applied if the deposit is $20.
+   * In this test case, the deposit is $20, so the test checks to ensure the customer's balance 
+   * increases by the deposit amount added plus the interest rate applied to that new balance.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one qualifies,
+   * interest is added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAppliedFor20DollarDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $20.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $120 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = BALANCE_INTEREST_RATE * (CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
+  /**
+   * Verifies the balance interest rate is not applied if the deposit is the edge case of $19.99.
+   * The test checks to ensure the customer's balance is only the deposit amount plus the 
+   * initial balance.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one had qualified,
+   * interest would have been added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestNotAplliedForPennyUnder20DollarDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $19.99 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $119.99 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
+    /**
+   * Verifies the balance interest rate is applied if the deposit is the edge case of $20.01.
+   * The test checks to ensure the customer's balance increases by the deposit amount added plus 
+   * the interest rate applied to that new balance.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one qualifies,
+   * interest is applied.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAplliedForPennyOver20DollarDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $20.01 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $120.01 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = BALANCE_INTEREST_RATE * (CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+  /**
    * Verifies the simplest withdraw case.
    * The customer's Balance in the Customers table should be decreased,
    * and the Withdraw should be logged in the TransactionHistory table.
@@ -196,6 +452,8 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
+
+
 
   /**
    * Verifies the case where a customer withdraws more than their available balance.
