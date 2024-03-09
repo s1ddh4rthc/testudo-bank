@@ -367,6 +367,167 @@ public class MvcControllerIntegTest {
   }
 
   /**
+   * Testing that interest is paid out after every multiple of 5 deposits of 
+   * at least $20. 
+   * 
+   * Also ensures that the deposits and the interest applications are logged 
+   * in the transaction history table.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestFromDeposits() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $200.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_MAIN_BALANCE = 200.45;
+    int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
+    double CUSTOMER1_OVERDRAFT_BALANCE = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+
+    // Create sequence of deposit amounts to customer 1's account.
+    double[] CUSTOMER1_AMOUNT_TO_DEPOSIT = {150, 35.50, 21.4, 20.00, 190, 34.5, 90, 71, 21, 32.2, 71}; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    int transactionHistoryLength = 0;
+
+    for (int i = 0; i < CUSTOMER1_AMOUNT_TO_DEPOSIT.length; i++) {
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT[i]); 
+
+      // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory and OverdraftLogs tables later
+      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      // fetch updated data from the DB
+      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+      // verify that customer's balance has been updated
+      Map<String,Object> customer1Data = customersTableData.get(0);
+      CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT[i];
+
+      // check that deposit is logged in the transaction history table.
+      Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(transactionHistoryLength);
+      transactionHistoryLength++;
+      MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT[i]));
+
+
+      // verify that interest is applied for every fifth deposit
+      double INTEREST_APPLIED = 0;
+      if ((i + 1) % 5 == 0) {
+        INTEREST_APPLIED = CUSTOMER1_MAIN_BALANCE * 0.015;
+        CUSTOMER1_MAIN_BALANCE += INTEREST_APPLIED;
+
+        // Check that interst application is logged in the transaction history table
+        Map<String,Object> customer1TransactionLogInterest = transactionHistoryTableData.get(transactionHistoryLength);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLogInterest, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_INTEREST_APPLIED, MvcControllerIntegTestHelpers.convertDollarsToPennies(INTEREST_APPLIED));
+        transactionHistoryLength++;
+      }
+    
+      // Verify that we have the expected balance
+      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE), (int)customer1Data.get("Balance"));
+      
+      // Verify that NumDeposits for interest is always maintained
+      assertEquals((i + 1) % 5, (int)customer1Data.get("NumDepositsForInterest"));    
+    }
+  }
+
+  /**
+   * Tests that no interest is applied when a deposit is under $20, regardless 
+   * of how many such deposits occur.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testNoInterestEligibleDeposits() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $200.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_MAIN_BALANCE = 200.45;
+    int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
+    double CUSTOMER1_OVERDRAFT_BALANCE = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+
+    // Create sequence of deposit amounts to customer 1's account.
+    double[] CUSTOMER1_AMOUNT_TO_DEPOSIT = {150, 35.50, 21.4, 20.00}; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    int transactionHistoryLength = 0;
+
+    for (int i = 0; i < CUSTOMER1_AMOUNT_TO_DEPOSIT.length; i++) {
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT[i]); 
+
+      // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory and OverdraftLogs tables later
+      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      // fetch updated data from the DB
+      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+      // verify that customer's balance has been updated
+      Map<String,Object> customer1Data = customersTableData.get(0);
+      transactionHistoryLength++;
+      CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT[i];
+
+      // verify that interest is applied for every fifth deposit
+      double INTEREST_APPLIED = 0;
+      if ((i + 1) % 5 == 0) {
+        INTEREST_APPLIED = CUSTOMER1_MAIN_BALANCE * 0.015;
+        CUSTOMER1_MAIN_BALANCE += INTEREST_APPLIED;
+
+        // Count entries in transaction history
+        transactionHistoryLength++;
+      }
+    
+      // Verify that we have the expected balance
+      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE), (int)customer1Data.get("Balance"));
+      
+      // Verify that NumDeposits for interest is always maintained
+      assertEquals((i + 1) % 5, (int)customer1Data.get("NumDepositsForInterest"));    
+    }
+
+    double[] CUSTOMER1_AMOUNT_TO_DEPOSIT_NO_INTEREST = {13, 19.00, 19.99}; // user input is in dollar amount, not pennies.
+
+    for (int i = 0; i < CUSTOMER1_AMOUNT_TO_DEPOSIT_NO_INTEREST.length; i++) {
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_NO_INTEREST[i]); 
+
+      // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory and OverdraftLogs tables later
+      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
+
+      // send request to the Deposit Form's POST handler in MvcController
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      // fetch updated data from the DB
+      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+      // verify that customer's balance has been updated
+      Map<String,Object> customer1Data = customersTableData.get(0);
+      CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT_NO_INTEREST[i];
+      transactionHistoryLength++;
+
+      // Verify that NumDeposits for interest is always maintained
+      assertEquals(4, (int)customer1Data.get("NumDepositsForInterest"));    
+      assertEquals(transactionHistoryLength, transactionHistoryTableData.size());
+    }
+
+    
+  }
+
+  /**
    * Verifies the case where a customer is in overdraft and deposits an amount
    * that still leaves some leftover Overdraft balance. The customer's OverdraftBalance
    * in the Customers table should be set to $0, and their main Balance
