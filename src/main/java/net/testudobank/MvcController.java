@@ -815,8 +815,7 @@ public class MvcController {
     if (user.getAmountToDeposit() >= 20) {
       if (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername()) > 0 && 
       TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, user.getUsername()) == 0) {
-        if (((oldNumDepositsForInterest + 1) % 5) == 0 
-          && (oldNumDepositsForInterest + 1) != 0 && (oldNumDepositsForInterest + 1) / 5 <= 5) {
+        if (((oldNumDepositsForInterest + 1) % 5) == 0 && (oldNumDepositsForInterest + 1) != 0) {
             TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, 
               user.getUsername(), (oldNumDepositsForInterest + 1));
             int oldBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
