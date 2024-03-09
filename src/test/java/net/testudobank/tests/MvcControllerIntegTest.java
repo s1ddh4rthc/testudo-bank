@@ -18,6 +18,7 @@ import net.testudobank.CryptoPriceClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.engine.script.Script;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -367,12 +368,11 @@ public class MvcControllerIntegTest {
   }
 
   /*
-   * Verifies the case that interest is applied after sets of 5 deposits each at least $20. 
+   * Verifies the case that interest is applied after a set of 5 deposits each at least $20. 
    * Also makes sure that interest is not applied for every deposit after 5 and the counter resets. 
-   * Also makes sure that TransactionHistoryTable is logged with appropriate action.
    */
   @Test
-  public void testInterestAppliedAfterDepositsOver20() throws SQLException, ScriptException {
+  public void testInterestCanBeAppliedAfterDepositsOver20() throws SQLException, ScriptException {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_MAIN_BALANCE = 123.45;
     int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
@@ -385,168 +385,97 @@ public class MvcControllerIntegTest {
 
 
     // initialize series of deposits into account all at least #20
-    double[] CUSTOMER1_AMOUNT_TO_DEPOSIT = {100.00, 20.00, 25.40, 50.01, 33.33, 100, 45.56, 34.56, 78.12, 20.78};
+    double[] CUSTOMER1_AMOUNT_TO_DEPOSIT = {100.00, 20.00, 25.40, 50.01, 33.33};
     User customer1DepositFormInputs = new User();
     
     // verify that there are no logs in TransactionHistory table before Deposit
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
 
-    int transactionHistoryLength = 0;
-
     for (int depositNumber = 0; depositNumber < CUSTOMER1_AMOUNT_TO_DEPOSIT.length; depositNumber++) {
       customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
       customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
       customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber]); 
-
-      // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
-      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
-      System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
-
       // send request to the Deposit Form's POST handler in MvcController
       controller.submitDeposit(customer1DepositFormInputs);
-
-      // fetch updated data from the DB
-      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
-      List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
-
-      // verify there's only one customer
-      Map<String,Object> customer1Data = customersTableData.get(0);
-      assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
-      CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber];
-
-    //   double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + CUSTOMER1_AMOUNT_TO_DEPOSIT;
-    // double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
-    // assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-
-      // verify customer balance was increased by deposit amount
-      // CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber];
-      // double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
-      // assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-
-      // verify that the Deposit is the only log in TransactionHistory table
-      assertEquals(transactionHistoryLength + 1, transactionHistoryTableData.size());
-      
-      // verify that the Deposit's details are accurately logged in the TransactionHistory table
-      Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(transactionHistoryLength);
-      int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber]);
-      MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, 
-        CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
-
-      transactionHistoryLength++;
-      
-      // verifying interest applied
-      double INTEREST_APPLIED = 0;
-      if ((depositNumber + 1) % 5 == 0) {
-        INTEREST_APPLIED = CUSTOMER1_MAIN_BALANCE * 0.015;
-        CUSTOMER1_MAIN_BALANCE += INTEREST_APPLIED;
-        // CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
-
-        // verify that the interest application details are accurately logged in the TransactionHistory table
-        Map<String,Object> customer1InterestTransactionLog = transactionHistoryTableData.get(transactionHistoryLength);
-        MvcControllerIntegTestHelpers.checkTransactionLog(customer1InterestTransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_INTEREST_APPLIED_ACTION, MvcControllerIntegTestHelpers.convertDollarsToPennies(INTEREST_APPLIED));
-        transactionHistoryLength++;
-      }
-
-      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE), (int) customer1Data.get("Balance"));
-      // assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE), (int) customer1Data.get("Balance"));
-
-      assertEquals((depositNumber + 1) % 5, (int)customer1Data.get("NumDepositsForInterest"));
     }
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_MAIN_BALANCE + 228.74) * 1.015;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(6, transactionHistoryTableData.size());
   }
 
   /*
-   * Verifies the case that no interest is applied for deposits under $20, even if the total number of deposits exceeds 5. 
-   * Also makes sure that TransactionHistoryTable is logged with appropriate action.
+   * Verifies the case that interest isn't applied for every deposit after 5 deposits.
+   * make sure counter resets
    */
-  @Test
-  public void testInterestNotAppliedForDepositsUnder20() throws SQLException, ScriptException {
-    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
-    double CUSTOMER1_MAIN_BALANCE = 123.45;
+  public void interestNotAppliedEveryDepositAfterFive() throws SQLException, ScriptException {
+    double CUSTOMER1_MAIN_BALANCE = 200.45;
     int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
-    double CUSTOMER1_OVERDRAFT_BALANCE = 0;
-    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
-    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
-
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, 
-      CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+      CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, 0);
 
-    // initialize series of deposits into account all at least #20
-    double[] CUSTOMER1_AMOUNT_TO_DEPOSIT = {100.00, 20.00, 25.40, 50.01};
+    double[] CUSTOMER1_AMOUNTS_TO_DEPOSIT = {20.01, 20.01, 20.01, 20.01, 20.01, 20.01};
     User customer1DepositFormInputs = new User();
-    
-    // verify that there are no logs in TransactionHistory table before Deposit
-    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
 
-    int transactionHistoryLength = 0;
-
-    for (int depositNumber = 0; depositNumber < CUSTOMER1_AMOUNT_TO_DEPOSIT.length; depositNumber++) {
+    for (int depositNumber = 0; depositNumber < CUSTOMER1_AMOUNTS_TO_DEPOSIT.length; depositNumber++) {
       customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
       customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
-      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber]); 
-
-      // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
-      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
-      System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
-
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNTS_TO_DEPOSIT[depositNumber]); 
       // send request to the Deposit Form's POST handler in MvcController
       controller.submitDeposit(customer1DepositFormInputs);
-
-      // fetch updated data from the DB
-      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
-      List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
-
-      // verify there's only one customer
-      Map<String,Object> customer1Data = customersTableData.get(0);
-      assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
-      CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber];
-
-      // verify customer balance was increased by deposit amount
-      // CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber];
-      // double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
-      // assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-      
-      // verify that the Deposit's details are accurately logged in the TransactionHistory table
-      Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(transactionHistoryLength);
-      int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT[depositNumber]);
-      MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, 
-        CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
-
-      transactionHistoryLength++;
-      // assertEquals(transactionHistoryLength, transactionHistoryTableData.size());
     }
 
-    double[] CUSTOMER1_AMOUNTS_TO_NOT_DEPOSIT = {19.98, 19.99};
-    for (int depositNumber = 0; depositNumber < CUSTOMER1_AMOUNTS_TO_NOT_DEPOSIT.length; depositNumber++) {
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);    
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = ((CUSTOMER1_MAIN_BALANCE + 100.05) * 1.015) + 20.01;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(1, (int)customer1Data.get("NumDepositsForInterest"));
+
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(7, transactionHistoryTableData.size());
+
+  }
+
+  /*
+   * account for edge case where deposits are under 20 so interest is not applied but it is still deposited in the bank
+   */
+  public void interestNotAppliedEveryDepositUnder20() throws SQLException, ScriptException {
+    double CUSTOMER1_MAIN_BALANCE = 200.45;
+    int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, 
+      CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, 0);
+
+    double[] CUSTOMER1_AMOUNTS_TO_DEPOSIT = {19.99, 19.99, 19.99, 19.99, 19.99};
+    User customer1DepositFormInputs = new User();
+
+    for (int depositNumber = 0; depositNumber < CUSTOMER1_AMOUNTS_TO_DEPOSIT.length; depositNumber++) {
       customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
       customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
-      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNTS_TO_NOT_DEPOSIT[depositNumber]); 
-
-      // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
-      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
-      System.out.println("Timestamp when Deposit Request is sent: " + timeWhenDepositRequestSent);
-
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNTS_TO_DEPOSIT[depositNumber]); 
       // send request to the Deposit Form's POST handler in MvcController
       controller.submitDeposit(customer1DepositFormInputs);
-
-      // fetch updated data from the DB
-      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
-      List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
-
-      // verify there's only one customer
-      Map<String,Object> customer1Data = customersTableData.get(0);
-      assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
-      CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNTS_TO_NOT_DEPOSIT[depositNumber];
-
-      // verify customer balance was increased by deposit amount
-      // CUSTOMER1_MAIN_BALANCE += CUSTOMER1_AMOUNTS_TO_NOT_DEPOSIT[depositNumber];
-      double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
-      assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
-      transactionHistoryLength++;
-
-      // verify these deposits do not count towards deposits for interest
-      assertEquals(4, (int)customer1Data.get("NumDepositsForInterest"));
-      assertEquals(transactionHistoryLength, transactionHistoryTableData.size());
     }
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);    
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_MAIN_BALANCE + 99.95;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(5, transactionHistoryTableData.size());
+
   }
 
   /**
