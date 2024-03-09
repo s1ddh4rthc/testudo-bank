@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 import javax.script.ScriptException;
@@ -15,6 +16,7 @@ import javax.sql.DataSource;
 
 import com.mysql.cj.jdbc.MysqlDataSource;
 
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
@@ -23,6 +25,11 @@ import net.testudobank.MvcController;
 import net.testudobank.tests.MvcControllerIntegTest;
 
 public class MvcControllerIntegTestHelpers {
+
+
+
+    private static JdbcTemplate jdbcTemplate;
+
   // Fetches DB credentials to initialize jdbcTemplate client
   public static DataSource dataSource(MySQLContainer db) {
     MysqlDataSource dataSource = new MysqlDataSource();
@@ -113,4 +120,5 @@ public class MvcControllerIntegTestHelpers {
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) { 
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
   }
+
 }
