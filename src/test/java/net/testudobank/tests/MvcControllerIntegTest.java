@@ -1582,4 +1582,65 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
   
+  //Test for implemented interest function
+  //At 5 deposits, the interest rate should apply and will be checked
+  @Test
+  public void testApplyInterestAfter20() throws SQLException, ScriptException{
+
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, (int)cur_balance , 0);
+    User cur_user = new User();
+    cur_user.setUsername(CUSTOMER1_FIRST_NAME);
+    cur_user.setPassword(CUSTOMER1_PASSWORD);
+  
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double deposit_above_20 = 20.01;
+    double deposit_below_20 = 19.99;
+
+    //20.01 will be deposited 4 times, and the value will be checked if it is 80.04
+    cur_user.setAmountToDeposit(deposit_above_20);
+    controller.submitDeposit(cur_user);
+    controller.submitDeposit(cur_user);
+    controller.submitDeposit(cur_user);
+    controller.submitDeposit(cur_user);
+
+    double expected_val = MvcControllerIntegTestHelpers.convertDollarsToPennies(4 * deposit_above_20);
+
+    //update vals
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    customer1Data = customersTableData.get(0);
+
+    //should have no interest applied. counter is at 4
+    assertEquals(expected_val, (int)customer1Data.get("Balance"));
+
+
+    //now something below 20 will be applied
+    cur_user.setAmountToDeposit(deposit_below_20);
+    controller.submitDeposit(cur_user);
+
+    //update vals
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    customer1Data = customersTableData.get(0);
+
+    //should have no interest applied. counter is at 4
+    expected_val = MvcControllerIntegTestHelpers.convertDollarsToPennies(4 * deposit_above_20 + deposit_below_20);
+    assertEquals(expected_val, (int)customer1Data.get("Balance"));
+
+    //submission above 20 now should have interest applied
+    cur_user.setAmountToDeposit(deposit_above_20);
+    controller.submitDeposit(cur_user);
+
+    //update vals
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    customer1Data = customersTableData.get(0);
+
+    //should interest applied. counter became 5 then became 0
+    expected_val = MvcControllerIntegTestHelpers.convertDollarsToPennies((5 * deposit_above_20 + deposit_below_20)*1.015);
+    assertEquals(expected_val, (int)customer1Data.get("Balance"));
+  }
 }
