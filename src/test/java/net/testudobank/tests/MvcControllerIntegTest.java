@@ -1582,4 +1582,128 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
   
+  @Test
+  public void testInterestUnder20() throws SQLException, ScriptException {
+    double currentBalance = 0;
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    int deposits = 4;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    //Under 20 case
+    double toDeposit = 19.99;
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(toDeposit);
+    user.setNumDepositsForInterest(deposits);
+
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    assertEquals(1, customersTableData.size());
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double expectedFinalBalance = currentBalance + toDeposit;
+    double expectedFinalBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedFinalBalance);
+    
+    assertEquals(expectedFinalBalanceInPennies, (int)customer1Data.get("Balance"));
+    assertEquals(1, transactionHistoryTableData.size());
+  }
+
+  @Test
+  public void testInterestOver20() throws SQLException, ScriptException {
+    double currentBalance = 0;
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    int deposits = 4;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    //Over 20 case
+    double toDeposit = 20.01;
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(toDeposit);
+    user.setNumDepositsForInterest(deposits);
+
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    assertEquals(1, customersTableData.size());
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double expectedFinalBalance = currentBalance + toDeposit;
+    double expectedFinalBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedFinalBalance);
+    
+    assertEquals(expectedFinalBalanceInPennies, (int)customer1Data.get("Balance"));
+    assertEquals(1, transactionHistoryTableData.size());
+  }
+
+  @Test
+  public void testInterestat20() throws SQLException, ScriptException {
+    double currentBalance = 0;
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    int deposits = 4;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    //At 20 case
+    double toDeposit = 20.00;
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(toDeposit);
+    user.setNumDepositsForInterest(deposits);
+
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    assertEquals(1, customersTableData.size());
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double expectedFinalBalance = currentBalance + toDeposit;
+    double expectedFinalBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedFinalBalance);
+    
+    assertEquals(expectedFinalBalanceInPennies, (int)customer1Data.get("Balance"));
+    assertEquals(1, transactionHistoryTableData.size());
+  }
+
+
+@Test
+public void testInterestNotAppliedAfter5Transactions() throws SQLException, ScriptException {
+    // Initial balance and deposits
+    double currentBalance = 50.00;
+    int deposits = 9; // Number of deposits before interest applies
+
+    // Add customer to DB
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    // Deposit 5 times
+    double depositAmount = 10.00;
+    for (int i = 0; i < 6; i++) {
+        User user = new User();
+        user.setUsername(CUSTOMER1_ID);
+        user.setPassword(CUSTOMER1_PASSWORD);
+        user.setAmountToDeposit(depositAmount);
+        user.setNumDepositsForInterest(deposits + i);
+        controller.submitDeposit(user);
+    }
+
+    // Check if interest not applied for transactions after 5th
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(6, transactionHistoryTableData.size()); // Expect 6 transactions
+}
+
+
 }

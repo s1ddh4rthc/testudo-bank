@@ -821,9 +821,10 @@ public class MvcController {
         user.setNumDepositsForInterest(numberOfDeposits);
 
         // Check if it's the 5th deposit
-        if (numberOfDeposits % 5 == 0) {
+        int fifthDepositCheck = numberOfDeposits % 5;
+        if (fifthDepositCheck == 0) {
             // Calculate interest
-            double newBalance = userBalance * 1.015; // Applying 1.5% interest
+            double newBalance = userBalance * BALANCE_INTEREST_RATE; // Applying 1.5% interest
             int balanceInPennies = (int) (userBalance * 100);
             int newBalancePennies = (int) (newBalance * 100);
             
@@ -835,6 +836,9 @@ public class MvcController {
             String date = SQL_DATETIME_FORMATTER.format(new java.util.Date());
             int interestAmount = newBalancePennies - balanceInPennies;
             TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), date, "Interest Applied", interestAmount);
+            numberOfDeposits = 0;
+          } else{
+          numberOfDeposits++;
         }
 
         // Update the number of deposits for interest in the database
@@ -845,5 +849,6 @@ public class MvcController {
         return "welcome";
     }
 }
+
 
 }
