@@ -1261,7 +1261,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * @throws ScriptException
    */
   @Test
-  public void testIntrestNotAppliedAfter5thDepositLessThanMinimum() throws SQLException, ScriptException {
+  public void testIntrestNotAppliedAfter5thDeposit() throws SQLException, ScriptException {
     
     // initialize customer1 with a balance of $10
     double CUSTOMER1_BALANCE = 10.00;
