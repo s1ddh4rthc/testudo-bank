@@ -371,7 +371,9 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()) == 5) {
+      applyInterest(user); 
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -815,27 +817,21 @@ public class MvcController {
    * 
    * 
    * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   * @return "account_info" after applying interest.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()) == 5) {
       String userID = user.getUsername();
       String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
       // need to apply interest 
-      int customerBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-      int interestAmtInPennies = (int) (customerBalance * 0.015);
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, applyInterestRateToPennyAmount(customerBalance, BALANCE_INTEREST_RATE));
+      int customerBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, applyInterestRateToPennyAmount(customerBalanceInPennies, BALANCE_INTEREST_RATE));
+      int updatedBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestAmtInPennies = updatedBalance - customerBalanceInPennies;
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmtInPennies);
       // Reset num deposits back to 0 in database
       TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
       return "account_info";
-    } else {
-      return "welcome";
-    }
-    
-    
-
   }
 
 }
