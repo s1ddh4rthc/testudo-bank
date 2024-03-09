@@ -153,7 +153,7 @@ public class MvcControllerIntegTest {
  * @throws ScriptException
  */
 @Test
-public void testInterestAppliedEveryFifthValidTransaction() throws SQLException, ScriptException { 
+public void testInterestAppliedEveryFifthValidDeposit() throws SQLException, ScriptException { 
 
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
@@ -238,7 +238,7 @@ public void testInterestAppliedEveryFifthValidTransaction() throws SQLException,
  * @throws ScriptException
  */
 @Test
-public void testInterestCountResetsAfterFiveTransactions() throws SQLException, ScriptException { 
+public void testInterestCountResetsAfterFiveDeposits() throws SQLException, ScriptException { 
 
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
@@ -298,7 +298,7 @@ public void testInterestCountResetsAfterFiveTransactions() throws SQLException, 
  * @throws ScriptException
  */
 @Test
-public void testInterestAppliedOnTransactionsAboveTwenty() throws SQLException, ScriptException { 
+public void testInterestAppliedOnDepositsAboveTwenty() throws SQLException, ScriptException { 
 
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
@@ -375,7 +375,7 @@ public void testInterestAppliedOnTransactionsAboveTwenty() throws SQLException, 
  * @throws ScriptException
  */
 @Test
-public void testInterestAppliedOnTransactionsAtTwenty() throws SQLException, ScriptException { 
+public void testInterestAppliedOnDepositsAtTwenty() throws SQLException, ScriptException { 
 
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
@@ -452,7 +452,7 @@ public void testInterestAppliedOnTransactionsAtTwenty() throws SQLException, Scr
  * @throws ScriptException
  */
 @Test
-public void testInterestAppliedOnTransactionsAroundTwenty() throws SQLException, ScriptException { 
+public void testInterestAppliedOnDepositsAroundTwenty() throws SQLException, ScriptException { 
 
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
