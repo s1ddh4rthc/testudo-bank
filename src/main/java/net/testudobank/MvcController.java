@@ -379,6 +379,11 @@ public class MvcController {
    * @return "account_info" page if withdraw request is valid. Otherwise, redirect to "welcome" page.
    */
   @PostMapping("/withdraw")
+
+	// Calculates penny interest
+  private int applyInterestRateToPennyAmount(int pennyAmount){
+	  return (int)(pennyAmount * INTEREST_RATE);
+}
   public String submitWithdraw(@ModelAttribute("user") User user) {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
@@ -410,7 +415,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -806,6 +811,29 @@ public class MvcController {
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
+    double to_deposit = user.getAmountToDeposit();
+    String cur_user = user.getUsername();
+    int deposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, cur_user);
+    int bal = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, cur_user);
+    int check_overdraft = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, cur_user);
+
+    if(to_deposit <= 20 || bal <= 0 || check_overdraft > 0){
+      return "welcome";
+    }
+
+    deposits++;
+
+    if(deposits == 5){
+      deposits = 0;
+      int new_bal = (int)(bal*BALANCE_INTEREST_RATE);
+      user.setBalance(new_bal);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, cur_user, new_bal);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, cur_user, deposits);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, cur_user, SQL_DATETIME_FORMATTER.format(new java.util.Date()), "Deposit Interest Applied", new_bal - bal);
+      return "account_info";
+    }
+
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, cur_user, deposits);
     return "welcome";
 
   }
