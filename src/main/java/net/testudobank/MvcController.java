@@ -47,6 +47,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -81,8 +82,8 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-    model.addAttribute("user", user);
-
+		model.addAttribute("user", user);
+		
 		return "login_form";
 	}
 
@@ -343,6 +344,13 @@ public class MvcController {
       }
 
     } else { // simple deposit case
+      // Adds to number of deposits for interest when the deposit is $20.00 or more
+      if (userDepositAmtInPennies >= 2000) {
+        int interestDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, interestDeposits + 1);
+      }
+      
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 
@@ -799,15 +807,47 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Helper method for applying interest, after a deposit has been made.
+   * <p>
+   * If the user balance is positive (no overdraft), there have been
+   * over 5 deposits for interest, and the deposit just made makes
+   * the count of deposits for interest divisible by 5, then the function
+   * adds the interest to the balance in the form of a deposit and logs
+   * it.
+   * <p>
+   * Otherwise, it just returns "welcome"
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int pennyBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int interestDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+  
+    /* Every 5th deposit triggers the special interest rate. Ensures that the balance isn't in
+    overdraft, then makes sure 5 or more deposits have been made, and then ensures that the
+    interestDeposits value is divisible by 5, so every 5th deposit for interest generates interest. */
+    if (pennyBalance > 0 && interestDeposits >= 5 && interestDeposits % 5 == 0) {
+      // Makes 1.5% interest apply to the TOTAL cash balance after 5 valid deposits
+      int interestValue = (int) ((pennyBalance) * BALANCE_INTEREST_RATE); // Interest balance with original deposit
+      int interestToDeposit = interestValue - pennyBalance; // Interest without original balance
+  
+      // Adds interest as a transaction, which displays as a deposit
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
+      TRANSACTION_HISTORY_DEPOSIT_ACTION, interestToDeposit);
+  
+      // Updates customer balance to have interest included
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, interestValue);
 
+      // Update number of deposits for interest to be 5 less than before
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, interestDeposits - 5);
+      
+      return "account_info";
+    }
+  
     return "welcome";
-
   }
 
 }
