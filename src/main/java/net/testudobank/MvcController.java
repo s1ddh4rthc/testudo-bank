@@ -358,7 +358,20 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    // if user has no overdraft, has money in account, and deposit amount is atleast $20
+    if (user.getOverDraftBalance() == 0 && user.getBalance() > 0 && user.getAmountToDeposit() >= 20) {
+      user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1); // deposit is eligible for interest, add 1 to count
+      // apply interest to balance if this is the 5th deposit
+      if (user.getNumDepositsForInterest() % 5 == 0){
+        applyInterest(user);
+        double interestAmount = (user.getBalance() * BALANCE_INTEREST_RATE) - user.getBalance();
+        int interestAmountPen = convertDollarsToPennies(interestAmount);
+        // update balance for user in database
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestAmountPen);
+        // add interest to transaction history
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmountPen);
+      }
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -800,30 +813,23 @@ public class MvcController {
   }
 
   /**
-   * 
-   * This function adds the interest to the amount the user is trying to deposit if:
-   * - Is a factor of 5
-   * - Deposit amount is bigger than 20
-   * 
-   * If both are true then interest is applied. Increments the amount of deposits by 1.
-   * 
+   *  Applies interest to the balance of a user if the user account and the amount being deposited matches
+   *  the TestudoBank requirements
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    if (user.getNumDepositsForInterest() % 5 == 0 && user.getAmountToDeposit() >= 20){
-      user.setAmountToDeposit(user.getAmountToDeposit() * 1.5);
-      user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
-      submitDeposit(user);
-
-      return "account_info";
+    // double checks requisites for interest to be applied
+    if (user.getOverDraftBalance() == 0 && user.getBalance() > 0){
+      if (user.getNumDepositsForInterest() % 5 == 0 && user.getAmountToDeposit() > 20){
+        double interestAmount = (user.getBalance() + user.getAmountToDeposit()) * BALANCE_INTEREST_RATE;
+        user.setBalance(interestAmount);
+        return "account_info";
+      }
     }
-
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest()+1);
-    submitDeposit(user);
+    // if it fails to pass 
     return "welcome";
-
   }
 
 }
