@@ -80,6 +80,112 @@ public class MvcControllerIntegTest {
 
   //// INTEGRATION TESTS ////
 
+
+  /**
+   * 
+   * This test is here for the applyInterest function. Here we test that interest gets applied
+   * on the 5th transaction and that it works for deposits amounts greater than or equal to 20
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestOn5thTwenty() throws ScriptException, ScriptException {
+    // initialize fields for user
+    double mainBalance = 100;
+    int mainBalancePen = MvcControllerIntegTestHelpers.convertDollarsToPennies(mainBalance);
+
+    double overdraftBalance = 0;
+    int overdraftBalancePen = MvcControllerIntegTestHelpers.convertDollarsToPennies(overdraftBalance);
+
+    int numFraudReversals = 0;
+    int numInterestDeposits = 4;// set to 4
+
+    double depositAmount = 20; // test base case for minimum of 20 for deposit amount
+
+    // add user to database
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, mainBalancePen, overdraftBalancePen, numFraudReversals, numInterestDeposits);
+    
+    // create user with initialized fields
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setBalance(mainBalance);
+    user.setOverDraftBalance(overdraftBalance);
+    user.setNumDepositsForInterest(numInterestDeposits);
+    user.setAmountToDeposit(depositAmount);
+
+    // submit the deposit
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    int finalBalance = MvcControllerIntegTestHelpers.convertDollarsToPennies((mainBalance)*1.015 + depositAmount);
+
+    // asserts balance was applied to balance
+    assertEquals(finalBalance, (int)customer1Data.get("Balance"));
+
+
+  }
+  
+  /**
+   * Tests that interest only gets applied on the 5th transaction.
+   * 
+   * @throws ScriptException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestInterstAppliedOnly5th() throws ScriptException, ScriptException{
+    // initialize fields for user
+    double mainBalance = 100;
+    int mainBalancePen = MvcControllerIntegTestHelpers.convertDollarsToPennies(mainBalance);
+
+    double overdraftBalance = 0;
+    int overdraftBalancePen = MvcControllerIntegTestHelpers.convertDollarsToPennies(overdraftBalance);
+
+    int numFraudReversals = 0;
+    int numInterestDeposits = 0;
+
+    double depositAmount = 20;
+
+    // add user to database
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, mainBalancePen, overdraftBalancePen, numFraudReversals, numInterestDeposits);
+
+    // create user with initialized fields
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setBalance(mainBalance);
+    user.setOverDraftBalance(overdraftBalance);
+    user.setNumDepositsForInterest(numInterestDeposits);
+    user.setAmountToDeposit(depositAmount);
+
+    // submit deposits 1-4
+    controller.submitDeposit(user);
+    controller.submitDeposit(user);
+    controller.submitDeposit(user);
+    controller.submitDeposit(user);
+
+    
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    int currentBalance = MvcControllerIntegTestHelpers.convertDollarsToPennies(180);
+    // this tests to make sure no interst applied on deposits 1-4
+    assertEquals(currentBalance, (int)customer1Data.get("Balance"));
+
+    // submit the 5th deposit
+    controller.submitDeposit(user);
+
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    customer1Data = customersTableData.get(0);
+
+    currentBalance = MvcControllerIntegTestHelpers.convertDollarsToPennies(202.69);
+    // this tests that interest was applied after the 5th deposit
+    assertEquals(currentBalance, (int)customer1Data.get("Balance"));
+
+  }
   /**
    * Verifies the simplest deposit case.
    * The customer's Balance in the Customers table should be increased,
@@ -1581,5 +1687,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+ 
   
 }
