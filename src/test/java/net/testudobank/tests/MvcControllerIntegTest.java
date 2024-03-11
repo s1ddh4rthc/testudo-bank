@@ -47,6 +47,10 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
+
+  private final static int MIN_VALUE_INTEREST_DEPOSIT = 20;
+  private final static int INTEREST_COUNT_DEPOSIT_NUM = 5;
+  private static double BALANCE_INTEREST_RATE = 1.015;
   
   // Spins up small MySQL DB in local Docker container
   @Container
@@ -80,6 +84,112 @@ public class MvcControllerIntegTest {
 
   //// INTEGRATION TESTS ////
 
+  @Test
+  public void testInterestAppliedAfter5Deposits() throws ScriptException { //takes care of 20 dollar deposit, and every 5 deps
+    double CUSTOMER1_BALANCE = 100;
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00;
+
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    for (int i = 0; i < 5; i++) { //submit 5 deposits
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT)) * BALANCE_INTEREST_RATE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+
+  }
+
+  @Test
+  public void testNoInterestAfter5thDeposit() throws ScriptException { //nointerest after fifth dep
+    double CUSTOMER1_BALANCE = 100;
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01;
+
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    for (int i = 0; i < 6; i++) { //submit 5 deposits
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + (5 * CUSTOMER1_AMOUNT_TO_DEPOSIT)) * BALANCE_INTEREST_RATE;
+    CUSTOMER1_EXPECTED_FINAL_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+  }
+
+  @Test
+  public void testInterestAppliedForEdgeCases() throws ScriptException { //test edge cases and above 20
+    double CUSTOMER1_BALANCE = 100;
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01;
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT2 = 19.99;
+
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    for (int i = 0; i < 4; i++) { //submit 4 deposits
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT2);  //5th deposit lower
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + (4 * CUSTOMER1_AMOUNT_TO_DEPOSIT)) + CUSTOMER1_AMOUNT_TO_DEPOSIT2;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); //add interest deposit
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    CUSTOMER1_EXPECTED_FINAL_BALANCE += CUSTOMER1_AMOUNT_TO_DEPOSIT;
+    CUSTOMER1_EXPECTED_FINAL_BALANCE *= BALANCE_INTEREST_RATE;
+    CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+
+    customer1Data = customersTableData.get(0);
+
+
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+
+  }
   /**
    * Verifies the simplest deposit case.
    * The customer's Balance in the Customers table should be increased,
