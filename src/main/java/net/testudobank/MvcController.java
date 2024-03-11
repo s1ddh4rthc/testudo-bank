@@ -40,6 +40,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_VALUE_INTEREST_DEPOSIT = 20;
+  private final static int INTEREST_COUNT_DEPOSIT_NUM = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -813,27 +815,27 @@ public class MvcController {
     String userID = user.getUsername();
     double depAmount = user.getAmountToDeposit();
 
-    //check that interest can be applied
-    int overdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      //check that interest can be applied
+      int overdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
-    if (overdraftBalanceInPennies > 0 || userBalanceInPennies == 0) { //no interest to apply or existing over
-      return "welcome";
-    }
+      if (overdraftBalanceInPennies > 0 || userBalanceInPennies == 0) { //no interest to apply or existing over
+        return "welcome";
+      }
 
-    int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    if (numDepositsForInterest % 5 == 0) {
-      int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-      int customerCashBalanceInPenniesWithInterest = (int) (customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, customerCashBalanceInPenniesWithInterest);
-      //reset numdeps to 0
-      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
-      int interestAmountPennies = customerCashBalanceInPennies - userBalanceInPennies;
+      if (numDepositsForInterest % 5 == 0) {
+        int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        int customerCashBalanceInPenniesWithInterest = (int) (customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, customerCashBalanceInPenniesWithInterest);
+        //reset numdeps to 0
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        int interestAmountPennies = customerCashBalanceInPennies - userBalanceInPennies;
 
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, SQL_DATETIME_FORMATTER.format( new java.util.Date()), userID, interestAmountPennies);
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, SQL_DATETIME_FORMATTER.format( new java.util.Date()), userID, interestAmountPennies);
 
-    }
+      }
     //check if numdeposits is mult of 5 so it can be app
     //
     return "account_info";
