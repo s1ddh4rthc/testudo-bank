@@ -1826,5 +1826,108 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+  /**
+   * Test situation in which customer with no pre-existing crypto buys ETH and SOL, then sells some of their SOL.
+   */
+  @Test
+  public void testBuyETHBuySOLSellSOLSuccess() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction buyCryptoTransactionETH = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+    cryptoTransactionTester.test(buyCryptoTransactionETH);
+
+    CryptoTransaction buyCryptoTransactionSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+    cryptoTransactionTester.test(buyCryptoTransactionSOL);
+
+    CryptoTransaction sellCryptoTransactionSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.05)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.05)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+
+    cryptoTransactionTester.test(sellCryptoTransactionSOL);
+  }
+
+  /**
+   * Test situation in which customer attempts to buy a bitcoin (BTC) not supported by TestudoBank. 
+   */
+  @Test
+  public void testCryptoBuyBTCInvalidCryptoName() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    //This test should fail because we are providing an invalid crypto
+    //The test method checks whether the welcome page is returned since shouldSuceed is set to false
+
+    CryptoTransaction buyCryptoTransactionBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+
+    cryptoTransactionTester.test(buyCryptoTransactionBTC);
+
+  }
+
+  /**
+   * Test situation in which customer attempts to sell a bitcoin (BTC) not supported by TestudoBank. 
+   */
+  @Test
+  public void testCryptoSellBTCInvalidCryptoName() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    //This test should fail because we are providing an invalid crypto
+    //The test method checks whether the welcome page is returned since shouldSuceed is set to false
+
+    CryptoTransaction sellCryptoTransactionBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+
+    cryptoTransactionTester.test(sellCryptoTransactionBTC);
+
+  }
   
 }
