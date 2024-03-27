@@ -1606,13 +1606,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransactionBuyETH);
 
-    // cryptoTransactionTester = CryptoTransactionTester.builder()
-    //         .initialBalanceInDollars(900)
-    //         .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
-    //         .build();
-
-    // cryptoTransactionTester.initialize();
-
     CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(890)
             .expectedEndingCryptoBalance(0.1)
