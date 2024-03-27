@@ -1681,4 +1681,102 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Test case that deposit if 20.01
     assertEquals(CUSTOMER1.getNumDepositsForInterest(), 2);
   }
+
+  /*
+   * Test basic flow of buying ETH then buying SOL then selling SOL.
+   */
+  @Test
+    public void testBasicBuySellFlow() throws ScriptException  {
+         CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+        
+        cryptoTransactionTester.initialize();
+
+        CryptoTransaction buyETH = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        cryptoTransactionTester.test(buyETH);
+
+        CryptoTransaction buySOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        cryptoTransactionTester.test(buySOL);
+
+        CryptoTransaction sellSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(810)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(100)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+
+        cryptoTransactionTester.test(sellSOL);
+    }
+
+    /*
+     * Test buying BTC which isn't implemented in the system.
+     */
+    @Test
+    public void testBuyBTCInvalidCase() throws ScriptException {
+      CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+      
+      cryptoTransactionTester.initialize();
+
+      CryptoTransaction buyBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+
+        cryptoTransactionTester.test(buyBTC);
+      
+    }
+
+     /*
+     * Test selling BTC which isn't implemented in the system.
+     */
+
+    @Test
+    public void testSellBTCInvalidCase() throws ScriptException {
+      CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+      
+      cryptoTransactionTester.initialize();
+
+      CryptoTransaction sellBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+
+        cryptoTransactionTester.test(sellBTC);
+    }
 }
