@@ -1934,6 +1934,7 @@ public class MvcControllerIntegTest {
         assertEquals(6, transactionHistoryTableData.size());
     }
 
+    // Crypto integ tests
     @Test
     public void testBuyETHBuySOLSellSOL() throws ScriptException {
         CryptoTransactionTester cryptoTester = CryptoTransactionTester.builder().initialBalanceInDollars(1000).build();
@@ -1982,5 +1983,4 @@ public class MvcControllerIntegTest {
 
         cryptoTester.test(sellBTC);
     }
-
 }
