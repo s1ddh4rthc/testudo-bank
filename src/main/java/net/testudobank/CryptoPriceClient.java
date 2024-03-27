@@ -35,9 +35,11 @@ public class CryptoPriceClient {
     @Cacheable("eth-value")
     public double getCurrentEthValue() {
 
-      int sign = (Math.random() > 0.5) ? 1 : -1;
+      // Generate a positive random number between 0 and 500
+      double randomOffset = Math.random() * 500;
 
-      return 1650 + (sign * Math.random() * 500); 
+      // Always add this positive number to 1650
+      return 1650 + randomOffset;
       
       // try {
       //   // return YahooFinance.get("ETH-USD").getQuote().getPrice().doubleValue();
