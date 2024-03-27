@@ -1582,4 +1582,201 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
   
+  /**
+   * Test the applyInterestMethod actually applies interest after 5 deposits of $20 dollars
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestRateWith20DollarDeposits() throws SQLException, ScriptException{
+    //Initilize user in database
+    int CUSTOMER1_BALANCE_IN_PENNIES = 90000;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    //Initializing users for the test
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+    CUSTOMER1.setBalance(900);
+    CUSTOMER1.setAmountToDeposit(20);
+    controller.submitDeposit(CUSTOMER1);
+    //Checks that the num deposits for interest is incrementing
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 1);
+    assertEquals(CUSTOMER1.getBalance(), 920);
+
+    CUSTOMER1.setAmountToDeposit(20);
+    controller.submitDeposit(CUSTOMER1);
+    //Checks that the num deposits for interest is incrementing
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 2);
+    assertEquals(CUSTOMER1.getBalance(), 940);
+
+    controller.submitDeposit(CUSTOMER1);
+    controller.submitDeposit(CUSTOMER1);
+    controller.submitDeposit(CUSTOMER1);
+    //Checks that the num deposits reset to 0 after 5 deposits and interest rate is actually applied
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 0);
+    assertEquals(CUSTOMER1.getBalance(), 1015);
+  }
+  /**
+   * Test the applyInterestMethod doesn't increment num deposits when depositing under $20
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestRateWith19DollarDeposits() throws SQLException, ScriptException{
+    //Initilize user in database
+    int CUSTOMER1_BALANCE_IN_PENNIES = 90000;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    //Initializing users for the test
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+    CUSTOMER1.setBalance(900);
+    CUSTOMER1.setAmountToDeposit(19.99);
+    controller.submitDeposit(CUSTOMER1);
+    //Make sure numDeposits aren't incremented
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 0);
+  }
+  /**
+   * Test the applyInterestMethod increments correctly when deposits are over $20 and makes sure the interest rate is only applied on the fifth deposit
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testApplyInterestRateIncrements() throws SQLException, ScriptException{
+    //Initilize user in database
+    int CUSTOMER1_BALANCE_IN_PENNIES = 50000;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    //Initializing users for the test
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+
+    CUSTOMER1.setAmountToDeposit(100);
+    controller.submitDeposit(CUSTOMER1);
+    //Checks that the num deposits for interest is incrementing
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 1);
+    assertEquals(CUSTOMER1.getBalance(), 600);
+
+    controller.submitDeposit(CUSTOMER1);
+    controller.submitDeposit(CUSTOMER1);
+    controller.submitDeposit(CUSTOMER1);
+    controller.submitDeposit(CUSTOMER1);
+    //Checks that the num deposits reset to 0 after 5 deposits and interest rate is actually applied
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 0);
+    assertEquals(CUSTOMER1.getBalance(), 1015);
+
+    controller.submitDeposit(CUSTOMER1);
+    //Make sure that the interest rate isn't applied after 5 deposits
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 1);
+    assertEquals(CUSTOMER1.getBalance(), 1115);
+
+    CUSTOMER1.setAmountToDeposit(20.01);
+    controller.submitDeposit(CUSTOMER1);
+    //Test case that deposit if 20.01
+    assertEquals(CUSTOMER1.getNumDepositsForInterest(), 2);
+  }
+
+  /*
+   * Test basic flow of buying ETH then buying SOL then selling SOL.
+   */
+  @Test
+    public void testBasicBuySellFlow() throws ScriptException  {
+         CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+        
+        cryptoTransactionTester.initialize();
+
+        CryptoTransaction buyETH = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        cryptoTransactionTester.test(buyETH);
+
+        CryptoTransaction buySOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        cryptoTransactionTester.test(buySOL);
+
+        CryptoTransaction sellSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(810)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(100)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+
+        cryptoTransactionTester.test(sellSOL);
+    }
+
+    /*
+     * Test buying BTC which isn't implemented in the system.
+     */
+    @Test
+    public void testBuyBTCInvalidCase() throws ScriptException {
+      CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+      
+      cryptoTransactionTester.initialize();
+
+      CryptoTransaction buyBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+
+        cryptoTransactionTester.test(buyBTC);
+      
+    }
+
+     /*
+     * Test selling BTC which isn't implemented in the system.
+     */
+
+    @Test
+    public void testSellBTCInvalidCase() throws ScriptException {
+      CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+      
+      cryptoTransactionTester.initialize();
+
+      CryptoTransaction sellBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+
+        cryptoTransactionTester.test(sellBTC);
+    }
 }

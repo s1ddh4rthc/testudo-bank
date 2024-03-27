@@ -1,9 +1,17 @@
 package net.testudobank.tests;
 
 import net.testudobank.CryptoPriceClient;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransaction;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransactionTestType;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransactionTester;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Collections;
+
+import javax.script.ScriptException;
 
 public class CryptoPriceClientTest {
     CryptoPriceClient cryptoPriceClient = new CryptoPriceClient();
