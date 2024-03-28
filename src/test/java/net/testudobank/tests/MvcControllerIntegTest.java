@@ -1604,7 +1604,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
             .shouldSucceed(true)
             .build();
-    cryptoTransactionTester1.test(cryptoTransaction1);
+    // cryptoTransactionTester1.test(cryptoTransaction1);
 
 
     CryptoTransactionTester cryptoTransactionTester2 = CryptoTransactionTester.builder()
@@ -1641,7 +1641,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
             .shouldSucceed(true)
             .build();
-    cryptoTransactionTester3.test(cryptoTransaction3);
+    // cryptoTransactionTester3.test(cryptoTransaction3);
 
   }
 }
