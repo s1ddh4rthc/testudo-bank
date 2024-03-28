@@ -1586,14 +1586,14 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Integration test involving buy and sell actions for multiple cryptocurrencies.
    */
   @Test
-  public void testBuyETHBuySOLSellSOLIntegTestFlow() throws ScriptException {
-    CryptoTransactionTester cryptoTransactionTester1 = CryptoTransactionTester.builder()
+  public void testBuyETHBuySOLSellSOLIntegTest() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
             .initialBalanceInDollars(1000)
-            //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.0, "ETH", 0.0))
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Map.of("SOL", 0.0, "ETH", 0.0))
+            // .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
             .build();
 
-    cryptoTransactionTester1.initialize();
+    cryptoTransactionTester.initialize();
 
     CryptoTransaction cryptoTransaction1 = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(900)
@@ -1604,15 +1604,15 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
             .shouldSucceed(true)
             .build();
-    // cryptoTransactionTester1.test(cryptoTransaction1);
+    cryptoTransactionTester.test(cryptoTransaction1);
 
 
-    CryptoTransactionTester cryptoTransactionTester2 = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(900)
-            //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.0, "ETH", 0.1))
-            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
-            .build();
-    cryptoTransactionTester2.initialize();
+    // CryptoTransactionTester cryptoTransactionTester2 = CryptoTransactionTester.builder()
+    //         .initialBalanceInDollars(900)
+    //         //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.0, "ETH", 0.1))
+    //         .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+    //         .build();
+    // cryptoTransactionTester2.initialize();
 
     CryptoTransaction cryptoTransaction2 = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(500)
@@ -1623,14 +1623,14 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
             .shouldSucceed(true)
             .build();
-    cryptoTransactionTester2.test(cryptoTransaction2);
+    cryptoTransactionTester.test(cryptoTransaction2);
 
-    CryptoTransactionTester cryptoTransactionTester3 = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(500)
-            //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.2, "ETH", 0.1))
-            .initialCryptoBalance(Collections.singletonMap("SOL", 0.2))
-            .build();
-    cryptoTransactionTester3.initialize();
+    // CryptoTransactionTester cryptoTransactionTester3 = CryptoTransactionTester.builder()
+    //         .initialBalanceInDollars(500)
+    //         //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.2, "ETH", 0.1))
+    //         .initialCryptoBalance(Collections.singletonMap("SOL", 0.2))
+    //         .build();
+    // cryptoTransactionTester3.initialize();
 
     CryptoTransaction cryptoTransaction3 = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(1100)
@@ -1641,7 +1641,55 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
             .shouldSucceed(true)
             .build();
-    // cryptoTransactionTester3.test(cryptoTransaction3);
+    cryptoTransactionTester.test(cryptoTransaction3);
 
+  }
+
+  /**
+   * Test that welcome page is reterned when attempting to buy BTC. This is 
+   * because BTC is not currently supported at TestudoBank
+   */
+  @Test
+  public void testBTCBuyInNotSupported() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(10)
+            .cryptoAmountToTransact(10)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test that welcome page is reterned when attempting to sell BTC. This is 
+   * because BTC is not currently supported at TestudoBank
+   */
+  @Test
+  public void testBTCSellInNotSupported() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("BTC", 10.0))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(10)
+            .expectedEndingCryptoBalance(10.0)
+            .cryptoAmountToTransact(1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
   }
 }
