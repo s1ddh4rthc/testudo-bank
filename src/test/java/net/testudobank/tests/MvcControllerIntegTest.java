@@ -1606,14 +1606,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction1);
 
-
-    // CryptoTransactionTester cryptoTransactionTester2 = CryptoTransactionTester.builder()
-    //         .initialBalanceInDollars(900)
-    //         //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.0, "ETH", 0.1))
-    //         .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
-    //         .build();
-    // cryptoTransactionTester2.initialize();
-
     CryptoTransaction cryptoTransaction2 = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(500)
             .expectedEndingCryptoBalance(0.2)
@@ -1624,13 +1616,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(true)
             .build();
     cryptoTransactionTester.test(cryptoTransaction2);
-
-    // CryptoTransactionTester cryptoTransactionTester3 = CryptoTransactionTester.builder()
-    //         .initialBalanceInDollars(500)
-    //         //.initialCryptoBalance(Collections.ImmutableMap.of("SOL", 0.2, "ETH", 0.1))
-    //         .initialCryptoBalance(Collections.singletonMap("SOL", 0.2))
-    //         .build();
-    // cryptoTransactionTester3.initialize();
 
     CryptoTransaction cryptoTransaction3 = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(1100)
