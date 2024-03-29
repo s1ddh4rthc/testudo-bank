@@ -1153,8 +1153,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
 
       //Send request to the Deposit Form's POST handler in MvcController
-      controller.submitDeposit(customer1DepositFormInputs);
       LocalDateTime timeOfDeposit = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      controller.submitDeposit(customer1DepositFormInputs);
 
       //Fetch customer1's data from the DB
       List<Map<String,Object>> customersData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
@@ -1218,8 +1218,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
 
       //Send request to the Deposit Form's POST handler in MvcController
-      controller.submitDeposit(customer1DepositFormInputs);
       LocalDateTime timeOfDeposit = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      controller.submitDeposit(customer1DepositFormInputs);
 
       //Fetch customer1's data from the DB
       List<Map<String,Object>> customersData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
@@ -1285,8 +1285,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
       customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
 
       //Send request to the Deposit Form's POST handler in MvcController
-      controller.submitDeposit(customer1DepositFormInputs);
       LocalDateTime timeOfDeposit = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      controller.submitDeposit(customer1DepositFormInputs);
 
       //Fetch customer1's data from the DB
       List<Map<String,Object>> customersData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
