@@ -12,9 +12,6 @@ import java.util.Map;
 
 import javax.script.ScriptException;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import net.testudobank.CryptoPriceClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,6 +26,9 @@ import org.testcontainers.jdbc.JdbcDatabaseDelegate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import net.testudobank.CryptoPriceClient;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
@@ -47,6 +47,9 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
+
+  private static double CRYPTO_PRICE_ETH = 1000;
+  private static double CRYPTO_PRICE_SOL = 100;
   
   // Spins up small MySQL DB in local Docker container
   @Container
@@ -1116,6 +1119,151 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals("account_info", returnedPage);
   }
 
+    /**
+   * 
+   * Test that interest is properly applied when 5 deposits of 20 or more are made. Tests the edge
+   * case of exactly $20.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+
+  @Test
+  public void testInterestEligibleDeposits() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 245.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Create a series of 5 deposits, all of them equal to or above 20
+    double [] customer1DepositAmounts = {21.0, 25.0, 20.01, 20.00, 55.55}; // dollar amounts (not pennies)
+    User customer1DepositFormInputs = new User();
+
+    // make deposits
+    for (double deposit : customer1DepositAmounts) {
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(deposit);
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // Get Customer Data
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer correct balance in the database
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + 141.56) * 1.015;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    int expectedNumDepositsForInterest = 0;
+    // verify customer has the correct numDepositsForInterest (0 because it got reset)
+    assertEquals(expectedNumDepositsForInterest, (int)customer1Data.get("NumDepositsForInterest"));
+
+    int expectedTransactionEntries = 6;
+    // we are expecting 6 entries to the transaction logs because the 5 deposits + 1 interest log
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(expectedTransactionEntries, transactionHistoryTableData.size());
+  }
+
+    /**
+   * 
+   * Test that when more than 5 eligible deposits are made, interest is only applied on the first 5.
+   * Also tests the edge case of deposits really close to $20 that are still above $20 ($20.01).
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testMoreThanFiveEligibleDeposits() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 185.50;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Create a series of 6 deposits, all of them equal to $20.01.
+    double [] customer1DepositAmounts = {20.01, 20.01, 20.01, 20.01, 20.01, 20.01}; // dollar amounts (not pennies)
+    User customer1DepositFormInputs = new User();
+
+    // make deposits
+    for (double deposit : customer1DepositAmounts) {
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(deposit);
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // Get Customer Data
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer has correct balance in database
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = ((CUSTOMER1_BALANCE + 100.05) * 1.015) + 20.01;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    int expectedNumDepositsForInterest = 1;
+    // Verify customer has numDepositsForInterest 1 because there is 1 "extra" deposit here of >= 20
+    assertEquals(expectedNumDepositsForInterest, (int)customer1Data.get("NumDepositsForInterest"));
+
+    int expectedTransactionEntries = 7;
+    // expecting 7 transaction logs because 6 deposits and 1 interest application
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(expectedTransactionEntries, transactionHistoryTableData.size());
+  }
+
+    /**
+   * 
+   * Test 5 deposits back to back, where 4 of them are eligible and one of them is not. 
+   * Also tests the edge case of $19.99, which should not count towards the deposits for interest.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+
+  @Test
+  public void testInterestIneligibleDeposits() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 200.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Create a series of 5 deposits, 1 less than 20 and the rest above it
+    double [] customer1DepositAmounts = {19.99, 20.01, 20.01, 20.01, 20.01}; // dollar amounts (not pennies)
+    User customer1DepositFormInputs = new User();
+    for (double deposit : customer1DepositAmounts) {
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(deposit);
+      controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    // Get Customer Data
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer has correct balance in database
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE + 100.03);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE) - 1;
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    int expectedNumDepositsForInterest = 4;
+    // should have 4 deposits for interest (first one didn't count -- $19.99 < $20)
+    assertEquals(expectedNumDepositsForInterest, (int)customer1Data.get("NumDepositsForInterest"));
+
+    int expectedTransactionEntries = 5;
+    // expecting 5 transactions, just the 5 deposits and no interest
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(expectedTransactionEntries, transactionHistoryTableData.size());
+  }
+  
+ 
   /**
    * Enum for {@link CryptoTransactionTester}
    */
@@ -1317,6 +1465,111 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
       }
     }
+  }
+
+  
+  /**
+   * Test trying to buy BTC, which is not a crypto the user should be able to purchase with our banking system;
+   * this should return the "welcome" page to the user
+   */
+  @Test
+  public void buyBTCInvalid () throws ScriptException {
+    // user has initial balance of $50000 and 0.0 ETH and 0.0 SOL
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(50000)
+    .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+    .build();
+
+    cryptoTransactionTester.initialize();
+
+    // trying to buy $2000 worth of BTC should not change the user's crypto or cash balance and should not succeed
+    CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(50000)
+            .expectedEndingCryptoBalance(0) // should not have any BTC balance
+            .cryptoPrice(20000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false) // transaction should not succeed; this will return the welcome page
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+  }
+
+    /**
+   * Test trying to sell BTC, which is not a crypto the user should be able to purchase or sell with our banking system;
+   * this should return the "welcome" page to the user
+   */
+  @Test
+  public void sellBTCInvalid () throws ScriptException {
+    // user has initial balance of $50000 and 5.0 ETH, 0.0 SOL
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(50000)
+    .initialCryptoBalance(Collections.singletonMap("ETH", 5.0))
+    .build();
+
+    cryptoTransactionTester.initialize();
+
+    // trying to sell $1000 worth of BTC should not change the user's crypto or cash balance and should not succeed
+    CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(50000)
+            .expectedEndingCryptoBalance(0) // should not get any BTC balance
+            .cryptoPrice(20000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false) // transaction should not succeed; this will return the welcome page
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+  }
+
+  /**
+   * Test that a user with no crypto initially buying ETH, then buying SOL, and then selling some of that SOL works as intended
+   */
+  @Test
+  public void buyETHbuySOLsellSOL () throws ScriptException {
+    // user has initial balance of $1000 and has 0.0 ETH and 0.0 SOL
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(1000)
+    .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+    .build();
+
+    cryptoTransactionTester.initialize();
+
+    // test buying 0.1 ETH
+    CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(CRYPTO_PRICE_ETH)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+    // test buying 1.0 SOL
+    CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(800)
+        .expectedEndingCryptoBalance(1.0)
+        .cryptoPrice(CRYPTO_PRICE_SOL)
+        .cryptoAmountToTransact(1.0)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionBuySOL);
+
+    // test selling 0.5 SOL
+    CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(850)
+            .expectedEndingCryptoBalance(0.5)
+            .cryptoPrice(CRYPTO_PRICE_SOL)
+            .cryptoAmountToTransact(0.5)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionSellSOL);
   }
 
   /**
