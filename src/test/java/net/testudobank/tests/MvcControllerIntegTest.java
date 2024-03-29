@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -1581,5 +1582,120 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+
+  /**
+   * Test when customer has no pre-existing Crypto buys ETH,
+   * buys SOL, and then sells some SOL
+   * 
+   * @throws ScriptException
+   */
+  @Test
+  public void testActionsWithETHAndSOL() throws ScriptException {
+
+    // SET UP INITIAL BALANCE OF CRYPTO
+    Map<String, Double> initialCryptoBalances = new HashMap<>();
+    initialCryptoBalances.put("ETH", 0.0);
+    initialCryptoBalances.put("SOL", 0.0);
+
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(1000)
+      .initialCryptoBalance(initialCryptoBalances)
+      .build();
+    cryptoTransactionTester.initialize();
+
+
+    // Test buying ETH with no prior crypto
+    CryptoTransaction buyETHcryptoTransaction = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(buyETHcryptoTransaction);
+
+    // Test buying SOL with no prior crypto
+    CryptoTransaction buySOLcryptoTransaction = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(700)
+        .expectedEndingCryptoBalance(0.2)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.2)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(buySOLcryptoTransaction);
+
+    // Test Selling SOL
+    CryptoTransaction sellSOLcryptoTransaction = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(800)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(true)
+        .build();
+    cryptoTransactionTester.test(sellSOLcryptoTransaction);
+      
+  }
+
+  /**
+   * Test when customer has no pre-existing Crypto buys ETH,
+   * buys SOL, and then sells some SOL
+   * 
+   * @throws ScriptException
+   */
+  @Test
+  public void testBuyInvalidCryptoCurrency() throws ScriptException {
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionBTC = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .cryptoPrice(7000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionBTC);
+
+  }
+
+
+  /**
+   * Test when customer has no pre-existing Crypto buys ETH,
+   * buys SOL, and then sells some SOL
+   * 
+   * @throws ScriptException
+   */
+  @Test
+  public void testSellInvalidCryptoCurrency() throws ScriptException {
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionBTC = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .cryptoPrice(7000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    cryptoTransactionTester.test(cryptoTransactionBTC);
+
+  }
+
   
 }
