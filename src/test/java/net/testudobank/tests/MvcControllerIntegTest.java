@@ -2,6 +2,7 @@ package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -36,6 +37,8 @@ import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 @Testcontainers
 @SpringBootTest
 public class MvcControllerIntegTest {
+  private static final double ETH_PRICE = 500;
+  private static final double SOL_PRICE = 2000;
   //// LITERAL CONSTANTS ////
   private static String CUSTOMER1_ID = "123456789";
   private static String CUSTOMER1_PASSWORD = "password";
@@ -1149,7 +1152,100 @@ public class MvcControllerIntegTest {
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
 }
+/*
+ * This test will test a user buying ETH, SOL, then selling some of their SOL. This test should work as intended.
+ */
+@Test
+public void buyETHbuySOLsellSOL() throws ScriptException{
+  //initialize user with $2000 in balance and no ETH or SOL
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(2000)
+    .initialCryptoBalance(Collections.singletonMap("ETH",0.0))
+    .build();
+  cryptoTransactionTester.initialize();
 
+  //test buying 0.1 ETH
+  CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(1950)
+    .cryptoPrice(ETH_PRICE)
+    .cryptoAmountToTransact(0.1)
+    .expectedEndingCryptoBalance(0.1)
+    .cryptoName("ETH")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+  
+  cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+  //test buying 0.5 SOL
+  CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(950)
+    .cryptoPrice(SOL_PRICE)  
+    .expectedEndingCryptoBalance(0.5)
+    .cryptoAmountToTransact(0.5)
+    .cryptoName("SOL")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+  cryptoTransactionTester.test(cryptoTransactionBuySOL);
+
+  //test selling 0.1 of SOL
+
+  CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(1150)
+    .cryptoPrice(SOL_PRICE)
+    .expectedEndingCryptoBalance(0.4)
+    .cryptoAmountToTransact(0.1)
+    .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+    .shouldSucceed(true)
+    .build();
+  cryptoTransactionTester.test(cryptoTransactionSellSOL);
+}
+/*
+ * This test will test the scenario when a user attempts to buy a cryptocurrency that our system that doesn't suport, like BTC in this case.
+ * This test should return the user back to the welcome page.
+ */
+@Test
+public void testInvalidBuyBTC() throws ScriptException{
+  //initialize user with $5000 and 0 ETH
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(50000.00)
+      .initialCryptoBalance(Collections.singletonMap("ETH", 5.0)).build();
+
+  cryptoTransactionTester.initialize();
+  //user tries to buy BTC which doesn't exist
+  CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(5000)
+    .expectedEndingCryptoBalance(0)
+    .cryptoPrice(30000)
+    .cryptoAmountToTransact(0.1)
+    .cryptoName("BTC")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(false)
+    .build();
+  cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+}
+/*
+ * This test will test the scenario when a user attempts to sell a cryptocurrency that our system doesn't support, like BTC in this case.
+ * This test should return the user back to the welcome page.
+ */
+@Test
+public void testInvalidSell() throws ScriptException{
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(1000)
+      .initialCryptoBalance(Collections.singletonMap("BTC", 5.0))
+      .build();
+  cryptoTransactionTester.initialize();
+  CryptoTransaction cryptoTransactionSellBTC = CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedEndingCryptoBalance(0)
+      .cryptoPrice(30000)
+      .cryptoAmountToTransact(3.0)
+      .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+      .shouldSucceed(false)
+      .build();
+  cryptoTransactionTester.test(cryptoTransactionSellBTC);
+}
 /**
  * This test will test a scenario where the sender sends the recipient (who currently has an overdraft balance) an amount
  * that clears the recipient's overdraft balance and deposits the remainder. 
