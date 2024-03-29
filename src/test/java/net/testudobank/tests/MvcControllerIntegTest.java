@@ -1744,7 +1744,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    }
 
   /*Test the functionality of returning a welcome page when a transaction (buy) including
-   * an invalid currency is attempted.
+   * an invalid currency (BTC) is attempted.
    */
    @Test
    public void testCryptoBuyInvalidCurrency() throws ScriptException {
@@ -1768,7 +1768,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    }
 
   /*Test the functionality of returning a welcome page when a transaction (sell) including
-   * an invalid currency is attempted.
+   * an invalid currency (BTC) is attempted.
    */
    @Test
    public void testCryptoSellnvalidCurrency() throws ScriptException {
