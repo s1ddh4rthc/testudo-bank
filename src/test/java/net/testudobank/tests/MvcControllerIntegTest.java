@@ -1319,6 +1319,97 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
   }
 
+
+  @Test
+  public void testBuyEthBuySolSellSol() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(5000)
+            .build();
+  
+    cryptoTransactionTester.initialize();
+  
+    // Buy ETH
+    CryptoTransaction buyEthTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(4000)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(10000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(buyEthTransaction);
+  
+    // Buy SOL
+    CryptoTransaction buySolTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(3500)
+            .expectedEndingCryptoBalance(10)
+            .cryptoPrice(50)
+            .cryptoAmountToTransact(10)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(buySolTransaction);
+  
+    // Sell SOL
+    CryptoTransaction sellSolTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(3750)
+            .expectedEndingCryptoBalance(5)
+            .cryptoPrice(50)
+            .cryptoAmountToTransact(5)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(sellSolTransaction);
+  }
+  
+  /**
+   * Test that ensures the "welcome" page is returned when a user attempts to buy unsupported cryptocurrency (BTC).
+   */
+  @Test
+  public void testBuyBtcInvalid() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+  
+    cryptoTransactionTester.initialize();
+  
+    CryptoTransaction buyBtcTransaction = CryptoTransaction.builder()
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+  
+    cryptoTransactionTester.test(buyBtcTransaction);
+  }
+  
+  /**
+   * Test that ensures the "welcome" page is returned when a user attempts to sell unsupported cryptocurrency (BTC).
+   */
+  @Test
+  public void testSellBtcInvalid() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+  
+    cryptoTransactionTester.initialize();
+  
+    CryptoTransaction sellBtcTransaction = CryptoTransaction.builder()
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+  
+    cryptoTransactionTester.test(sellBtcTransaction);
+  }
+  
+
+
+
   /**
    * Test that no crypto buy transaction occurs when the user password is incorrect
    */
