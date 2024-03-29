@@ -42,6 +42,7 @@ public class MvcController {
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
+  public static String TRANSACTION_HISTORY_INTEREST_APPLIED_TO_BALANCE_ACTION = "InterestAppliedToBalance";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -798,16 +799,59 @@ public class MvcController {
     }
   }
 
-  /**
+    /**
+   * HTML POST request handler that uses user input from Deposit Form page to determine 
+   * if interest should be applied to the user's balance.
    * 
+   * If the user's deposit amount is greater than or equal to $20, the number of deposits is incremented 
+   * and that count is checked to see if it is a multiple of 5.  If it is and the user doesn't 
+   * have an overdraft balance, then the balance interest rate is applied and the 
+   * customer balance and transaction history log are updated accordingly.  
+   * 
+   * If the interest rate is applied, then the user is redirected to the "account_info" page.
+   * 
+   * If the deposit is less than $20, the number of deposits isn't a multiple of 5 or the user
+   * has an overdraft balance, then the user is redirected to the "welcome" page.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    double userDepositAmt = user.getAmountToDeposit();
+    String userID = user.getUsername();
+    int numberOfUserDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    return "welcome";
+    // checks if deposit amount qualifies to be added to the count of 5 desposits before interest is applied
+    if (userDepositAmt < 20) {
+      return "welcome";
+    }
 
+    numberOfUserDepositsForInterest++;
+
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfUserDepositsForInterest);
+
+    // checks if there have been 5 new deposits and interest can be applied
+    if (numberOfUserDepositsForInterest % 5 != 0) {
+      return "welcome";
+    }
+
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+
+    // checks to make sure the user doesn't have overdraft fees and qualifies for interest to be applied
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }  
+
+    // applies interest and updates user cash balance and transaction history log accordingly
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int interestRateAppliedToUserCashBalanceInPennies = userCashBalanceInPennies * BALANCE_INTEREST_RATE;
+    int interestAmtInPennies = interestRateAppliedToUserCashBalanceInPennies - userCashBalanceInPennies;
+
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestAmtInPennies);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED_TO_BALANCE_ACTION,interestAmtInPennies);
+ 
+    return "account_info";
   }
 
 }
