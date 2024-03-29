@@ -1661,7 +1661,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false) // false indicates that we are directed to the "false" page
             .build();
     cryptoTransactionTester.test(cryptoTransactionBuyBTC);
-
   }
 
   @Test
@@ -1678,7 +1677,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
             .build();
     cryptoTransactionTester.initialize();
-    // Buy ETH
+    // SELL ETH
     CryptoTransaction cryptoTransactionSellBTC = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(1000)
             .expectedEndingCryptoBalance(0.0)
@@ -1686,7 +1685,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoAmountToTransact(0.1)
             .cryptoName("BTC")
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(false) // false indicates that we are directed to the "false" page
+            .shouldSucceed(false) // false indicates that we are directed to the "welcome" page
             .build();
     cryptoTransactionTester.test(cryptoTransactionSellBTC);
   }
