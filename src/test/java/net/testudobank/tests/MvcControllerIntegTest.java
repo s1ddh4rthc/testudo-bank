@@ -1117,6 +1117,207 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
+   * This test verifies interest will be paid after 5 deposits when each is over the minimum threshold of $20.
+   * 
+   * A customer will make 5 deposits each over $20, and the interest rate should be applied to the customer's balance
+   * only after the 5th deposit. The final balance should reflect the deposits added to the initial balance with the
+   * interest applied. The most recent transaction in the customer's transaction history should be a deposit of the
+   * expected interest.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestPaidAfter5Deposits() throws SQLException, ScriptException {
+    //Initialize customer1 and add them to the DB
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    double CUSTOMER1_OVERDRAFT_BALANCE = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    int CUSTOMER1_NUM_INTEREST_DEPOSITS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, CUSTOMER1_NUM_INTEREST_DEPOSITS);
+
+    User customer1DepositFormInputs = new User();
+    double customer1CurrentBalanceInPennies = CUSTOMER1_BALANCE_IN_PENNIES;
+
+    //Create the desired deposit amounts for customer1, each over the $20 minimum threshold
+    double[] CUSTOMER1_DEPOSIT_AMT_SEQUENCE = {20, 30, 75, 40.50, 62.70};
+    double INTEREST_RATE = 1.015;
+    int NUM_DEPOSITS_BEFORE_INTEREST = 5;
+
+    for (int depositNum = 1; depositNum <= CUSTOMER1_DEPOSIT_AMT_SEQUENCE.length; depositNum++) {
+      
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
+
+      //Send request to the Deposit Form's POST handler in MvcController
+      LocalDateTime timeOfDeposit = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      //Fetch customer1's data from the DB
+      List<Map<String,Object>> customersData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+      Map<String,Object> customer1Table = customersData.get(0);
+
+      //Add the new deposit to customer1's current balance
+      customer1CurrentBalanceInPennies += MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
+
+      //Verify that the NumDepositsForInterest field reflects the number of deposits that have been made toward the necessary 5 for interest
+      assertEquals(depositNum % NUM_DEPOSITS_BEFORE_INTEREST, (int)customer1Table.get("NumDepositsForInterest"));
+
+      if (depositNum % NUM_DEPOSITS_BEFORE_INTEREST == 0) {
+        int expectedInterestInPennies = (int)((INTEREST_RATE - 1) * customer1CurrentBalanceInPennies);
+        customer1CurrentBalanceInPennies += expectedInterestInPennies;
+
+        //Verify that the expected interest was posted to the transaction history table after 5 deposits.
+        Map<String, Object> customer1InterestTransaction = transactionData.get(depositNum);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1InterestTransaction, timeOfDeposit, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, expectedInterestInPennies);
+
+        //Verify that the expected interest was added to the balance
+        assertEquals((int)customer1Table.get("Balance"), customer1CurrentBalanceInPennies);
+      }
+    }
+  }
+
+  /**
+   * This test verifies that only deposits above the minimum threshold of $20 count toward the 5 deposits necessary for interest to be applied.
+   * 
+   * The customer makes a series of deposits, some over $20 and others not. The interest should only be applied after 5 deposits are made that
+   * are above the threshold.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void interestsOnlyPaidIfDepositsEligible() throws SQLException, ScriptException {
+    //Initialize customer1 and add them to the DB
+    double CUSTOMER1_BALANCE = 200;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    double CUSTOMER1_OVERDRAFT_BALANCE = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    int CUSTOMER1_NUM_INTEREST_DEPOSITS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, CUSTOMER1_NUM_INTEREST_DEPOSITS);
+
+    User customer1DepositFormInputs = new User();
+    double customer1CurrentBalanceInPennies = CUSTOMER1_BALANCE_IN_PENNIES;
+    int expectedNumDepositsForInterest = 0;
+
+    //Create the desired deposit amounts for customer1, some over the $20 threshold and some not
+    double[] CUSTOMER1_DEPOSIT_AMT_SEQUENCE = {5, 40, 1, 20, 25, 60, 19, 31};
+    int MIN_THRESHOLD_FOR_INTEREST = 20;
+    double INTEREST_RATE = 1.015;
+    int NUM_DEPOSITS_BEFORE_INTEREST = 5;
+
+    for (int depositNum = 1; depositNum <= CUSTOMER1_DEPOSIT_AMT_SEQUENCE.length; depositNum++) {
+      
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
+
+      //Send request to the Deposit Form's POST handler in MvcController
+      LocalDateTime timeOfDeposit = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      //Fetch customer1's data from the DB
+      List<Map<String,Object>> customersData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+      Map<String,Object> customer1Table = customersData.get(0);
+
+      //Add the new deposit to customer1's current balance
+      customer1CurrentBalanceInPennies += MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
+
+      if (CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1] >= MIN_THRESHOLD_FOR_INTEREST) {
+        expectedNumDepositsForInterest++;
+      }
+
+      //Verify that the NumDepositsForInterest field reflects the number of deposits over the minimum threshold that have been made toward the necessary 5 for interest
+      assertEquals(expectedNumDepositsForInterest % NUM_DEPOSITS_BEFORE_INTEREST, (int)customer1Table.get("NumDepositsForInterest"));
+
+      if (expectedNumDepositsForInterest == NUM_DEPOSITS_BEFORE_INTEREST) {
+        int expectedInterestInPennies = (int)((INTEREST_RATE - 1) * customer1CurrentBalanceInPennies);
+        customer1CurrentBalanceInPennies += expectedInterestInPennies;
+
+        //Verify that the expected interest was posted to the transaction history table after 5 deposits.
+        Map<String, Object> customer1InterestTransaction = transactionData.get(depositNum);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1InterestTransaction, timeOfDeposit, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, expectedInterestInPennies);
+
+        //Verify that the expected interest was added to the balance
+        assertEquals((int)customer1Table.get("Balance"), customer1CurrentBalanceInPennies);
+      }
+    }
+  }
+
+  /**
+   * This test verifies that the count of deposits made toward the 5 required for interest is reset after the 5 are reached.
+   * 
+   * The customer makes 6 desposits, each over the $20 threshold. Interest should be applied after the 5th only, and the number
+   * of deposits made toward the 5 for interest should be reset to 0.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testNumDepositsForInterestResets() throws SQLException, ScriptException {
+    //Initialize customer1 and add them to the DB
+    double CUSTOMER1_BALANCE = 500;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    double CUSTOMER1_OVERDRAFT_BALANCE = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    int CUSTOMER1_NUM_INTEREST_DEPOSITS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, CUSTOMER1_NUM_INTEREST_DEPOSITS);
+
+    User customer1DepositFormInputs = new User();
+    double customer1CurrentBalanceInPennies = CUSTOMER1_BALANCE_IN_PENNIES;
+
+    //Create the desired deposit amounts for customer1, each over the $20 minimum threshold
+    double[] CUSTOMER1_DEPOSIT_AMT_SEQUENCE = {20, 75.50, 40, 41.61, 100.70, 30.11};
+    double INTEREST_RATE = 1.015;
+    int NUM_DEPOSITS_BEFORE_INTEREST = 5;
+
+    for (int depositNum = 1; depositNum <= CUSTOMER1_DEPOSIT_AMT_SEQUENCE.length; depositNum++) {
+      
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
+
+      //Send request to the Deposit Form's POST handler in MvcController
+      LocalDateTime timeOfDeposit = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      controller.submitDeposit(customer1DepositFormInputs);
+
+      //Fetch customer1's data from the DB
+      List<Map<String,Object>> customersData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+      Map<String,Object> customer1Table = customersData.get(0);
+
+      //Add the new deposit to customer1's current balance
+      customer1CurrentBalanceInPennies += MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_DEPOSIT_AMT_SEQUENCE[depositNum - 1]);
+
+      //Verify that the NumDepositsForInterest field reflects the number of deposits that have been made toward the necessary 5 for interest
+      assertEquals(depositNum % NUM_DEPOSITS_BEFORE_INTEREST, (int)customer1Table.get("NumDepositsForInterest"));
+
+      if (depositNum % NUM_DEPOSITS_BEFORE_INTEREST == 0) {
+        int expectedInterestInPennies = (int)((INTEREST_RATE - 1) * customer1CurrentBalanceInPennies);
+        customer1CurrentBalanceInPennies += expectedInterestInPennies;
+
+        //Verify that the expected interest was posted to the transaction history table after 5 deposits.
+        Map<String, Object> customer1InterestTransaction = transactionData.get(depositNum);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1InterestTransaction, timeOfDeposit, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, expectedInterestInPennies);
+
+        //Verify that the expected interest was added to the balance
+        assertEquals((int)customer1Table.get("Balance"), customer1CurrentBalanceInPennies);
+      }
+      else {
+        //Verify that no interest was added to the balance.
+        assertEquals((int)customer1Table.get("Balance"), customer1CurrentBalanceInPennies);
+      }
+    }
+  }
+
+  /**
    * Enum for {@link CryptoTransactionTester}
    */
   @AllArgsConstructor
