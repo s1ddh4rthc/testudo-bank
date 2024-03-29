@@ -29,6 +29,8 @@ import org.testcontainers.jdbc.JdbcDatabaseDelegate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import com.github.dockerjava.zerodep.shaded.org.apache.commons.codec.digest.Crypt;
+
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
@@ -1317,6 +1319,113 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
       }
     }
+  }
+
+  /**
+   * Test the case where user is buys ETH and SOL.
+   * Test when user sells bought SOL cryptocurrency. ETH and SOL are supported coins, test should pass
+   * 
+   * @throws ScriptException
+   */
+  @Test
+  public void testCryptoBuyAndSell() throws ScriptException {
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+          .initialBalanceInDollars(1000)
+          .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+          .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionEthereumBuy = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(900)
+          .expectedEndingCryptoBalance(1)
+          .cryptoPrice(100)
+          .cryptoAmountToTransact(1)
+          .cryptoName("ETH")
+          .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+          .shouldSucceed(true)
+          .build();
+
+    cryptoTransactionTester.test(cryptoTransactionEthereumBuy);
+
+    CryptoTransaction cryptoTransactionSolanaBuy = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(850)
+          .expectedEndingCryptoBalance(1)
+          .cryptoPrice(50)
+          .cryptoAmountToTransact(1)
+          .cryptoName("SOL")
+          .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+          .shouldSucceed(true)
+          .build();
+
+    cryptoTransactionTester.test(cryptoTransactionSolanaBuy);
+
+    CryptoTransaction cryptoTransactionSolanaSell = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(900)
+          .expectedEndingCryptoBalance(0)
+          .cryptoPrice(50)
+          .cryptoAmountToTransact(1)
+          .cryptoName("SOL")
+          .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+          .shouldSucceed(true)
+          .build();
+
+    cryptoTransactionTester.test(cryptoTransactionSolanaSell);
+  }
+
+  /**
+   * Test the case where the user tries to buy BTC. BTC is not supported by Testudo Bank.
+   * 
+   * @throws ScriptException
+   */
+  @Test
+  public void testInvalidBTCBuy() throws ScriptException {
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+          .initialBalanceInDollars(1000)
+          .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+          .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(1000)
+          .cryptoPrice(1000)
+          .cryptoAmountToTransact(0.1)
+          .cryptoName("BTC")
+          .validPassword(true)
+          .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+          .shouldSucceed(false)
+          .build();
+    cryptoTransactionTester.test(cryptoTransaction); 
+  }
+
+  /**
+   * Test the case where the user tries to sell BTC. BTC is not supported by Testudo Bank and test should fail 
+   * 
+   * @throws ScriptException
+   */
+  @Test
+  public void testInvalidBTCSell() throws ScriptException {
+
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+          .initialBalanceInDollars(1000)
+          .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+          .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(1000)
+          .cryptoPrice(1000)
+          .cryptoAmountToTransact(0.1)
+          .cryptoName("BTC")
+          .validPassword(true)
+          .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+          .shouldSucceed(false)
+          .build();
+    cryptoTransactionTester.test(cryptoTransaction); 
   }
 
   /**
