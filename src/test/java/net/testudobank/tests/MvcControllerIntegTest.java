@@ -1834,6 +1834,7 @@ public class MvcControllerIntegTest {
      * Test that no buy transaction occurs when the cryptocurrency price cannot be
      * obtained
      */
+    /* to commit */
     @Test
     public void testCryptoBuyInvalidPrice() throws ScriptException {
         CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
