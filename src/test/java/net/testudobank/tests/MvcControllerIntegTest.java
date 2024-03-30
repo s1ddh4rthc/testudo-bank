@@ -1711,14 +1711,14 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   public void testBuyETHBuySOLSellSOLUserFlow() throws ScriptException {
     CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
             .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Map.of("ETH", 0.1, "SOL", 0.0))
+            .initialCryptoBalance(Map.of("ETH", 0.0, "SOL", 0.0))
             .build();
 
     cryptoTransactionTester.initialize();
 
     CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(900)
-            .expectedEndingCryptoBalance(0.2)
+            .expectedEndingCryptoBalance(0.1)
             .cryptoPrice(1000)
             .cryptoAmountToTransact(0.1)
             .cryptoName("ETH")
