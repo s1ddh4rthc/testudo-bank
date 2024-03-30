@@ -1583,6 +1583,100 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
+   * Test buying and then selling of cryptocurrency
+      */
+  @Test
+  public void testCryptoBuyThenSell() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(1000)
+    .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+    .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+    .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(950)
+    .expectedEndingCryptoBalance(0.1)
+    .cryptoPrice(500)
+    .cryptoAmountToTransact(0.1)
+    .cryptoName("ETH")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+    cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+    CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(900)
+    .expectedEndingCryptoBalance(0.1)
+    .cryptoPrice(500)
+    .cryptoAmountToTransact(0.1)
+    .cryptoName("SOL")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+    cryptoTransactionTester.test(cryptoTransactionBuySOL);
+
+    CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(950)
+    .expectedEndingCryptoBalance(0.0)
+    .cryptoPrice(500)
+    .cryptoAmountToTransact(0.1)
+    .cryptoName("SOL")
+    .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+    .shouldSucceed(true)
+    .build();
+    cryptoTransactionTester.test(cryptoTransactionSellSOL);
+
+  }
+
+/**
+   * Test that no buy transaction occurs when the cryptocurrency is not supported
+   */
+  @Test
+  public void testCryptoBuyUnsupported() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }  
+
+/**
+   * Test that no sell transaction occurs when the cryptocurrency is not supported
+   */
+  @Test
+  public void testCryptoSellUnsupported() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0.0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }  
+
+  /**
    * Test that interest is being applied properly after the specified number of transactions needed
    */
   
