@@ -251,6 +251,11 @@ public class MvcController {
     return dateTime;
   }
 
+  // Converts dollar amounts in frontend to penny representation in backend MySQL DB
+  private static int applyInterestRateToPennyAmount(int pennyAmount, double interestRate) {
+    return (int) (pennyAmount * interestRate);
+  }
+
   // HTML POST HANDLERS ////
 
   /**
@@ -339,11 +344,19 @@ public class MvcController {
       // add any excess deposit amount to main balance in Customers table
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
+        // if the balance increase is over $20, increment num deposits for use in calculating interest
+        if (mainBalanceIncreaseAmtInPennies > 2000) {
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1));
+        }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      // if the deposit amount is over $20, increment num deposits for use in calculating interest
+      if (userDepositAmtInPennies > 2000) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1));
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -358,7 +371,9 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()) == 5) {
+      applyInterest(user); 
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -410,7 +425,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies, INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -802,12 +817,21 @@ public class MvcController {
    * 
    * 
    * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   * @return "account_info" after applying interest.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
-    return "welcome";
-
+      String userID = user.getUsername();
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      // need to apply interest 
+      int customerBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, applyInterestRateToPennyAmount(customerBalanceInPennies, BALANCE_INTEREST_RATE));
+      int updatedBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestAmtInPennies = updatedBalance - customerBalanceInPennies;
+      // Adds deposit to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmtInPennies);
+      // Reset num deposits back to 0 in database
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      return "account_info";
   }
 
 }
