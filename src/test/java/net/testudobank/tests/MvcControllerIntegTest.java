@@ -42,6 +42,7 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER1_FIRST_NAME = "Foo";
   private static String CUSTOMER1_LAST_NAME = "Bar";
   public static long REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS = 1L;
+  private static double BALANCE_INTEREST_RATE = 1.015;
 
   private static String CUSTOMER2_ID = "987654321";
   private static String CUSTOMER2_PASSWORD = "password";
@@ -137,6 +138,52 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
   }
+
+    /**
+   * Verify the customer balance receives a 1.5% interest rate after every five deposits.
+   *
+   * @throws SQLException if there is an error in SQL execution.
+   * @throws ScriptException if there is an error in executing database scripts.
+   */
+  @Test
+  public void testBalanceInterestAfter5Deposits() throws SQLException, ScriptException {
+      double initialBalance = 1000.0;
+      int initialBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(initialBalance);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, initialBalanceInPennies, 0);
+
+      double depositAmount = 100.0;
+      performMultipleDeposits(CUSTOMER1_ID, CUSTOMER1_PASSWORD, depositAmount, 5);
+
+      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      Map<String,Object> customer1Data = customersTableData.get(0);
+
+      double expectedBalanceAfter5Deposits = (int)((initialBalance * 100 + 5 * depositAmount * 100) * BALANCE_INTEREST_RATE);
+      assertEquals(expectedBalanceAfter5Deposits, (int)customer1Data.get("Balance"));
+
+      depositAmount = 20.0;
+      performMultipleDeposits(CUSTOMER1_ID, CUSTOMER1_PASSWORD, depositAmount, 5);
+
+      customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      customer1Data = customersTableData.get(0);
+
+      double expectedBalanceAfter10Deposits = (int)((expectedBalanceAfter5Deposits + 5 * depositAmount * 100) * BALANCE_INTEREST_RATE);
+      assertEquals(expectedBalanceAfter10Deposits, (int)customer1Data.get("Balance"));
+    }
+
+    private void performMultipleDeposits(String customerId, String password, double amountToDeposit, int numberOfDeposits) {
+        for (int i = 0; i < numberOfDeposits; i++) {
+            User depositFormInputs = createDepositFormInputs(customerId, password, amountToDeposit);
+            controller.submitDeposit(depositFormInputs);
+        }
+    }
+
+    private User createDepositFormInputs(String customerId, String password, double amountToDeposit) {
+        User depositFormInputs = new User();
+        depositFormInputs.setUsername(customerId);
+        depositFormInputs.setPassword(password);
+        depositFormInputs.setAmountToDeposit(amountToDeposit);
+        return depositFormInputs;
+    }
 
   /**
    * Verifies the simplest withdraw case.
@@ -1317,6 +1364,99 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
       }
     }
+  
+    // Buy ETH, Buy SOL, Sell SOL sequence integration test
+    @Test
+    public void testBuyEthBuySolSellSolSequence() throws Exception {
+        CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(10000) 
+            .build();
+
+        tester.initialize(); 
+
+        // Buy ETH
+        CryptoTransaction buyEth = CryptoTransaction.builder()
+            .cryptoName("ETH")
+            .cryptoPrice(2000) 
+            .cryptoAmountToTransact(1) 
+            .expectedEndingBalanceInDollars(8000) 
+            .expectedEndingCryptoBalance(1) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        tester.test(buyEth);
+
+        // Buy SOL
+        CryptoTransaction buySol = CryptoTransaction.builder()
+            .cryptoName("SOL")
+            .cryptoPrice(100)
+            .cryptoAmountToTransact(10) 
+            .expectedEndingBalanceInDollars(7000) 
+            .expectedEndingCryptoBalance(10) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        tester.test(buySol);
+
+        // Sell SOL
+        CryptoTransaction sellSol = CryptoTransaction.builder()
+            .cryptoName("SOL")
+            .cryptoPrice(100) 
+            .cryptoAmountToTransact(5) 
+            .expectedEndingBalanceInDollars(7500) 
+            .expectedEndingCryptoBalance(5) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+
+        tester.test(sellSol);
+    }
+
+    // Buy BTC Invalid Case
+    @Test
+    public void testBuyBtcInvalidCase() throws ScriptException {
+        CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+        tester.initialize(); // Initialize the database for the test
+
+        CryptoTransaction buyBtc = CryptoTransaction.builder()
+            .cryptoName("BTC")
+            .cryptoPrice(10000)
+            .cryptoAmountToTransact(0.1) 
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false) 
+            .build();
+
+        tester.test(buyBtc);
+    }
+
+    // Sell BTC Invalid Case
+    @Test
+    public void testSellBtcInvalidCase() throws ScriptException {
+        CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000) 
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.1))
+            .build();
+
+        tester.initialize(); 
+
+        CryptoTransaction sellBtc = CryptoTransaction.builder()
+            .cryptoName("BTC")
+            .cryptoPrice(10000)
+            .cryptoAmountToTransact(0.1) 
+            .expectedEndingBalanceInDollars(1000) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false) 
+            .build();
+
+        tester.test(sellBtc);
+    }
+
   }
 
   /**
