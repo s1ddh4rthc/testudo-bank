@@ -805,9 +805,36 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
+    // Ensure the user has a positive balance
+    if (currentBalanceInPennies > 0 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0) {
+        // Check if the deposit amount is at least $20
+        if (user.getAmountToDeposit() >= 20) {
+            // Retrieve the number of qualifying deposits made so far, then increment it (since this will be a valid transaction)
+            int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+            numDepositsForInterest += 1; 
+
+            // Apply interest on every 5th qualifying deposit
+            if (numDepositsForInterest >= 5) {
+                numDepositsForInterest = 0;
+                // Calculate new balance with interest applied
+                double interestRate = BALANCE_INTEREST_RATE; // 1.5% interest rate
+                int newBalanceInPennies = (int) (currentBalanceInPennies * interestRate);
+                // Update the user's balance to reflect the interest application
+                TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalanceInPennies);
+                // Log the interest application in the transaction history
+                int interestAppliedInPennies = newBalanceInPennies - currentBalanceInPennies;
+                String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+                TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, "deposit", interestAppliedInPennies);
+            }
+            // Update the deposit count for the user
+            TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest);
+            return "account_info";
+        }
+    }
     return "welcome";
-
   }
 
 }

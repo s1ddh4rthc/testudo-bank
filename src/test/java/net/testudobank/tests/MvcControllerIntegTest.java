@@ -1581,5 +1581,190 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+   /**
+   * Helpers to quickly deposit into accounts and assert that the transactions went through and that the new interest feature works.
+   */
+
+  private void performDeposits(int numberOfDeposits, double[] amounts) throws SQLException, ScriptException {
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    // Deposits a determined amount of transactions to user.
+    for (int i = 0; i < numberOfDeposits; i++) {
+        user.setAmountToDeposit(amounts[i]);
+        controller.submitDeposit(user);
+    }
+}
+
+private void performDepositAndCheckInterest(double depositAmount, boolean shouldApplyInterest) throws SQLException, ScriptException {
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(depositAmount);
+    controller.submitDeposit(user);
+
+    Map<String,Object> customerData = jdbcTemplate.queryForMap("SELECT * FROM Customers WHERE CustomerID=?", CUSTOMER1_ID);
+    int expectedNumOfTransactions = shouldApplyInterest ? 6 : 7;
+    List<Map<String,Object>> transactionHistory = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory WHERE CustomerID=?", CUSTOMER1_ID);
+
+    // Assert on the number of transactions and if interest was applied
+    assertEquals(expectedNumOfTransactions, transactionHistory.size());
+    if (shouldApplyInterest) {
+        double expectedBalance = (123.45 + depositAmount) * 1.015;
+        assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedBalance), customerData.get("Balance"));
+    } else {
+        double expectedBalance = 123.45 + depositAmount;
+        assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedBalance), customerData.get("Balance"));
+        assertEquals(1, customerData.get("NumDepositsForInterest"));
+    }
+}
+
+   /**
+   * Checks if the interest feature works as intended, on the fifth eligible transaction.
+   */
+  @Test
+  public void testInterestAppliedOnFifthValidDeposit() throws SQLException, ScriptException {
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, 
+                                                    CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, 
+                                                    MvcControllerIntegTestHelpers.convertDollarsToPennies(123.45), 0);
   
+      // Perform four valid deposits
+      performDeposits(4, new double[]{22.34, 32.34, 52.34, 30.34});
+  
+      // Perform the fifth deposit and check if interest was applied
+      performDepositAndCheckInterest(20.34, true);
+  }
+  
+   /**
+   * Checks if the interest feature works as intended, and will not apply interest on transactions that are not the fifth.
+   */
+  @Test
+  public void testInterestNotAppliedAfterFifthDeposit() throws SQLException, ScriptException {
+      // Setup the customer and perform five deposits to apply interest
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, 
+                                                    CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, 
+                                                    MvcControllerIntegTestHelpers.convertDollarsToPennies(123.45), 0);
+      performDeposits(5, new double[]{22.34, 32.34, 52.34, 30.34, 20.34});
+  
+      // Perform a sixth deposit and check that interest is not applied
+      performDepositAndCheckInterest(20.01, false);
+  }
+  /**
+   * Tests if invalid deposits will not count toward the interest reward, doing so with transactions that are just under $20.
+   */
+  @Test
+  public void testInterestNotAppliedForDepositJustUnderTwentyDollars() throws SQLException, ScriptException {
+      // Setup the customer and perform four valid deposits
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, 
+                                                    CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, 
+                                                    MvcControllerIntegTestHelpers.convertDollarsToPennies(123.45), 0);
+      performDeposits(4, new double[]{22.34, 32.34, 52.34, 30.34});
+  
+      // Perform a deposit just under $20 and check that no interest is applied
+      performDepositAndCheckInterest(19.99, false);
+  }
+
+  /**
+   * Checks the flow where a customer with no pre-existing cryptocurrency buys ETH, then buys SOL, and finally sells a portion of their SOL holdings.
+   */
+@Test
+public void testBuyEthBuySolSellSolUserFlow() throws SQLException, ScriptException {
+    // Initialize tester with $1000 balance, no initial crypto holdings.
+    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+    tester.initialize();
+
+    // First, buy ETH with $100, checking the final balance and ETH holdings.
+    CryptoTransaction buyETH = CryptoTransaction.builder()
+            .cryptoName("ETH")
+            .cryptoPrice(1000) // Assuming price of $1000 per ETH for simplicity.
+            .cryptoAmountToTransact(0.1) // Buying 0.1 ETH.
+            .expectedEndingBalanceInDollars(900) // $100 spent on ETH.
+            .expectedEndingCryptoBalance(0.1) // Ending up with 0.1 ETH.
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    tester.test(buyETH);
+
+    // Update tester to reflect new state after buying ETH.
+    tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(900)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+            .build();
+    tester.initialize();
+
+    // Then, buy SOL with another $100, checking the balance and SOL holdings.
+    CryptoTransaction buySOL = CryptoTransaction.builder()
+            .cryptoName("SOL")
+            .cryptoPrice(1000) // Assuming price of $1000 per SOL for simplicity.
+            .cryptoAmountToTransact(0.1) // Buying 0.1 SOL.
+            .expectedEndingBalanceInDollars(800) // Additional $100 spent on SOL.
+            .expectedEndingCryptoBalance(0.1) // Ending up with 0.1 SOL.
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    tester.test(buySOL);
+
+    // Finally, sell the 0.1 SOL bought earlier, checking final cash balance and SOL holdings.
+    CryptoTransaction sellSOL = CryptoTransaction.builder()
+            .cryptoName("SOL")
+            .cryptoPrice(1000) // Selling price of $1000 per SOL.
+            .cryptoAmountToTransact(0.1) // Selling 0.1 SOL.
+            .expectedEndingBalanceInDollars(900) // $100 gained from selling SOL.
+            .expectedEndingCryptoBalance(0) // All SOL holdings sold.
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    tester.test(sellSOL);
+}
+
+  /**
+   * Checks that an attempt to buy BTC will redirect the user to the "welcome" page.
+   */
+@Test
+public void testBuyBtcInvalidCase() throws SQLException, ScriptException {
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+          .initialBalanceInDollars(1000)
+          .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+          .build();
+
+  cryptoTransactionTester.initialize();
+
+  CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+          .expectedEndingBalanceInDollars(1000)
+          .expectedEndingCryptoBalance(0.1)
+          .cryptoPrice(1000)
+          .cryptoAmountToTransact(0.1)
+          .cryptoName("BTC")
+          .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+          .shouldSucceed(false)
+          .build();
+  cryptoTransactionTester.test(cryptoTransaction);
+}
+
+  /**
+   * Checks that an attempt to sell BTC will redirect the user to the "welcome" page.
+   */
+@Test
+public void testSellBtcInvalidCase() throws SQLException, ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+}
 }
