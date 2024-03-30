@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -1581,5 +1582,100 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
-  
+    /*
+ * Tests the situation where a user buys ETH, buys SOL and then sells some of their SOL.
+ */
+
+ @Test
+ public void testBuyingAndSellingUserFlow() throws ScriptException {
+
+   //Initializing 0 for customers ETH and SOL balance
+
+   Map<String,Double> initialCryptoBal = new HashMap<>();
+   initialCryptoBal.put("ETH", 0.0);
+   initialCryptoBal.put("SOL", 0.0);
+
+   CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+           .initialBalanceInDollars(1000)
+           .initialCryptoBalance(initialCryptoBal)
+           .build();
+
+   cryptoTransactionTester.initialize();
+
+   // Buying ETH through transaction
+
+   CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+           .expectedEndingBalanceInDollars(900)
+           .expectedEndingCryptoBalance(0.1)
+           .cryptoPrice(1000)
+           .cryptoAmountToTransact(0.1)
+           .cryptoName("ETH")
+           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+           .shouldSucceed(true)
+           .build();
+   cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+   // Buying SOL through transaction
+
+   CryptoTransaction cryptoTransactionBuySol = CryptoTransaction.builder()
+           .expectedEndingBalanceInDollars(800)
+           .expectedEndingCryptoBalance(0.2)
+           .cryptoPrice(500)
+           .cryptoAmountToTransact(0.2)
+           .cryptoName("SOL")
+           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+           .shouldSucceed(true)
+           .build();
+   cryptoTransactionTester.test(cryptoTransactionBuySol);
+
+   // Selling some SOL through transaction
+
+   CryptoTransaction cryptoTransactionSellSol = CryptoTransaction.builder()
+           .expectedEndingBalanceInDollars(850)
+           .expectedEndingCryptoBalance(0.1)
+           .cryptoPrice(500)
+           .cryptoAmountToTransact(0.1)
+           .cryptoName("SOL")
+           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+           .shouldSucceed(true)
+           .build();
+   cryptoTransactionTester.test(cryptoTransactionSellSol);
+
+ }
+
+ @Test
+ public void testInvalidBuyBTC() throws ScriptException {
+   CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+           .initialBalanceInDollars(1000)
+           .build();
+
+   cryptoTransactionTester.initialize();
+
+   CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+           .expectedEndingBalanceInDollars(1000)
+           .cryptoName("BTC")
+           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+           .shouldSucceed(false)
+           .build();
+   cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+
+ }
+ @Test
+ public void testInvalidSellBTC() throws ScriptException {
+   CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+           .initialBalanceInDollars(1000)
+           .build();
+
+   cryptoTransactionTester.initialize();
+
+   CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+           .expectedEndingBalanceInDollars(1000)
+           .cryptoName("BTC")
+           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+           .shouldSucceed(false)
+           .build();
+   cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+
+ }
+
 }
