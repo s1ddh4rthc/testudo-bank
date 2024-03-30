@@ -1492,13 +1492,13 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   @Test
   public void buyBTCInvalid() throws ScriptException {
     CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
+            .initialBalanceInDollars(10000)
             .build();
 
     cryptoTransactionTester.initialize();
 
     CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000) // should not change since transaction fails
+            .expectedEndingBalanceInDollars(10000) // should not change since transaction fails
             .expectedEndingCryptoBalance(0.0)
             .cryptoPrice(1000)
             .cryptoAmountToTransact(0.1)
@@ -1516,13 +1516,13 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   @Test
   public void sellBTCInvalid() throws ScriptException {
     CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
+            .initialBalanceInDollars(10000)
             .build();
 
     cryptoTransactionTester.initialize();
 
     CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(1000)
+            .expectedEndingBalanceInDollars(10000)
             .expectedEndingCryptoBalance(0.0)
             .cryptoPrice(1000)
             .cryptoAmountToTransact(0.1)
