@@ -47,7 +47,14 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
+
+  private static final double CUSTOMER1_BALANCE = 100.00;
+  private static final double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00;
+  private static final double BALANCE_INTEREST_RATE = 0.015;
   
+
+
+
   // Spins up small MySQL DB in local Docker container
   @Container
   public static MySQLContainer db = new MySQLContainer<>("mysql:5.7.37")
@@ -79,6 +86,152 @@ public class MvcControllerIntegTest {
   }
 
   //// INTEGRATION TESTS ////
+
+  /**
+  * Verifies that interest is applied every 5 transactions.
+  */
+  @Test
+  public void testInterestAppliedEveryFiveTransactions() throws SQLException, ScriptException {
+      int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+  
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+  
+      for (int i = 1; i <= 5; i++) {
+          controller.submitDeposit(customer1DepositFormInputs);
+      }
+  
+      List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      Map<String, Object> customer1Data = customersTableData.get(0);
+  
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5) * (1 + BALANCE_INTEREST_RATE);
+      int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+      assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+  }
+  
+  /**
+  * Verifies that interest is not applied for transactions after the 5th until the count resets.
+  */
+  @Test
+  public void testInterestNotAppliedAfterFifthTransaction() throws SQLException, ScriptException {
+      int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+      for (int i = 1; i <= 6; i++) {
+          controller.submitDeposit(customer1DepositFormInputs);
+      }
+
+      List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      Map<String, Object> customer1Data = customersTableData.get(0);
+
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + (CUSTOMER1_AMOUNT_TO_DEPOSIT * 5) * (1 + BALANCE_INTEREST_RATE) + CUSTOMER1_AMOUNT_TO_DEPOSIT;
+      int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+      
+      
+      assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+  }
+
+
+  /**
+  * Verifies that interest is applied only if the deposits are above $20.
+  */
+  @Test
+  public void testInterestAppliedOnlyForDepositsAboveTwenty() throws SQLException, ScriptException {
+      int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+      User customer1DepositFormInputs = new User();
+      customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+      customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1DepositFormInputs.setAmountToDeposit(25.00);
+
+      for (int i = 1; i <= 5; i++) {
+          controller.submitDeposit(customer1DepositFormInputs);
+      }
+
+      List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      Map<String, Object> customer1Data = customersTableData.get(0);
+
+      double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + (25.00 * 5) * (1 + BALANCE_INTEREST_RATE);
+      int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+      assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+  }
+
+
+
+  /**
+  * Verifies that interest is applied if the deposit is exactly $20.
+  */
+  @Test
+  public void testInterestAppliedForDepositOfTwenty() throws SQLException, ScriptException {
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(20.00);
+
+    for (int i = 1; i <= 5; i++) {
+        controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE + (20.00 * 5) * (1 + BALANCE_INTEREST_RATE);
+    int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+  }
+
+  /**
+  * Verifies that interest is not applied for deposits of $19.99 and is applied for deposits of $20.01.
+  */
+  @Test
+  public void testInterestNotAppliedForDepositsBelowTwenty() throws SQLException, ScriptException {
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(19.99);
+
+    for (int i = 1; i <= 5; i++) {
+        controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_NO_INTEREST = CUSTOMER1_BALANCE + (19.99 * 5);
+    int CUSTOMER1_EXPECTED_FINAL_BALANCE_NO_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE_NO_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_NO_INTEREST_IN_PENNIES, (int) customer1Data.get("Balance"));
+
+    customer1DepositFormInputs.setAmountToDeposit(20.01);
+
+    for (int i = 1; i <= 5; i++) {
+        controller.submitDeposit(customer1DepositFormInputs);
+    }
+
+    customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    customer1Data = customersTableData.get(0);
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_WITH_INTEREST = CUSTOMER1_EXPECTED_FINAL_BALANCE_NO_INTEREST + (20.01 * 5) * (1 + BALANCE_INTEREST_RATE);
+    int CUSTOMER1_EXPECTED_FINAL_BALANCE_WITH_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE_WITH_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_WITH_INTEREST_IN_PENNIES, (int) customer1Data.get("Balance"));
+  }
+
+
+
 
   /**
    * Verifies the simplest deposit case.
@@ -137,6 +290,10 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
   }
+
+  
+
+
 
   /**
    * Verifies the simplest withdraw case.
@@ -1581,5 +1738,101 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+  /**
+ * Test where a customer with no preexisting crpto buys ETH, buys SOL and then sells some of their SOL.
+ */
+@Test
+public void testBuyEthBuySolSellSol() throws ScriptException {
+    CryptoTransactionTester buyEthTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(5000)
+            .initialCryptoBalance(Collections.emptyMap())
+            .build();
+    buyEthTester.initialize();
+
+    CryptoTransaction buyEthTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(4000)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(10000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    buyEthTester.test(buyEthTransaction);
+
+    CryptoTransactionTester buySolTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(4000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.1))
+            .build();
+    buySolTester.initialize();
+
+    CryptoTransaction buySolTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(3000)
+            .expectedEndingCryptoBalance(200)
+            .cryptoPrice(5)
+            .cryptoAmountToTransact(200)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    buySolTester.test(buySolTransaction);
+
+    CryptoTransactionTester sellSolTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(3000)
+            .initialCryptoBalance(Collections.singletonMap("SOL", 200.0))
+            .build();
+    sellSolTester.initialize();
+
+    CryptoTransaction sellSolTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(3500)
+            .expectedEndingCryptoBalance(100)
+            .cryptoPrice(5)
+            .cryptoAmountToTransact(100)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    sellSolTester.test(sellSolTransaction);
+}
+
+/**
+ * Test  buying btc is not supported and returns the "welcome" page.
+ */
+@Test
+public void testBuyBtcInvalid() throws ScriptException {
+    CryptoTransactionTester buyBtcTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(5000)
+            .initialCryptoBalance(Collections.emptyMap())
+            .build();
+    buyBtcTester.initialize();
+
+    CryptoTransaction buyBtcTransaction = CryptoTransaction.builder()
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    buyBtcTester.test(buyBtcTransaction);
+}
+
+/**
+ * Test that selling btc is not supported and returns the "welcome" page.
+ */
+@Test
+public void testSellBtcInvalid() throws ScriptException {
+    CryptoTransactionTester sellBtcTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(5000)
+            .initialCryptoBalance(Collections.emptyMap())
+            .build();
+    sellBtcTester.initialize();
+
+    CryptoTransaction sellBtcTransaction = CryptoTransaction.builder()
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    sellBtcTester.test(sellBtcTransaction);
+}
+
   
 }
