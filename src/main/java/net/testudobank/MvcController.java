@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -181,6 +182,19 @@ public class MvcController {
 	}
 
   //// HELPER METHODS ////
+
+
+
+  /**
+   * Helper method that calculates the interest on a provided amount of
+   * money in the form of pennies.
+   * 
+   * @param pennyAmount
+   * @return interest on the provided amount of pennies.
+   */
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
 
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
@@ -357,8 +371,8 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
+    // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
   }
@@ -410,7 +424,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -799,15 +813,31 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Applies interest to entire balance every 5 valid deposits.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
+    String userID = user.getUsername();
+    double userDepositAmt = user.getAmountToDeposit();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    if (userDepositAmt >= 20 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0
+      && TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) != 0) {
+      int NumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+      // Apply interest after every 5 deposits
+      if (NumDepositsForInterest == 5) {
+        int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        int interest = (int) (currentBalance * (BALANCE_INTEREST_RATE - 1));
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interest);
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interest);
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      } else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, NumDepositsForInterest);
+      }
+      return "account_info";
+    }
     return "welcome";
-
   }
 
 }
