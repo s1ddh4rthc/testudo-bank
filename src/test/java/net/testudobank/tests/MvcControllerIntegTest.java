@@ -1988,6 +1988,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
 
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
+    
     cryptoTransaction = CryptoTransaction.builder()
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
             .expectedEndingBalanceInDollars(1000)
