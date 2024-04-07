@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -40,6 +41,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES = 20000;
+  private final static int DAYS_TO_REPAY_LOAN = 30;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -50,7 +53,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double BALANCE_INTEREST_RATE = 1.015; 
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -147,6 +150,32 @@ public class MvcController {
 	}
 
   /**
+   * HTML GET request handler that serves the "request_loan" page to the user.
+   * 
+   * @param model
+   * @return "request_loan" page
+   */
+  @GetMapping("/requestLoan")
+  public String showRequestLoanForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "requestloan_form";
+  }
+
+  /**
+   * HTML GET request handler that serves the "payloan_form" page to the user.
+   * 
+   * @param model
+   * @return "payloan_form" page
+   */
+  @GetMapping("/payLoan")
+  public String showPayLoanForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "payloan_form";
+  }
+
+  /**
    * HTML GET request handler that serves the "buycrypto_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
    * the user's input for buying cryptocurrency.
@@ -223,11 +252,20 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+    // get due date of open loan
+    String openLoanDueDate = TestudoBankRepository.getOpenLoanDueDate(jdbcTemplate, user.getUsername());
+
+    // get loan amount due
+    int loanAmountInPennies = TestudoBankRepository.getLoanAmountDueInPennies(jdbcTemplate, user.getUsername());
+    double loanAmount = loanAmountInPennies / 100.0;
+
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);
+    user.setLoanDueDate(openLoanDueDate);
+    user.setLoanAmount(loanAmount);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
@@ -621,6 +659,121 @@ public class MvcController {
     // Inserting transfer into transfer history for both customers
     TestudoBankRepository.insertRowToTransferLogsTable(jdbcTemplate, senderUserID, recipientUserID, currentTime, transferAmountInPennies);
     updateAccountInfo(sender);
+
+    return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for the Request Loan Form page.
+   * 
+   * If username and password are correct, then check if the user is eligible for a loan.
+   * A user must have an account balance of more than $200 and the requested loan amount must be less
+   * than the user's current account balance. The user must also have no outstanding loans.
+   * If the user is eligible for a loan, then add the loan to the loan table and return the
+   * "account_info" page. If the user is ineligible, return the "loan_denied" page.
+   * 
+   * @param user
+   * @return "account_info" page if loan request successful. "loan_denied" if loan user is ineligible for loan.
+   * Otherwise, direct to "welcome" page
+   */
+  @PostMapping("/requestloan")
+  public String requestLoan(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    // Invalid login handling
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    /// Ineligible user for loan handling ///
+
+    // User has outstanding loan
+    if (TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID)) {
+      return "loan_denied";
+    }
+
+    // User has less than $200 in balance
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (userBalanceInPennies < MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES) {
+      return "welcome";
+    }
+
+    // Requested loan amount is more than user balance
+    int requestedLoanAmountInPennies = convertDollarsToPennies(user.getLoanRequestAmount());
+    if (requestedLoanAmountInPennies > userBalanceInPennies) {
+      return "welcome";
+    }
+
+    // Add loan to account
+    LocalDateTime loanRequestTime = LocalDateTime.now();
+    LocalDateTime loanDueTime = loanRequestTime.plusDays(DAYS_TO_REPAY_LOAN);
+    String loanDueDate = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(loanDueTime));
+    TestudoBankRepository.insertRowToLoansTable(jdbcTemplate, userID, requestedLoanAmountInPennies, loanDueDate);
+
+    // update user account info so that loan appears in "account_info" page
+    updateAccountInfo(user);
+    
+    return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for paying off loan.
+   * 
+   * If the username and password are correct, then check if the customer has an open loan.
+   * Subtract the amount entered by the customer from their balance and from the loan amount remaining.
+   * Redirect to error page if the user attempts to submit a repayment of more than their balance.
+   * If the user attempts to pay more than what is left on the loan, then only subtract up to the remaining
+   * loan amount.
+   * If the remaining loan amount reaches zero, remove the loan from the user.
+   * 
+   * @param user
+   * @return "account_info" if repayment successful, "loan_error" if repayment criteria not met.
+   */
+  @PostMapping("/payloan")
+  public String repayLoan(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    // Invalid login handling
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    /// Invalid Loan Repayment Handling ///
+
+    // User has no outstanding loan
+    if (TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID) == false) {
+      return "payloan_error";
+    }
+
+    // User attempts to pay more than what is currently in their balance
+    int submittedLoanRepayAmountInPennies = convertDollarsToPennies(user.getLoanRepayAmount());
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    if (submittedLoanRepayAmountInPennies > userBalanceInPennies) {
+      return "payloan_error";
+    }
+
+    /// Handle loan repayment ///
+
+    // calculate amount to be decreased
+    int remainingLoanAmountInPennies = TestudoBankRepository.getLoanAmountDueInPennies(jdbcTemplate, userID);
+    int loanRepayAmountInPennies = Math.min(remainingLoanAmountInPennies, submittedLoanRepayAmountInPennies);
+    
+    // subtract repaid amount from user balance
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, loanRepayAmountInPennies);
+
+    if (loanRepayAmountInPennies == remainingLoanAmountInPennies) {
+      // remove outstanding loan
+      TestudoBankRepository.deleteRowFromLoansTable(jdbcTemplate, userID);
+    } else {
+      TestudoBankRepository.decreaseRemainingLoanAmount(jdbcTemplate, userID, loanRepayAmountInPennies);
+    }
+
+    // update user account info so that updated loan amount appears in "account_info" page
+    updateAccountInfo(user);
 
     return "account_info";
   }

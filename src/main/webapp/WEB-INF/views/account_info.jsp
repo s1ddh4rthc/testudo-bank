@@ -33,6 +33,8 @@
     <span>Username: </span><span>${user.username}</span><br/>
 		<span>Balance: $</span><span>${user.balance}</span><br/>
     <span>Overdraft Balance: $</span><span>${user.overDraftBalance}</span><br/>
+    <span>Open Loan Amount: $</span><span>${user.loanAmount}</span><br />
+    <span>Loan Due Date: </span><span>${user.loanDueDate}</span><br />
     <span>Crypto Balance in USD: $</span><span>${user.cryptoBalanceUSD}</span><br/>
     <span>Ethereum Coins Owned: </span><span>${user.ethBalance}</span><br/>
     <span>Solana Coins Owned: </span><span>${user.solBalance}</span><br/>
@@ -47,6 +49,8 @@
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/requestLoan'>Request Loan</a>
+    <a href='/payLoan'>Pay loan</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

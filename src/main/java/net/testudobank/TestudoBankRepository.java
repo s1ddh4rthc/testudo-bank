@@ -1,12 +1,16 @@
 package net.testudobank;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 
 public class TestudoBankRepository {
   public static String getCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
@@ -80,6 +84,28 @@ public class TestudoBankRepository {
     return numberOfDepositsForInterest;
   }
 
+  public static String getOpenLoanDueDate(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanDueDateSql = String.format("SELECT LoanDueDate FROM Loans WHERE CustomerID='%s';", customerID);
+    String loanDueDate;
+    try {
+      loanDueDate = jdbcTemplate.queryForObject(getLoanDueDateSql, String.class);
+    } catch (EmptyResultDataAccessException e) {
+      loanDueDate = "No open loans";
+    }
+    return loanDueDate;
+  }
+
+  public static int getLoanAmountDueInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getLoanAmountDueSql = String.format("SELECT LoanAmount FROM Loans WHERE CustomerID='%s';", customerID);
+    int loanAmount;
+    try {
+      loanAmount = jdbcTemplate.queryForObject(getLoanAmountDueSql, Integer.class);
+    } catch (EmptyResultDataAccessException e) {
+      loanAmount = 0;
+    }
+    return loanAmount;
+  }
+
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
     String customerInterestDepositsSql = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", numDepositsForInterest, customerID);
     jdbcTemplate.update(customerInterestDepositsSql);
@@ -145,6 +171,11 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceDecreaseSql);
   }
 
+  public static void decreaseRemainingLoanAmount(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
+    String loanAmountDecreaseSql = String.format("UPDATE Loans SET LoanAmount = LoanAmount - %d WHERE CustomerID='%s';", decreaseAmtInPennies, customerID);
+    jdbcTemplate.update(loanAmountDecreaseSql);
+  }
+
   public static void decreaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double decreaseAmt) {
     String balanceDecreaseSql = "UPDATE CryptoHoldings SET CryptoAmount = CryptoAmount - ? WHERE CustomerID= ? AND CryptoName= ?";
     jdbcTemplate.update(balanceDecreaseSql, decreaseAmt, customerID, cryptoName);
@@ -153,6 +184,11 @@ public class TestudoBankRepository {
   public static void deleteRowFromOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp) {
     String deleteRowFromOverdraftLogsSql = String.format("DELETE from OverdraftLogs where CustomerID='%s' AND Timestamp='%s';", customerID, timestamp);
     jdbcTemplate.update(deleteRowFromOverdraftLogsSql);
+  }
+
+  public static void deleteRowFromLoansTable(JdbcTemplate jdbcTemplate, String customerID) {
+    String deleteRowFromLoansTableSql = String.format("DELETE from Loans where CustomerID='%s';", customerID);
+    jdbcTemplate.update(deleteRowFromLoansTableSql);
   }
 
   public static void insertRowToTransferLogsTable(JdbcTemplate jdbcTemplate, String customerID, String recipientID, String timestamp, int transferAmount) {
@@ -168,6 +204,11 @@ public class TestudoBankRepository {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
   }
+
+  public static void insertRowToLoansTable(JdbcTemplate jdbcTemplate, String customerID, int loanAmount, String loanDueDate) {
+    String insertLoanSql = "INSERT INTO Loans (CustomerID, LoanAmount, LoanDueDate) VALUES (?, ?, ?)";
+    jdbcTemplate.update(insertLoanSql, customerID, loanAmount, loanDueDate);
+  }
   
   public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 
     String getCustomerIDSql =  String.format("SELECT CustomerID FROM Customers WHERE CustomerID='%s';", customerID);
@@ -176,5 +217,16 @@ public class TestudoBankRepository {
     } else {
       return false;
     }
+  }
+  
+  public static boolean doesCustomerHaveLoan(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerIDSql = String.format("SELECT CustomerID FROM Loans WHERE CustomerID='%s';", customerID);
+    String customerIDFromLoansTable;
+    try {
+      customerIDFromLoansTable = jdbcTemplate.queryForObject(getCustomerIDSql, String.class);
+    } catch (EmptyResultDataAccessException e) {
+      customerIDFromLoansTable = null;
+    }
+    return customerIDFromLoansTable != null;
   }
 }
