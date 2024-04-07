@@ -1808,6 +1808,13 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     cryptoTransactionTester.test(buyEthTransaction);
 
+    // Insert a short delay so that the timestamps of each transaction are better differentiated.
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
+
     CryptoTransaction buySolTransaction = CryptoTransaction.builder()
     .expectedEndingBalanceInDollars(800)
     .expectedEndingCryptoBalance(0.1)
@@ -1819,6 +1826,13 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     .build();
 
     cryptoTransactionTester.test(buySolTransaction);
+
+    // Insert a short delay so that the timestamps of each transaction are better differentiated.
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
 
     CryptoTransaction sellSolTransaction = CryptoTransaction.builder()
     .expectedEndingBalanceInDollars(890)
