@@ -42,8 +42,13 @@
 			<form:label path="password">Password:</form:label>
 			<form:password path="password"/><br/>		
 
-      <form:label path="amountToWithdraw">Amount to Withdraw ($):</form:label>
+      <form:label path="amountToWithdraw">Amount to Withdraw:</form:label>
 			<form:input path="amountToWithdraw"/><br/>	
+
+      <form:label path="whichCurrencyWithdraw">Currency Code (Type 'EUR' or 'YEN', leave blank if using USD):</form:label>
+			<form:input path="whichCurrencyWithdraw"/><br/>
+
+      <p>Please note that a foreign transaction fee is applied to all transactions that do not use USD.</p>
 				
 			<form:button>Withdraw</form:button>
 		</form:form>

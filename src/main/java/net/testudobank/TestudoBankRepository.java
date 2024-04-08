@@ -94,6 +94,16 @@ public class TestudoBankRepository {
     jdbcTemplate.update(insertRowToTransactionHistorySql);
   }
 
+  public static void insertRowToTransactionHistoryTableForeignTransaction(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies, String currencyCode) {
+    String insertRowToTransactionHistoryTableForeignTransaction = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d, '%s');",
+                                                              customerID,
+                                                              timestamp,
+                                                              action,
+                                                              amtInPennies,
+                                                              currencyCode
+                                                              );
+    jdbcTemplate.update(insertRowToTransactionHistoryTableForeignTransaction);
+  }
   public static void insertRowToOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int depositAmtIntPennies, int oldOverdraftBalanceInPennies, int newOverdraftBalanceInPennies) {
     String insertRowToOverdraftLogsSql = String.format("INSERT INTO OverdraftLogs VALUES ('%s', '%s', %d, %d, %d);", 
                                                         customerID,
