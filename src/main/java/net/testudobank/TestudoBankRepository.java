@@ -15,6 +15,12 @@ public class TestudoBankRepository {
     return customerPassword;
   }
 
+   public static String getUserWithdrawals(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerWithdrawalsSql = String.format("SELECT numWithdrawals FROM SavingsAccounts WHERE CustomerID='%s';", customerID);
+    String customerwithdrawals= jdbcTemplate.queryForObject(getCustomerWithdrawalsSql, String.class);
+    return customerwithdrawals;
+  }
+
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
     int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);
@@ -23,6 +29,11 @@ public class TestudoBankRepository {
 
   public static int getCustomerCashBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
     String getUserBalanceSql =  String.format("SELECT Balance FROM Customers WHERE CustomerID='%s';", customerID);
+    int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
+    return userBalanceInPennies;
+  }
+    public static int getCustomerSavingsBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getUserBalanceSql =  String.format("SELECT Balance FROM SavingsAccounts WHERE CustomerID='%s';", customerID);
     int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
     return userBalanceInPennies;
   }
@@ -128,6 +139,10 @@ public class TestudoBankRepository {
     String balanceIncreaseSql = String.format("UPDATE Customers SET Balance = Balance + %d WHERE CustomerID='%s';", increaseAmtInPennies, customerID);
     jdbcTemplate.update(balanceIncreaseSql);
   }
+    public static void increaseCustomerSavingsCashBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseSavingsAmtInPennies) {
+    String savingsBalanceIncreaseSql = String.format("UPDATE SavingsAccounts SET Balance = Balance + %d WHERE CustomerID='%s';", increaseSavingsAmtInPennies, customerID);
+    jdbcTemplate.update(savingsBalanceIncreaseSql);
+  }
 
   public static void initCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {
     // TODO: this currently does not check if row with customerID and cryptoName already exists, and can create a duplicate row!
@@ -145,6 +160,20 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceDecreaseSql);
   }
 
+  public static void decreaseCustomerSavingsBalance(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
+    String balanceDecreaseSql = String.format("UPDATE SavingsAccounts SET Balance = Balance - %d WHERE CustomerID='%s';", decreaseAmtInPennies, customerID);
+    jdbcTemplate.update(balanceDecreaseSql);
+  }
+
+  public static void increaseCustomerWithdrawals(JdbcTemplate jdbcTemplate, String customerID ) {
+    String increaseCustomerWithdrawals = String.format("UPDATE SavingsAccounts SET numWithdrawals = numWithdrawals + 1 WHERE CustomerID='%s';", customerID);
+    jdbcTemplate.update(increaseCustomerWithdrawals);
+  }
+   public static void resetCustomerWithdrawals(JdbcTemplate jdbcTemplate, String customerID ) {
+    String resetCustomerWithdrawals = String.format("UPDATE SavingsAccounts SET numWithdrawals = 0 WHERE CustomerID='%s';", customerID);
+    jdbcTemplate.update(resetCustomerWithdrawals);
+  }
+  
   public static void decreaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double decreaseAmt) {
     String balanceDecreaseSql = "UPDATE CryptoHoldings SET CryptoAmount = CryptoAmount - ? WHERE CustomerID= ? AND CryptoName= ?";
     jdbcTemplate.update(balanceDecreaseSql, decreaseAmt, customerID, cryptoName);

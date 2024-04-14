@@ -93,6 +93,19 @@ CREATE TABLE CryptoHistory (
 cursor.execute(create_cryptohistory_table_sql)
 
 
+# Make empty SavingsAccounts table
+create_savingsaccounts_table_sql = '''
+CREATE TABLE SavingsAccounts (
+  CustomerID varchar(255),
+  FirstName varchar(255),
+  LastName varchar(255),
+  Balance int,
+  numWithdrawals int
+
+);
+'''
+cursor.execute(create_savingsaccounts_table_sql)
+
 
 # The two sets created below are used to ensure that this
 # automated, randomized process does not accidentally 
@@ -122,6 +135,7 @@ for i in range(num_customers_to_add):
     customer_last_name = names.get_last_name()
     customer_balance = random.randint(100, 10000) * 100 # multiply by 100 to have a penny value of 0
     customer_password = ''.join(random.choices(string.ascii_lowercase + string.ascii_uppercase + string.digits, k = 9))
+  
     
     # add random customer ID, name, and balance to Customers table.
     # all customers start with Overdraft balance of 0
@@ -138,6 +152,19 @@ for i in range(num_customers_to_add):
                 0,
                 0)
     cursor.execute(insert_customer_sql)
+    
+    # add random customer ID,  and name, SavingsAccounts table.
+    # all customers start with Savings balance of 0
+    # all customers start with a numWithdrawls of 0
+    insert_savingsaccounts_sql = '''
+    INSERT INTO SavingsAccounts
+    VALUES  ({0},{1},{2},{3},{4});
+    '''.format("'" + customer_id + "'",
+                "'" + customer_first_name + "'",
+                "'" + customer_last_name + "'",
+                0,
+                0)
+    cursor.execute(insert_savingsaccounts_sql) 
     
     # add customer ID and password to Passwords table
     insert_password_sql = '''
