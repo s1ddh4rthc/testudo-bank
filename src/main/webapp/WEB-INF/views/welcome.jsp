@@ -45,7 +45,8 @@
     <a href='/transfer'>Transfer</a> <br/>
     <a href='/buycrypto'>Buy Cryptocurrency</a>
     <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
-
+    <a href='/purchaseCD'>Purchase Certificate of Deposit</a>
+    <a href='/redeemCD'>Redeem Certificate of Deposit</a> <br/>
 	</div>
 </body>
 

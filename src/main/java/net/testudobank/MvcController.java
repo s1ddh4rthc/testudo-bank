@@ -209,6 +209,21 @@ public class MvcController {
 		return "purchaseCD_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "redeemCD_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for buying cryptocurrency.
+   * 
+   * @param model
+   * @return "redeemCD_form" page
+   */
+  @GetMapping("/redeemCD")
+	public String showRedeemCDForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "redeemCD_form";
+	}
+
   //// HELPER METHODS ////
 
   /**

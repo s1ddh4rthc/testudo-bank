@@ -114,4 +114,9 @@ public class User {
   @Setter @Getter
   private double certificateOfDepositEarlyWithdrawlPenalty;
 
+  @Setter @Getter
+  private double amountToDepositCD;
+
+  @Setter @Getter
+  private int certificateOfDepositID;
 }

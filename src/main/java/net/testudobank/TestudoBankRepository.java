@@ -117,8 +117,9 @@ public class TestudoBankRepository {
     jdbcTemplate.update(insertRowToTransactionHistorySql);
   }
 
-  public static void insertRowToCertificateOfDepositLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestampPurchased, String timestampMatured, String status, int amtInPennies, float interestRate, float earlyWithdrawlPenaltyRate) {
-    String insertRowToCertificateOfDepositLogsSql = String.format("INSERT INTO CertificateOfDepositLogs VALUES ('%s', '%s', '%s', '%s', %d, %f, %f);", 
+  public static void insertRowToCertificateOfDepositLogsTable(JdbcTemplate jdbcTemplate, int certificateOfDepositID, String customerID, String timestampPurchased, String timestampMatured, String status, int amtInPennies, float interestRate, float earlyWithdrawlPenaltyRate) {
+    String insertRowToCertificateOfDepositLogsSql = String.format("INSERT INTO CertificateOfDepositLogs VALUES (%d, '%s', '%s', '%s', '%s', %d, %f, %f);",                    
+                                                    certificateOfDepositID,
                                                     customerID, 
                                                     timestampPurchased,
                                                     timestampMatured,
