@@ -96,12 +96,12 @@ cursor.execute(create_cryptohistory_table_sql)
 create_cert_of_deposit_log_table_sql = '''
 CREATE TABLE CertificateOfDepositLogs (
   CustomerID varchar(255),
-  PurchasedTimestamp DATETIME,
-  MaturedTimestamp DATETIME,
-  InterestRate float,
-  EarlyWithdrawlPenaltyRate float,
+  TimestampPurchased DATETIME,
+  TimestampMatured DATETIME,
+  Status varchar(255) CHECK (Status IN ('Active', 'Redeemed')),
   DepositAmount int,
-  Status varchar(255) CHECK (Status IN ('Active', 'Redeemed'))
+  InterestRate float,
+  EarlyWithdrawlPenaltyRate float
 );
 '''
 cursor.execute(create_cert_of_deposit_log_table_sql)
