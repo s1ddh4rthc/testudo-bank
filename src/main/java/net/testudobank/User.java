@@ -104,4 +104,14 @@ public class User {
   @Setter @Getter
   private double balanceInterestRate;
 
+  //// Certificate of Deposit Fields ////
+  @Setter @Getter
+  private int certificateOfDepositTermInMonths;
+
+  @Setter @Getter
+  private double certificateOfDepositInterestRate;
+
+  @Setter @Getter
+  private double certificateOfDepositEarlyWithdrawlPenalty;
+
 }

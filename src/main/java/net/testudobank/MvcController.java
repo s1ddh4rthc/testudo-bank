@@ -49,11 +49,19 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_CERTIFICATE_OF_DEPOSIT_PURCHASE_ACTION = "PurchaseCD";
+  public static String TRANSACTION_HISTORY_CERTIFICATE_OF_DEPOSIT_REDEEM_ACTION = "RedeemCD";
+  public static String CERTIFICATE_OF_DEPOSIT_LOGS_ACTIVE_STATUS = "Active";
+  public static String CERTIFICATE_OF_DEPOSIT_LOGS_REDEEMED_STATUS = "Redeemed";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   private final static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  public final static double CERTIFICATE_OF_DEPOSIT_INTEREST_RATE = 1.0175;
+  public final static double CERTIFICATE_OF_DEPOSIT_EARLY_WITHDRAWL_PENALTY = 0.1;
+  public final static int CERTIFICATE_OF_DEPOSIT_TERM_IN_MONTHS = 12;
+
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -181,6 +189,24 @@ public class MvcController {
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
 		model.addAttribute("user", user);
 		return "sellcrypto_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "purchaseCD_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for buying cryptocurrency.
+   * 
+   * @param model
+   * @return "purchaseCD_form" page
+   */
+  @GetMapping("/purchaseCD")
+	public String showPurchaseCDForm(Model model) {
+    User user = new User();
+    user.setCertificateOfDepositEarlyWithdrawlPenalty(CERTIFICATE_OF_DEPOSIT_EARLY_WITHDRAWL_PENALTY);;
+    user.setCertificateOfDepositInterestRate(CERTIFICATE_OF_DEPOSIT_INTEREST_RATE);
+    user.setCertificateOfDepositTermInMonths(CERTIFICATE_OF_DEPOSIT_TERM_IN_MONTHS);
+		model.addAttribute("user", user);
+		return "purchaseCD_form";
 	}
 
   //// HELPER METHODS ////

@@ -57,8 +57,19 @@ public class TestudoBankRepository {
     return certificateOfDepositLogs;
   }
 
+  public static List<Map<String,Object>> getCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDeposit WHERE CustomerId='%s' ORDER BY TimestampMatured DESC;", customerID);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
   public static List<Map<String,Object>> getActiveCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
     String getCertificateOfDepositSql = String.format("Select * from CertificateOfDeposit WHERE CustomerId='%s' AND Status = 'Active' ORDER BY TimestampMatured DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
+
+  public static List<Map<String,Object>> getActiveCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDeposit WHERE CustomerId='%s' AND Status = 'Active' ORDER BY TimestampMatured DESC;", customerID);
     List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
     return certificateOfDepositLogs;
   }
