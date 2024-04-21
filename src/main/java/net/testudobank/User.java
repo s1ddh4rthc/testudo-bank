@@ -119,4 +119,10 @@ public class User {
 
   @Setter @Getter
   private int certificateOfDepositID;
+
+  @Setter @Getter
+  private String certificateOfDepositLogs;
+
+  @Setter @Getter
+  private String activeCertificateOfDepositLogs;
 }

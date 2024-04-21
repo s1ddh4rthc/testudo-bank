@@ -95,7 +95,7 @@ cursor.execute(create_cryptohistory_table_sql)
 # Make empty CertificateOfDepositLogs table
 create_cert_of_deposit_log_table_sql = '''
 CREATE TABLE CertificateOfDepositLogs (
-  CertificateOfDepositID int UNIQUE,
+  CertificateOfDepositID int PRIMARY KEY AUTO_INCREMENT,
   CustomerID varchar(255),
   TimestampPurchased DATETIME,
   TimestampMatured DATETIME,
