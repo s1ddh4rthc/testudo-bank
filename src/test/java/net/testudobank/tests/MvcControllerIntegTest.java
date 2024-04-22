@@ -1822,6 +1822,8 @@ public class MvcControllerIntegTest {
 
     final String timestampPurchased;
 
+    final java.util.Date transactionTime;
+
     final String timestampMatured;
 
     @Builder.Default
@@ -1849,9 +1851,8 @@ public class MvcControllerIntegTest {
 
     final double expectedEndingBalanceInDollars;
 
-    final CertificateOfDepositLog expectedCDLog;
+    final List<CertificateOfDepositLog> expectedCDLogs;
 
-    final java.util.Date transactionTime;
     /**
      * Whether the transaction is made with the correct password
      */
@@ -1933,30 +1934,30 @@ public class MvcControllerIntegTest {
         user.setCertificateOfDepositID(transaction.CDToRedeem);
         returnedPage = controller.submitRedeemCertificateOfDeposit(user);
       }
-      // check the cash balance
-      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(transaction.expectedEndingBalanceInDollars),
-      jdbcTemplate.queryForObject("SELECT Balance FROM Customers WHERE CustomerID=?", Integer.class, CUSTOMER1_ID));
-  
 
-      if (!transaction.shouldSucceed) {
+      // check the cash balance. Note that floating point errors on the interest rate or early withdrawl penalty can mess this up so I allow tolerance.
+      assertTrue(Math.abs(MvcControllerIntegTestHelpers.convertDollarsToPennies(transaction.expectedEndingBalanceInDollars)-
+      jdbcTemplate.queryForObject("SELECT Balance FROM Customers WHERE CustomerID=?", Integer.class, CUSTOMER1_ID)) < 2);
+  
+      // Check CD logs
+      List<Map<String, Object>> CDLogTableData = jdbcTemplate.queryForList(
+        String.format("SELECT * FROM CertificateOfDepositLogs WHERE CustomerID = '%s' ORDER BY TimestampPurchased DESC;", CUSTOMER1_ID));
+      assertEquals(CDLogTableData.size(), transaction.expectedCDLogs.size());
+
+      for (int idx = 0; idx < CDLogTableData.size(); idx++) {
+        Map<String, Object> customer1CDLog = CDLogTableData.get(idx);
+        CertificateOfDepositLog expectedCDLog = transaction.expectedCDLogs.get(idx);
+
+        MvcControllerIntegTestHelpers.checkCDLog(customer1CDLog, expectedCDLog.customerID,
+            MvcControllerIntegTestHelpers.convertDateToLocalDateTime(expectedCDLog.transactionTime),
+            expectedCDLog.depositAmount, expectedCDLog.status);
+      }
+
+      if (transaction.shouldSucceed) {
+        assertEquals("account_info", returnedPage);
+      } else {
         // verify no transaction took place
         assertEquals("welcome", returnedPage);
-      } else {
-        assertEquals("account_info", returnedPage);
-
-        // Check CD logs
-        List<Map<String, Object>> CDLogTableData = jdbcTemplate.queryForList(
-            String.format("SELECT * FROM CertificateOfDepositLogs WHERE CustomerID = '%s' ORDER BY TimestampPurchased DESC;", CUSTOMER1_ID));
-        assertEquals(CDLogTableData.size(), 1);
-
-        for (int idx = 0; idx < CDLogTableData.size(); idx++) {
-          Map<String, Object> customer1CDLog = CDLogTableData.get(idx);
-
-          MvcControllerIntegTestHelpers.checkCDLog(customer1CDLog, transaction.expectedCDLog.customerID,
-              MvcControllerIntegTestHelpers.convertDateToLocalDateTime(transaction.transactionTime),
-              transaction.expectedCDLog.depositAmount, transaction.expectedCDLog.status);
-        }
-
       }
       
     }
@@ -1985,18 +1986,21 @@ public class MvcControllerIntegTest {
     java.util.Date transactionTime = new java.util.Date();
     java.util.Date oneYearAfterTransaction = MvcControllerIntegTestHelpers.getOneYearAfter(transactionTime);
 
-    CertificateOfDepositLog CDLog = CertificateOfDepositLog.builder()
+    CertificateOfDepositLog CDLog1 = CertificateOfDepositLog.builder()
       .customerID(CUSTOMER1_ID)
       .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
       .timestampPurchased(SQL_DATETIME_FORMATTER.format(transactionTime))
       .timestampMatured(SQL_DATETIME_FORMATTER.format(oneYearAfterTransaction))
+      .transactionTime(transactionTime)
       .build();
+
+    List<CertificateOfDepositLog> CDLogs = new java.util.ArrayList<>();
+    CDLogs.add(CDLog1);
 
     CertificateOfDepositTransaction CDTransaction= CertificateOfDepositTransaction.builder()
       .expectedEndingBalanceInDollars(900)
-      .expectedCDLog(CDLog)
+      .expectedCDLogs(CDLogs)
       .amountToDepositCD(100)
-      .transactionTime(transactionTime)
       .customerID(CUSTOMER1_ID)
       .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.PURCHASE)
       .build();
@@ -2004,4 +2008,283 @@ public class MvcControllerIntegTest {
     CDTransactionTester.test(CDTransaction);
   }
 
+  /**
+   * Attepts to purchase a CD with an invalid password.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testPurchaseCDInvalidPassword() throws SQLException, ScriptException {
+    CertificateOfDepositTransactionTester CDTransactionTester = CertificateOfDepositTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCDHoldings(Collections.emptyList())
+        .build();
+
+    CDTransactionTester.initialize();
+
+    java.util.Date transactionTime = new java.util.Date();
+    java.util.Date oneYearAfterTransaction = MvcControllerIntegTestHelpers.getOneYearAfter(transactionTime);
+
+    CertificateOfDepositTransaction CDTransaction= CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedCDLogs(Collections.emptyList())
+      .amountToDepositCD(100)
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.PURCHASE)
+      .validPassword(false)
+      .shouldSucceed(false)
+      .build();
+
+    CDTransactionTester.test(CDTransaction);
+  }
+
+  /**
+   * Attepts to purchase a CD with invalid deposit amounts. First below the minimum deposit, then above the customer balance.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testPurchaseCDInvalidDepositAmounts() throws SQLException, ScriptException {
+    CertificateOfDepositTransactionTester CDTransactionTester = CertificateOfDepositTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCDHoldings(Collections.emptyList())
+        .build();
+
+    CDTransactionTester.initialize();
+
+    java.util.Date transactionTime = new java.util.Date();
+    java.util.Date oneYearAfterTransaction = MvcControllerIntegTestHelpers.getOneYearAfter(transactionTime);
+
+    CertificateOfDepositTransaction CDTransactionBelowMinDeposit = CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedCDLogs(Collections.emptyList())
+      .amountToDepositCD(99.99)
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.PURCHASE)
+      .validPassword(true)
+      .shouldSucceed(false)
+      .build();
+
+    CDTransactionTester.test(CDTransactionBelowMinDeposit);
+
+    CertificateOfDepositTransaction CDTransactionExceedsBalance = CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedCDLogs(Collections.emptyList())
+      .amountToDepositCD(1001)
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.PURCHASE)
+      .validPassword(true)
+      .shouldSucceed(false)
+      .build();
+
+    CDTransactionTester.test(CDTransactionExceedsBalance);
+  }
+
+
+  /**
+   * Verifies the simplest Certificate of Deposit Redeem case.
+   * The customer's Balance in the Customers table should be increased by the value of the CD including interest, and the 
+   * CD should appear as 'Redeemed' in the CertificateOfDepositLogs table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testRedeemCD() throws SQLException, ScriptException {
+    java.util.Date currentTime = new java.util.Date();
+    java.util.Date oneYearBeforeCurrentTime = MvcControllerIntegTestHelpers.getOneYearBefore(currentTime);
+    
+    // Logs before the transaction
+    CertificateOfDepositLog initCDLog1 = CertificateOfDepositLog.builder()
+      .customerID(CUSTOMER1_ID)
+      .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
+      .timestampPurchased(SQL_DATETIME_FORMATTER.format(oneYearBeforeCurrentTime))
+      .timestampMatured(SQL_DATETIME_FORMATTER.format(currentTime))
+      .transactionTime(oneYearBeforeCurrentTime)
+      .build();
+
+    List<CertificateOfDepositLog> initCDLogs = new java.util.ArrayList<>();
+    initCDLogs.add(initCDLog1);
+
+    CertificateOfDepositTransactionTester CDTransactionTester = CertificateOfDepositTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCDHoldings(initCDLogs)
+        .build();
+
+    CDTransactionTester.initialize();
+
+    CertificateOfDepositLog CDLog1 = CertificateOfDepositLog.builder()
+      .customerID(CUSTOMER1_ID)
+      .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
+      .timestampPurchased(SQL_DATETIME_FORMATTER.format(oneYearBeforeCurrentTime))
+      .timestampMatured(SQL_DATETIME_FORMATTER.format(currentTime))
+      .transactionTime(oneYearBeforeCurrentTime)
+      .status(CertificateOfDepositTransactionTestType.REDEEM.certificateOfDepositLogStatus)
+      .build();
+
+    List<CertificateOfDepositLog> CDLogs = new java.util.ArrayList<>();
+    CDLogs.add(CDLog1);
+
+    CertificateOfDepositTransaction CDTransaction= CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1101.75)
+      .expectedCDLogs(CDLogs)
+      .CDToRedeem(1)
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.REDEEM)
+      .build();
+
+    CDTransactionTester.test(CDTransaction);
+  }
+
+  /**
+   * Verifies the Certificate of Deposit Redeem case in which a customer 
+   * withdraws before the maturity date of the CD. This means that the 
+   * customer's balance should be increased by the value of the CD less the 
+   * early withdrawl penaly.
+   * CD should appear as 'Redeemed' in the CertificateOfDepositLogs table.
+   * 
+   * The customer starts with $1000 and a CD worth $100 but only recoups $90 of their CD.
+   * Assumes that the customer's account is in the simplest state
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testRedeemCDEarlyWithdrawl() throws SQLException, ScriptException {
+    java.util.Date currentTime = new java.util.Date();
+    java.util.Date oneYearAfterCurrentTime = MvcControllerIntegTestHelpers.getOneYearAfter(currentTime);
+    
+    // Logs before the transaction
+    CertificateOfDepositLog initCDLog1 = CertificateOfDepositLog.builder()
+      .customerID(CUSTOMER1_ID)
+      .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
+      .timestampPurchased(SQL_DATETIME_FORMATTER.format(currentTime))
+      .timestampMatured(SQL_DATETIME_FORMATTER.format(oneYearAfterCurrentTime))
+      .transactionTime(currentTime)
+      .build();
+
+    List<CertificateOfDepositLog> initCDLogs = new java.util.ArrayList<>();
+    initCDLogs.add(initCDLog1);
+
+    CertificateOfDepositTransactionTester CDTransactionTester = CertificateOfDepositTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCDHoldings(initCDLogs)
+        .build();
+
+    CDTransactionTester.initialize();
+
+    CertificateOfDepositLog CDLog1 = CertificateOfDepositLog.builder()
+      .customerID(CUSTOMER1_ID)
+      .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
+      .timestampPurchased(SQL_DATETIME_FORMATTER.format(currentTime))
+      .timestampMatured(SQL_DATETIME_FORMATTER.format(oneYearAfterCurrentTime))
+      .transactionTime(currentTime)
+      .status(CertificateOfDepositTransactionTestType.REDEEM.certificateOfDepositLogStatus)
+      .build();
+
+    List<CertificateOfDepositLog> CDLogs = new java.util.ArrayList<>();
+    CDLogs.add(CDLog1);
+
+    CertificateOfDepositTransaction CDTransaction= CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1090)
+      .expectedCDLogs(CDLogs)
+      .CDToRedeem(1)
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.REDEEM)
+      .build();
+
+    CDTransactionTester.test(CDTransaction);
+  }
+
+  /**
+   * Attempts to purchase and redeem a CD with an invalid password.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testRedeemCDInvalidPassword() throws SQLException, ScriptException {
+    java.util.Date currentTime = new java.util.Date();
+    java.util.Date oneYearBeforeCurrentTime = MvcControllerIntegTestHelpers.getOneYearBefore(currentTime);
+    
+    // Logs before the transaction
+    CertificateOfDepositLog initCDLog1 = CertificateOfDepositLog.builder()
+      .customerID(CUSTOMER1_ID)
+      .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
+      .timestampPurchased(SQL_DATETIME_FORMATTER.format(oneYearBeforeCurrentTime))
+      .timestampMatured(SQL_DATETIME_FORMATTER.format(currentTime))
+      .transactionTime(oneYearBeforeCurrentTime)
+      .build();
+
+    List<CertificateOfDepositLog> initCDLogs = new java.util.ArrayList<>();
+    initCDLogs.add(initCDLog1);
+
+    CertificateOfDepositTransactionTester CDTransactionTester = CertificateOfDepositTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCDHoldings(initCDLogs)
+        .build();
+
+    CDTransactionTester.initialize();
+
+    CertificateOfDepositTransaction CDTransaction= CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedCDLogs(initCDLogs)
+      .CDToRedeem(1)
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.REDEEM)
+      .validPassword(false)
+      .shouldSucceed(false)
+      .build();
+
+    CDTransactionTester.test(CDTransaction);
+  }
+
+  /**
+   * Attempts to purchase and redeem a CD with an invalid CertificateOfDepositID.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testRedeemCDInvalidCertificateOfDepositID() throws SQLException, ScriptException {
+    java.util.Date currentTime = new java.util.Date();
+    java.util.Date oneYearBeforeCurrentTime = MvcControllerIntegTestHelpers.getOneYearBefore(currentTime);
+    
+    // Logs before the transaction
+    CertificateOfDepositLog initCDLog1 = CertificateOfDepositLog.builder()
+      .customerID(CUSTOMER1_ID)
+      .depositAmount(MvcControllerIntegTestHelpers.convertDollarsToPennies(100))
+      .timestampPurchased(SQL_DATETIME_FORMATTER.format(oneYearBeforeCurrentTime))
+      .timestampMatured(SQL_DATETIME_FORMATTER.format(currentTime))
+      .transactionTime(oneYearBeforeCurrentTime)
+      .build();
+
+    List<CertificateOfDepositLog> initCDLogs = new java.util.ArrayList<>();
+    initCDLogs.add(initCDLog1);
+
+    CertificateOfDepositTransactionTester CDTransactionTester = CertificateOfDepositTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCDHoldings(initCDLogs)
+        .build();
+
+    CDTransactionTester.initialize();
+
+    CertificateOfDepositTransaction CDTransaction= CertificateOfDepositTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedCDLogs(initCDLogs)
+      .CDToRedeem(3) // This ID Should not exist
+      .customerID(CUSTOMER1_ID)
+      .certificateOfDepositTransactionTestType(CertificateOfDepositTransactionTestType.REDEEM)
+      .validPassword(true)
+      .shouldSucceed(false)
+      .build();
+
+    CDTransactionTester.test(CDTransaction);
+  }
 }
