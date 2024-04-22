@@ -46,6 +46,24 @@ public class MvcControllerIntegTestHelpers {
     addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
   }
 
+  public static void createCertificateOfDepositLogsTable(DatabaseDelegate dbDelegate) throws ScriptException {
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, "CREATE TABLE CertificateOfDepositLogs (CertificateOfDepositID int PRIMARY KEY AUTO_INCREMENT, CustomerID varchar(255), TimestampPurchased DATETIME, TimestampMatured DATETIME, Status varchar(255) CHECK (Status IN ('Active', 'Redeemed')), DepositAmount int, InterestRate float, EarlyWithdrawlPenaltyRate float);");
+  }
+
+  public static void insertRowToCertificateOfDepositLogsTable(DatabaseDelegate dbDelegate, String customerID, String timestampPurchased, String timestampMatured, String status, int amtInPennies, double interestRate, double earlyWithdrawlPenaltyRate) throws ScriptException {
+
+    String insertRowToCertificateOfDepositLogsSql = String.format("INSERT INTO CertificateOfDepositLogs VALUES (NULL, '%s', '%s', '%s', '%s', %d, %f, %f);",                    
+                                                    customerID, 
+                                                    timestampPurchased,
+                                                    timestampMatured,
+                                                    status,
+                                                    amtInPennies,
+                                                    interestRate,
+                                                    earlyWithdrawlPenaltyRate);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertRowToCertificateOfDepositLogsSql);
+  }
+
+
   // Set crypto balance to specified amount
   public static void setCryptoBalance(DatabaseDelegate dbDelegate, String userID, String cryptoName, double cryptoAmount) throws ScriptException {
     String removeOldBalanceSql = String.format("DELETE FROM CryptoHoldings WHERE CustomerID='%s' AND CryptoName= '%s';", userID, cryptoName);
@@ -92,6 +110,24 @@ public class MvcControllerIntegTestHelpers {
     System.out.println("Timestamp stored in CryptoHistory table for the request: " + transactionLogTimestamp);
   }
 
+  // Verifies that a single CD log in the CryptoHistory table matches the expected customerID, timestampPurchased, timestampMatured, Status, DepositAmount
+  public static void checkCDLog(Map<String,Object> CDLog, String expectedCustomerID, LocalDateTime timeWhenRequestSent, int expectedDepositAmt, String expectedStatus) {
+    assertEquals(expectedCustomerID, CDLog.get("CustomerID"));
+    assertEquals(expectedStatus, CDLog.get("Status"));
+    assertEquals(expectedDepositAmt, ((Integer) CDLog.get("DepositAmount")).intValue());
+    // verify that the timestamp for the Deposit is within a reasonable range from when the request was first sent
+    LocalDateTime transactionLogTimestampPurchased = (LocalDateTime)CDLog.get("TimestampPurchased");
+    LocalDateTime transactionLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    LocalDateTime transactionLogTimestampAllowedLowerBound = timeWhenRequestSent.plusSeconds(-MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    assertTrue(transactionLogTimestampPurchased.compareTo(transactionLogTimestampAllowedLowerBound) >= 0 && transactionLogTimestampPurchased.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
+
+    // verify that the timestampMatured is reasonable
+    LocalDateTime transactionLogTimestampMatured = (LocalDateTime)CDLog.get("TimestampMatured");
+    LocalDateTime transactionLogTimestampMaturedAllowedLowerBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.SECONDS_IN_YEAR - MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    LocalDateTime transactionLogTimestampMaturedAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.SECONDS_IN_YEAR + MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    assertTrue(transactionLogTimestampMatured.compareTo(transactionLogTimestampMaturedAllowedLowerBound) >= 0 && transactionLogTimestampMatured.compareTo(transactionLogTimestampMaturedAllowedUpperBound) <= 0);
+  }
+
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   public static int convertDollarsToPennies(double dollarAmount) {
     return (int) (dollarAmount * 100);
@@ -112,5 +148,14 @@ public class MvcControllerIntegTestHelpers {
   // Converts the java.util.Date object into the LocalDateTime returned by the MySQL DB
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) { 
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+  }
+  // Subtracts a year from the input date
+  public static Date getOneYearBefore(Date start) {
+    return new Date(start.getTime() - MvcControllerIntegTest.MILLISECONDS_IN_YEAR);
+  }
+
+  // Adds a year to the input date
+  public static Date getOneYearAfter(Date start) {
+    return new Date(start.getTime() + MvcControllerIntegTest.MILLISECONDS_IN_YEAR);
   }
 }
