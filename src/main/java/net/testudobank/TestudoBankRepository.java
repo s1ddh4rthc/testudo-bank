@@ -85,6 +85,39 @@ public class TestudoBankRepository {
     jdbcTemplate.update(customerInterestDepositsSql);
   }
 
+  public static int getCustomerBalanceInGBP(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerBalanceInGBPSql = String.format("SELECT BalanceGBP FROM Customers WHERE CustomerID='%s';", customerID);
+    int balanceInGBP = jdbcTemplate.queryForObject(getCustomerBalanceInGBPSql, Integer.class);
+    return balanceInGBP;
+  }
+
+  public static void setCustomerBalanceInGBP(JdbcTemplate jdbcTemplate, String customerID, int balanceInGBP) {
+    String customerBalanceGBPSql = String.format("UPDATE Customers SET BalanceGBP = %d WHERE CustomerID='%s';", balanceInGBP, customerID);
+    jdbcTemplate.update(customerBalanceGBPSql);
+  }
+
+  public static int getCustomerBalanceInINR(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerBalanceInINRSql = String.format("SELECT BalanceINR FROM Customers WHERE CustomerID='%s';", customerID);
+    int balanceInINR = jdbcTemplate.queryForObject(getCustomerBalanceInINRSql, Integer.class);
+    return balanceInINR;
+  }
+
+  public static void setCustomerBalanceInINR(JdbcTemplate jdbcTemplate, String customerID, int balanceInINR) {
+    String customerBalanceINRSql = String.format("UPDATE Customers SET BalanceINR = %d WHERE CustomerID='%s';", balanceInINR, customerID);
+    jdbcTemplate.update(customerBalanceINRSql);
+  }
+
+  public static int getCustomerBalanceInCNY(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerBalanceInCNYSql = String.format("SELECT BalanceCNY FROM Customers WHERE CustomerID='%s';", customerID);
+    int balanceInCNY = jdbcTemplate.queryForObject(getCustomerBalanceInCNYSql, Integer.class);
+    return balanceInCNY;
+  }
+
+  public static void setCustomerBalanceInCNY(JdbcTemplate jdbcTemplate, String customerID, int balanceInCNY) {
+    String customerBalanceCNYSql = String.format("UPDATE Customers SET BalanceCNY = %d WHERE CustomerID='%s';", balanceInCNY, customerID);
+    jdbcTemplate.update(customerBalanceCNYSql);
+  }
+
   public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies) {
     String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d);",
                                                               customerID,

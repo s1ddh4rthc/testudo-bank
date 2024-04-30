@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -221,7 +222,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, BalanceINR, BalanceGBP, BalanceCNY, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -237,6 +238,8 @@ public class MvcController {
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
+    user.setAmountToConvert(user.getAmountToConvert());
+    user.setCurrencyToConvertTo(user.getCurrencyToConvertTo());
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
@@ -458,6 +461,89 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
 
+  }
+
+  @PostMapping("/convert")
+  public String submitWithdrawAndConvert(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't complete deposit.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+
+    // Negative deposit amount is not allowed
+    double userWithdrawAndConvertAmt = user.getAmountToConvert();
+    if (userWithdrawAndConvertAmt < 0) {
+      return "welcome";
+    }
+
+    //// Complete Withdraw Transaction ////
+    int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAndConvertAmt); // dollar amounts stored as pennies to avoid floating point errors
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
+      int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
+      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
+
+      // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
+      // IMPORTANT: Compare new overdraft balance to max overdraft limit AFTER applying the interest rate!
+      if (newOverdraftBalanceInPennies > MAX_OVERDRAFT_IN_PENNIES) {
+        return "welcome";
+      }
+
+      // this is a valid withdraw into overdraft, so we can set Balance column to 0.
+      // OK to do this even if we were already in overdraft since main balance was already 0 anyways
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, 0);
+
+      // increase overdraft balance by the withdraw amount after interest
+      TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
+
+    } else { // simple, non-overdraft withdraw case
+      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+    }
+
+    //// Complete Convert Transaction ////
+    String currencyToConvertTo = user.getCurrencyToConvertTo();
+    if (!currencyToConvertTo.equals("GBP") && !currencyToConvertTo.equals("CNY") && !currencyToConvertTo.equals("CNY")) {
+      return "welcome";
+    }
+    else {
+      if (currencyToConvertTo.equals("GBP")) {
+        int balanceInGBP = TestudoBankRepository.getCustomerBalanceInGBP(jdbcTemplate, userID);
+        double convertedAmt = userWithdrawAmtInPennies * 0.80;
+        int newBalanceInGBP = balanceInGBP + (int) convertedAmt;
+        TestudoBankRepository.setCustomerBalanceInGBP(jdbcTemplate, userID, newBalanceInGBP);
+      }
+      else if (currencyToConvertTo.equals("INR")) {
+        int balanceInINR = TestudoBankRepository.getCustomerBalanceInINR(jdbcTemplate, userID);
+        double convertedAmt = userWithdrawAmtInPennies * 83.48;
+        int newBalanceInINR = balanceInINR + (int) convertedAmt;
+        TestudoBankRepository.setCustomerBalanceInGBP(jdbcTemplate, userID, newBalanceInINR);
+      }
+      else {
+        int balanceInCNY = TestudoBankRepository.getCustomerBalanceInCNY(jdbcTemplate, userID);
+        double convertedAmt = userWithdrawAmtInPennies * 7.24;
+        int newBalanceInCNY = balanceInCNY + (int) convertedAmt;
+        TestudoBankRepository.setCustomerBalanceInGBP(jdbcTemplate, userID, newBalanceInCNY);
+      }
+    }
+
+    // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
+    return "account_info";
   }
 
   /**
