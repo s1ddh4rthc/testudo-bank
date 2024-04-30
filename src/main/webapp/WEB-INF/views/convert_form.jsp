@@ -46,7 +46,7 @@
       <form:input path="amountToConvert"/><br/>	
 
       <form:label path="currencyToConvertTo">Currency to Convert To:</form:label>
-      <form:input path="currencyToConvertTo"><br/>
+      <form:input path="currencyToConvertTo"/><br/>
 				
 			<form:button>Withdraw and Convert</form:button>
 		</form:form>
