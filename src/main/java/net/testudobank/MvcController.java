@@ -117,6 +117,13 @@ public class MvcController {
 		return "withdraw_form";
 	}
 
+  @GetMapping("/convert")
+  public String showConvertForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "convert_form";
+  }
+
   /**
    * HTML GET request handler that serves the "dispute_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store

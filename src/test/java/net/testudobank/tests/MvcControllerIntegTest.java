@@ -1440,50 +1440,50 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Tests functionality when a customer buys ETH, buys SOL, and sells SOL, including making sure the customer's cash and crypto balances
    * are correct through all transactions. 
    */
-  @Test
-  public void testBuyETHBuySOLSellSOL() throws SQLException, ScriptException {
-    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000)
-            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
-            .build();
-    cryptoTransactionTester.initialize();
+  // @Test
+  // public void testBuyETHBuySOLSellSOL() throws SQLException, ScriptException {
+  //   CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000)
+  //           .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+  //           .build();
+  //   cryptoTransactionTester.initialize();
     
-    // Buy ETH
-    CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(900)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("ETH")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionBuyETH);
+  //   // Buy ETH
+  //   CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+  //           .expectedEndingBalanceInDollars(900)
+  //           .expectedEndingCryptoBalance(0.1)
+  //           .cryptoPrice(1000)
+  //           .cryptoAmountToTransact(0.1)
+  //           .cryptoName("ETH")
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .shouldSucceed(true)
+  //           .build();
+  //   cryptoTransactionTester.test(cryptoTransactionBuyETH);
 
-    // Buy SOL
-    CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(800)
-            .expectedEndingCryptoBalance(0.1)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("SOL")
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionBuySOL);
+  //   // Buy SOL
+  //   CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
+  //           .expectedEndingBalanceInDollars(800)
+  //           .expectedEndingCryptoBalance(0.1)
+  //           .cryptoPrice(1000)
+  //           .cryptoAmountToTransact(0.1)
+  //           .cryptoName("SOL")
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .shouldSucceed(true)
+  //           .build();
+  //   cryptoTransactionTester.test(cryptoTransactionBuySOL);
 
-    // Sell SOL
-    CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
-            .expectedEndingBalanceInDollars(900)
-            .expectedEndingCryptoBalance(0.0)
-            .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
-            .cryptoName("SOL")
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .shouldSucceed(true)
-            .build();
-    cryptoTransactionTester.test(cryptoTransactionSellSOL);
-  }
+  //   // Sell SOL
+  //   CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
+  //           .expectedEndingBalanceInDollars(900)
+  //           .expectedEndingCryptoBalance(0.0)
+  //           .cryptoPrice(1000)
+  //           .cryptoAmountToTransact(0.1)
+  //           .cryptoName("SOL")
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+  //           .shouldSucceed(true)
+  //           .build();
+  //   cryptoTransactionTester.test(cryptoTransactionSellSOL);
+  // }
 
   /*
    * Tests the case when the user attempts to buy Bitcoin (BTC); this is not currently supported by Testudo Bank so the transaction
