@@ -180,6 +180,23 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  
+  /**
+   * HTML GET request handler that serves the "budget_allocation_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's dispute form input.
+   * 
+   * @param model
+   * @return "budget_allocation_form" page
+   */
+  @GetMapping("/budgetallocation")
+	public String showBudgetAllocationForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "budget_allocation_form";
+	}
+
+
   //// HELPER METHODS ////
 
   /**

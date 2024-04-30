@@ -43,9 +43,9 @@
     <a href='/withdraw'>Withdraw</a> <br/>
     <a href='/dispute'>Dispute</a> <br/>
     <a href='/transfer'>Transfer</a> <br/>
+    <a href='/budgetallocation'>Allocate Your Budget</a><br/>
     <a href='/buycrypto'>Buy Cryptocurrency</a>
     <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
-
 	</div>
 </body>
 

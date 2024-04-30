@@ -99,4 +99,20 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private double budgetGroceries;
+
+  @Setter @Getter
+  private double budgetHousing;
+
+  @Setter @Getter
+  private double budgetTransportation;
+
+  @Setter @Getter
+  private double budgetSavings;
+
+  @Setter @Getter
+  private double budgetOther;
+
+
 }
