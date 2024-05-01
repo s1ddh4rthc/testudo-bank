@@ -815,6 +815,50 @@ public class MvcController {
     }
   }
 
+   /**
+   * HTML POST request handler for the Budget Allocation Form page.
+   *
+   * @param user
+   * @return "budget_allocation_info" page if budget can be allocated successfully. Otherwise, the "welcome" view is returned.
+   */
+  @PostMapping("/allocate")
+  public String allocateBudget(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+    // get budget for each entered category
+    double groceriesBudget = user.getBudgetGroceries();
+    double housingBudget = user.getBudgetHousing();
+    double transportationBudget = user.getBudgetTransportation();
+    double savingsBudget = user.getBudgetSavings();
+    double otherBudget = user.getBudgetOther();
+
+    if (groceriesBudget < 0 || housingBudget < 0 || transportationBudget < 0 ||
+        savingsBudget < 0 || otherBudget < 0) {
+          return "welcome";
+    } else {
+      // Validate that allocated budget does not exceed the user's balance, and apply the deduction
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      double totalAllocatedBudget = groceriesBudget + housingBudget + transportationBudget + savingsBudget + otherBudget;
+      int totalAllocatedBudgetInPennies = convertDollarsToPennies(totalAllocatedBudget);
+      if (userBalanceInPennies < totalAllocatedBudgetInPennies) {
+        return "welcome";
+      } else {
+        TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, totalAllocatedBudgetInPennies);
+        user.setBalance(user.getBalance()-totalAllocatedBudget);
+        return "budget_allocation_info"; // revise this section later
+      }
+    }
+  }
+
+
   /**
    * 
    * 
