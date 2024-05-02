@@ -255,6 +255,28 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+
+    // Update the User Budgets
+    String getBudgetDataSql = String.format("SELECT FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount FROM Budgets WHERE CustomerID = '%s';", user.getUsername());
+    List<Map<String, Object>> budgetQueryResults = jdbcTemplate.queryForList(getBudgetDataSql);
+
+    if (!budgetQueryResults.isEmpty()) {
+        // If Budget Data is found
+        Map<String, Object> budgetData = budgetQueryResults.get(0);
+        double foodAndGroceriesAmount = (int) budgetData.get("FoodAndGroceriesAmount");
+        double housingAndUtilitiesAmount = (int) budgetData.get("HousingAndUtilitiesAmount");
+        double transportationAmount = (int) budgetData.get("TransportationAmount");
+        double  savingsAndInvestmentAmount = (int) budgetData.get("SavingsAndInvestmentAmount");
+        double otherAmount = (int) budgetData.get("OtherAmount");
+        user.setBudgetGroceries(foodAndGroceriesAmount/100);
+        user.setBudgetHousing(housingAndUtilitiesAmount/100);
+        user.setBudgetTransportation(transportationAmount/100);
+        user.setBudgetSavings(savingsAndInvestmentAmount/100);
+        user.setBudgetOther(otherAmount/100);
+        user.setTotalAllocatedBudget(user.getBudgetGroceries() + user.getBudgetHousing() + user.getBudgetSavings() + user.getBudgetTransportation() + user.getBudgetOther());
+
+    }
+
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
