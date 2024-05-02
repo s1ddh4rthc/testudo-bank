@@ -33,6 +33,7 @@
     <span>Username: </span><span>${user.username}</span><br/>
 		<span>Balance: $</span><span>${user.balance}</span><br/>
     <span>Overdraft Balance: $</span><span>${user.overDraftBalance}</span><br/>
+    <span>Potential Balance After Allocated Budget: $</span><span>${user.balance - user.totalAllocatedBudget}</span><br/>
     <span>Crypto Balance in USD: $</span><span>${user.cryptoBalanceUSD}</span><br/>
     <span>Ethereum Coins Owned: </span><span>${user.ethBalance}</span><br/>
     <span>Solana Coins Owned: </span><span>${user.solBalance}</span><br/>
@@ -42,11 +43,18 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <span>Total Allocated Budget: </span><span>${user.totalAllocatedBudget}</span><br/>
+    <span>Allocated Grocery Budget: </span><span>${user.budgetGroceries}</span><br/>
+    <span>Allocated Housing & Utilities Budget: </span><span>${user.budgetHousing}</span><br/>
+    <span>Allocated Transportation Budget: </span><span>${user.budgetTransportation}</span><br/>
+    <span>Allocated Savings & Investments Budget: </span><span>${user.budgetSavings}</span><br/>
+    <span>Allocated Other Budget: </span><span>${user.budgetOther}</span><br/>
     <br/>
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/budgetallocation'>Allocate Budget</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

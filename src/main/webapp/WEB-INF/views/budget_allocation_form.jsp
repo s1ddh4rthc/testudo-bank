@@ -54,10 +54,6 @@
             <form:label path="budgetOther">Other Budget:</form:label>
 			<form:input path="budgetOther"/><br/>		
             <form:button>Submit Allocated Budgets </form:button>
-
-
-            
-            
         </form:form>
     <a href='/'>Home</a>
     </div>

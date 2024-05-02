@@ -177,4 +177,10 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  // Inserting Row into the Budgets Table for a Customer
+  public static void insertRowToBudgetsTable(JdbcTemplate jdbcTemplate, String customerID, int foodAndGroceriesAmount, int housingAndUtilitiesAmount, int transportationBudget, int savingsAndInvestmentsAmount, int otherAmount) {
+    String cryptoHistorySql = "INSERT INTO BUDGETS (CustomerID, FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount) VALUES (?, ?, ?, ?, ?, ?)";
+    jdbcTemplate.update(cryptoHistorySql, customerID, foodAndGroceriesAmount, housingAndUtilitiesAmount, transportationBudget, savingsAndInvestmentsAmount, otherAmount);
+  }
 }

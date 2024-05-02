@@ -819,7 +819,7 @@ public class MvcController {
    * HTML POST request handler for the Budget Allocation Form page.
    *
    * @param user
-   * @return "budget_allocation_info" page if budget can be allocated successfully. Otherwise, the "welcome" view is returned.
+   * @return "account_info" page if budget can be allocated successfully. Otherwise, the "welcome" view is returned.
    */
   @PostMapping("/allocate")
   public String allocateBudget(@ModelAttribute("user") User user) {
@@ -845,15 +845,18 @@ public class MvcController {
           return "welcome";
     } else {
       // Validate that allocated budget does not exceed the user's balance, and apply the deduction
+      //
       int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       double totalAllocatedBudget = groceriesBudget + housingBudget + transportationBudget + savingsBudget + otherBudget;
       int totalAllocatedBudgetInPennies = convertDollarsToPennies(totalAllocatedBudget);
       if (userBalanceInPennies < totalAllocatedBudgetInPennies) {
         return "welcome";
       } else {
-        TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, totalAllocatedBudgetInPennies);
-        user.setBalance(user.getBalance()-totalAllocatedBudget);
-        return "budget_allocation_info"; // revise this section later
+        user.setTotalAllocatedBudget(totalAllocatedBudget);
+        // Add Information to DB
+        TestudoBankRepository.insertRowToBudgetsTable(jdbcTemplate, userID, convertDollarsToPennies(groceriesBudget), convertDollarsToPennies(housingBudget), convertDollarsToPennies(transportationBudget), convertDollarsToPennies(savingsBudget), convertDollarsToPennies(otherBudget));
+        updateAccountInfo(user);        
+        return "account_info"; // revise this section later
       }
     }
   }

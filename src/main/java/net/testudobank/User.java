@@ -100,6 +100,9 @@ public class User {
   private int numDepositsForInterest;
 
   @Setter @Getter
+  private double totalAllocatedBudget;
+
+  @Setter @Getter
   private double budgetGroceries;
 
   @Setter @Getter
