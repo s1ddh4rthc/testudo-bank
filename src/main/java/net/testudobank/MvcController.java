@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double MINIMUM_DEPOSIT_FOR_INTEREST = 20.0;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -237,7 +238,8 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setNumDepositsForInterest(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()));
+    user.setInterest((int)TestudoBankRepository.getCustomerInterestInPennies(jdbcTemplate, user.getUsername())/100.0);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -358,6 +360,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -799,14 +802,52 @@ public class MvcController {
   }
 
   /**
+   * If the number of account deposits is a valid deposit of above 20$, the account has no overdraft balance, and
+   * the deposit number is a multiple of 5 we apply the interest of 1.5% to the account balance.
    * 
+   * If interest is applied we redirect to the account_info page, otherwise the welcome page.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
+   
+    
+    double mostRecentDeposit = user.getAmountToDeposit();
+
+    if (user.getOverDraftBalance() > 0 || user.getBalance() < 0 || mostRecentDeposit < MINIMUM_DEPOSIT_FOR_INTEREST){
+      return "welcome";
+    }
+
+    user.setNumDepositsForInterest(user.getNumDepositsForInterest() + 1);
+    int numDeposits = user.getNumDepositsForInterest();
+    String userId = user.getUsername();
+
+    String pageToReturn = "welcome";
+    if (numDeposits % 5 == 0){
+
+      double initialBalance = user.getBalance();
+      int initialBalanceInPennies = (int)(initialBalance *100) ;
+      double newBalance = initialBalance * MvcController.BALANCE_INTEREST_RATE;
+      int newBalanceInPennies = (int)(newBalance*100);
+      pageToReturn = "account_info";
+      String currTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int interestAcrruedInPennies = newBalanceInPennies-initialBalanceInPennies;
+      double initialInterest = user.getInterest();
+      double newInterest = initialInterest + (interestAcrruedInPennies/100.0);
+      int newInterestInPennies = (int) (newInterest *100);
+
+      user.setBalance(newBalance);
+      user.setInterest(newInterest);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userId, newBalanceInPennies);
+      TestudoBankRepository.setCustomerInterest(jdbcTemplate, userId, newInterestInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userId, currTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAcrruedInPennies);
+    }
+
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userId, numDeposits%5);
+    
+    return pageToReturn;
 
   }
 

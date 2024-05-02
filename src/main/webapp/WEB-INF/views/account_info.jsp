@@ -34,6 +34,7 @@
 		<span>Balance: $</span><span>${user.balance}</span><br/>
     <span>Overdraft Balance: $</span><span>${user.overDraftBalance}</span><br/>
     <span>Crypto Balance in USD: $</span><span>${user.cryptoBalanceUSD}</span><br/>
+    <span>Interest Accrued: $</span><span>${user.interest}</span><br/>
     <span>Ethereum Coins Owned: </span><span>${user.ethBalance}</span><br/>
     <span>Solana Coins Owned: </span><span>${user.solBalance}</span><br/>
     <span>Current $ETH Price: </span><span>${user.ethPrice}</span><br/>
@@ -42,6 +43,52 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <span>Portfolio Breakdown: </span>
+    <div id="piechart"></div>
+
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+  <script type="text/javascript">
+  // Load google charts
+  google.charts.load('current', {'packages':['corechart']});
+  google.charts.setOnLoadCallback(drawChart);
+
+  // Draw the chart and set the chart values
+  function drawChart() {
+
+
+
+    var cryptoBalancePieChart = Number(`${user.cryptoBalanceUSD}`)
+
+    // Determining wheter to split cash balance into interest and cash or omit showing interest
+    var cashBalance =  Number(`${user.balance}`)
+    var interest =  Number(`${user.interest}`)
+    var cashPieChart = 0
+    var interestPieChart = 0
+
+    if (interest < cashBalance) {
+      cashPieChart = cashBalance - interest
+      interestPieChart = interest
+    } else {
+      cashPieChart = cashBalance
+    }
+    
+    var data = google.visualization.arrayToDataTable([
+    ['Item', 'Balance'],
+    ['Cash Balance',  cashPieChart],
+    ['Crypto Balance',  cryptoBalancePieChart],
+    ['Interest', interestPieChart ]
+ 
+  ]);
+
+    // Optional; add a title and set the width and height of the chart
+    var options = {'width':550, 'height':400};
+
+    // Display the chart inside the <div> element with id="piechart"
+    var chart = new google.visualization.PieChart(document.getElementById('piechart'));
+    chart.draw(data, options);
+  }
+  </script>
     <br/>
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
