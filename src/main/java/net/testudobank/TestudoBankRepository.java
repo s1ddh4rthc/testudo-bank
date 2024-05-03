@@ -177,19 +177,19 @@ public class TestudoBankRepository {
       return false;
     }
   }
-
+  
   public static void insertRowToBudgetsTable(JdbcTemplate jdbcTemplate, String customerID, int foodAndGroceriesAmount, int housingAndUtilitiesAmount, int transportationBudget, int savingsAndInvestmentsAmount, int otherAmount) {
     // Check if the customerID already exists in the BUDGETS table
-    String checkCustomerIDSql = "SELECT COUNT(*) FROM BUDGETS WHERE CustomerID = ?";
+    String checkCustomerIDSql = "SELECT COUNT(*) FROM Budgets WHERE CustomerID = ?";
     int count = jdbcTemplate.queryForObject(checkCustomerIDSql, Integer.class, customerID);
 
     if (count == 0) {
         // If the customerID doesn't exist, insert a new row
-        String insertSql = "INSERT INTO BUDGETS (CustomerID, FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount) VALUES (?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO Budgets (CustomerID, FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount) VALUES (?, ?, ?, ?, ?, ?)";
         jdbcTemplate.update(insertSql, customerID, foodAndGroceriesAmount, housingAndUtilitiesAmount, transportationBudget, savingsAndInvestmentsAmount, otherAmount);
     } else {
         // If the customerID exists, update the row
-        String updateSql = "UPDATE BUDGETS SET FoodAndGroceriesAmount = ?, HousingAndUtilitiesAmount = ?, TransportationAmount = ?, SavingsAndInvestmentAmount = ?, OtherAmount = ? WHERE CustomerID = ?";
+        String updateSql = "UPDATE Budgets SET FoodAndGroceriesAmount = ?, HousingAndUtilitiesAmount = ?, TransportationAmount = ?, SavingsAndInvestmentAmount = ?, OtherAmount = ? WHERE CustomerID = ?";
         jdbcTemplate.update(updateSql, foodAndGroceriesAmount, housingAndUtilitiesAmount, transportationBudget, savingsAndInvestmentsAmount, otherAmount, customerID);
     }
 }

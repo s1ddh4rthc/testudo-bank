@@ -480,7 +480,6 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
     }
 
-  
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
@@ -855,6 +854,12 @@ public class MvcController {
     if (!userPasswordAttempt.equals(userPassword)) {
       return "welcome";
     }
+
+    // Check if the user has Overdraft balance. If they do, then return "welcome"
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }
     // get budget for each entered category
     double groceriesBudget = user.getBudgetGroceries();
     double housingBudget = user.getBudgetHousing();
@@ -867,7 +872,6 @@ public class MvcController {
           return "welcome";
     } else {
       // Validate that allocated budget does not exceed the user's balance, and apply the deduction
-      //
       int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       double totalAllocatedBudget = groceriesBudget + housingBudget + transportationBudget + savingsBudget + otherBudget;
       int totalAllocatedBudgetInPennies = convertDollarsToPennies(totalAllocatedBudget);
