@@ -99,4 +99,20 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Transaction History Fields ////
+  @Setter @Getter
+  private String dateFrom;
+
+  @Setter @Getter
+  private String dateTo;
+
+  @Setter @Getter
+  private boolean requestingCryptoHistory;
+
+  @Setter @Getter
+  private boolean requestingTransferHistory;
+
+  @Setter @Getter
+  private boolean requestingTransactionHistory;
+
 }

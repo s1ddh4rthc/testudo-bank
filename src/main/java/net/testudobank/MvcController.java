@@ -5,18 +5,39 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.itextpdf.text.Chunk;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+
+import com.itextpdf.text.DocumentException;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import java.util.Optional;
 import java.util.Set;
+
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -161,6 +182,21 @@ public class MvcController {
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
 		model.addAttribute("user", user);
 		return "buycrypto_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "exportinfo_form" page to the user.
+   * An empty `User` object is added to the Model as an Attribute to store
+   * the user's input for exporting transaction information to a PDF.
+   *
+   * @param model The Model object to which the `User` object is added as an Attribute.
+   * @return The "exportinfo_form" page.
+   */
+  @GetMapping("/exportinfo")
+	public String showExportInfoForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "export_transaction_info_form";
 	}
 
   /**
@@ -810,4 +846,161 @@ public class MvcController {
 
   }
 
+   /**
+   * Handles the HTML POST request for exporting user information to a PDF statement.
+   * <p>
+   * Checks if the password attempt matches the user's correct password. If not, redirects to the "welcome" page.
+   * <p>
+   * Retrieves transaction, crypto, and transfer histories based on user request. 
+   * Generates a PDF statement containing the requested information and sends it to the user as a download.
+   *
+   * @param user The user object containing the username, password, and request flags.
+   * @param response The HttpServletResponse object for sending the PDF to the user.
+   * @return The "welcome" page (without redirecting) after the PDF is generated.
+   * @throws IOException If there is an issue with the PDF output stream.
+   * @throws DocumentException If there is an issue with the PDF document.
+   * @throws FileNotFoundException If the PDF file is not found.
+   */
+  @PostMapping("/exportinfo")
+  public String exportInfo(@ModelAttribute("user") User user, HttpServletResponse response) throws IOException, DocumentException, FileNotFoundException {
+      String userID = user.getUsername();
+      String passwordAttempt = user.getPassword();
+      String correctUserPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+      if(!passwordAttempt.equals(correctUserPassword)) {
+          return "welcome";
+      }
+      
+      boolean requestingTransactionHistory = user.isRequestingTransactionHistory();
+      boolean requestingCryptoHistory = user.isRequestingCryptoHistory();
+      boolean requestingTransferHistory = user.isRequestingTransferHistory();
+      String fromDate = user.getDateFrom();
+      String toDate = user.getDateTo();
+      DecimalFormat df = new DecimalFormat("#.##");
+      df.setRoundingMode(RoundingMode.HALF_UP);
+
+      List<Map<String, Object>> transactionHistory = TestudoBankRepository.getTransactionsBetweenDates(jdbcTemplate, userID, fromDate, toDate);
+      List<Map<String, Object>> cryptoHistory = TestudoBankRepository.getCryptoHistoryBetweenDates(jdbcTemplate, userID, fromDate, toDate);
+      List<Map<String, Object>> transferHistory = TestudoBankRepository.getTransfersBetweenDates(jdbcTemplate, userID, fromDate, toDate);
+      //Set content type so we can send the PDF to the user
+      response.setContentType("application/pdf");
+      response.setHeader("Content-Disposition", "attachment; filename=statement.pdf");
+
+      Document statement = new Document();
+      PdfWriter.getInstance(statement, response.getOutputStream());
+      statement.open();
+
+      //Begin Header
+      Paragraph header = new Paragraph("Statement From " + fromDate + " To " + toDate +  " for " + userID);
+      header.setAlignment(Element.ALIGN_CENTER);
+      statement.add(header);
+      statement.add(Chunk.NEWLINE);
+      int numberOfTransactions = 0;
+
+      //Begin Account History
+      if (requestingTransactionHistory) {
+        numberOfTransactions += addHistorySection(statement, "Transaction History:", transactionHistory, "No transaction entries found");
+      }
+
+      if(requestingCryptoHistory) {
+        numberOfTransactions += addHistorySection(statement, "Crypto History:", cryptoHistory, "No crypto entries found");
+      }
+
+      if(requestingTransferHistory) {
+        numberOfTransactions += addHistorySection(statement, "Transfer History:", transferHistory, "No transfer entries found");
+      }
+
+      // Begin Account Statistics
+      Paragraph statistics = new Paragraph("Account Statistics:");
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+
+      statistics = new Paragraph("Number of Transactions during this time period: " + numberOfTransactions);
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+
+      double balanceInDollars = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) / 100.0;
+      String formattedBalance = df.format(balanceInDollars);
+      statistics = new Paragraph("Current Account Balance: $" + formattedBalance);
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+      
+      statistics = new Paragraph("Current Crypto Balance (SOL): " + TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, userID, "SOL").orElse(0.0));
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+      statistics = new Paragraph("Current Crypto Balance (ETH): " + TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, userID, "ETH").orElse(0.0));
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+
+      double overDraftInDollars = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) / 100.0;
+      String formattedOverDraft = df.format(overDraftInDollars);
+      statistics = new Paragraph("Current Overdraft Balance: $" + formattedOverDraft);
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+
+      statistics = new Paragraph("Number of Deposits For Interest: " + TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID));
+      statistics.setAlignment(Element.ALIGN_LEFT);
+      statement.add(statistics);
+
+      statement.close();
+      
+      return "welcome"; // Will actually not redirect; will just download the PDF to the user
+  }
+
+  /**
+  * Adds a section to the PDF document containing transaction, crypto, or transfer history.
+  *
+  * @param document The PDF document to add the section to.
+  * @param sectionHeader The header for the section.
+  * @param history The list of transaction, crypto, or transfer history.
+  * @param noEntriesMessage The message to display if there are no entries in the history.
+  * @return The number of actions (excluding column headers) in the history section.
+  * @throws DocumentException If there is an issue with adding the section to the PDF document.
+  */
+  public int addHistorySection(Document document, String sectionHeader, List<Map<String, Object>> history, String noEntriesMessage) throws DocumentException {
+    Paragraph header = new Paragraph(sectionHeader);
+    header.setAlignment(Element.ALIGN_LEFT);
+    document.add(header);
+    int numberOfActionsExcludingColumnHeaders = 0;
+    if (history != null && !history.isEmpty()) {
+        Paragraph smallNewline = new Paragraph("\n");
+        smallNewline.setLeading(5); 
+        PdfPTable historyTable = createHTMLTableOfHistory(history);
+        document.add(smallNewline);
+        document.add(historyTable);
+        numberOfActionsExcludingColumnHeaders = historyTable.size() - 1;
+    }   
+    else {
+          Paragraph noEntries = new Paragraph(noEntriesMessage);
+          document.add(noEntries);
+    }
+    document.add(Chunk.NEWLINE);
+    return numberOfActionsExcludingColumnHeaders;
+  }
+
+  /**
+  * Creates a PdfPTable representation of transaction, crypto, or transfer history.
+  *
+  * @param history The list of transaction, crypto, or transfer history.
+  * @return A PdfPTable representation of the history, or null if the history is empty.
+  */
+  public PdfPTable createHTMLTableOfHistory( List<Map<String, Object>> history) {
+    if(history.size() > 0) {
+    
+      PdfPTable table = new PdfPTable(history.get(0).size());
+      for (String key : history.get(0).keySet()) {
+          table.addCell(key);
+      }
+
+      for (Map<String, Object> dataMap : history) {
+          for (Object value : dataMap.values()) {
+              table.addCell(value.toString());
+          }
+      }
+      
+      return table;
+    }
+    
+    return null;
+  }
 }

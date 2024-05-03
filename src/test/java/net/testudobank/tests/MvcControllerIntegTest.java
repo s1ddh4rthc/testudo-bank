@@ -1,12 +1,20 @@
 package net.testudobank.tests;
 
+import static org.junit.Assert.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,12 +30,17 @@ import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
 import org.testcontainers.jdbc.JdbcDatabaseDelegate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfPTable;
 
 import net.testudobank.MvcController;
 import net.testudobank.User;
@@ -1115,6 +1128,214 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
   }
+
+    /**
+  * Tests the exportInfo method of the controller class.
+  * Validates that the PDF statement is generated correctly and returned string is 'welcome'.
+  *
+  * @throws IOException            if an I/O error occurs
+  * @throws DocumentException      if an error occurs during PDF document processing
+  * @throws FileNotFoundException  if the file to be exported is not found
+  * @throws SQLException           if a SQL error occurs
+  * @throws ScriptException        if an error occurs during script execution
+  */
+  @Test
+  public void testExportInfo_GeneralCase() throws IOException, DocumentException, FileNotFoundException, SQLException, ScriptException {
+    // Initialize user data
+    String CUSTOMER1_ID = "123456789";
+    String CUSTOMER1_PASSWORD = "password";
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, "Foo", "Bar", 0, 0);
+
+    // Prepare user data for export
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setRequestingTransactionHistory(true);
+    user.setRequestingCryptoHistory(false);
+    user.setRequestingTransferHistory(true);
+    user.setDateFrom("2022-01-01");
+    user.setDateTo("2022-12-31");
+
+    // Set up mock HttpServletResponse
+    MockHttpServletResponse response = new MockHttpServletResponse();    
+    
+    // Call the method to test
+    String result = controller.exportInfo(user, response);
+
+    // Verify the result
+    assertEquals("welcome", result);
+
+    // Verify the PDF statement was generated correctly
+    assertTrue(response.getContentType().contains("application/pdf"));
+    assertTrue(response.getHeader("Content-Disposition").contains("attachment; filename=statement.pdf")); 
+  }
+
+  /**
+  * Tests the exportInfo method of the controller class.
+  * Validates that the PDF statement is still generated and returned string is 'welcome'.
+  *
+  * @throws IOException            if an I/O error occurs
+  * @throws DocumentException      if an error occurs during PDF document processing
+  * @throws FileNotFoundException  if the file to be exported is not found
+  * @throws SQLException           if a SQL error occurs
+  * @throws ScriptException        if an error occurs during script execution
+  */
+  @Test
+  public void testExportInfo_NoInfoRequested() throws IOException, DocumentException, FileNotFoundException, SQLException, ScriptException {
+    // Initialize user data
+    String CUSTOMER1_ID = "123456789";
+    String CUSTOMER1_PASSWORD = "password";
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, "Foo", "Bar", 0, 0);
+
+    // Prepare user data for export
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setRequestingTransactionHistory(false);
+    user.setRequestingCryptoHistory(false);
+    user.setRequestingTransferHistory(false);
+    user.setDateFrom("2022-01-01");
+    user.setDateTo("2022-12-31");
+
+    // Set up mock HttpServletResponse
+    MockHttpServletResponse response = new MockHttpServletResponse();    
+    
+    // Call the method to test
+    String result = controller.exportInfo(user, response);
+
+    // Verify the result
+    assertEquals("welcome", result);
+
+    // Verify the PDF statement was generated correctly
+    assertTrue(response.getContentType().contains("application/pdf"));
+    assertTrue(response.getHeader("Content-Disposition").contains("attachment; filename=statement.pdf")); 
+  }
+
+  /**
+  * Tests the exportInfo method of the controller class.
+  * Validates that the PDF statement with all information is generated and returned string is 'welcome'.
+  *
+  * @throws IOException            if an I/O error occurs
+  * @throws DocumentException      if an error occurs during PDF document processing
+  * @throws FileNotFoundException  if the file to be exported is not found
+  * @throws SQLException           if a SQL error occurs
+  * @throws ScriptException        if an error occurs during script execution
+  */
+  @Test
+  public void testExportInfo_AllInfoRequested() throws IOException, DocumentException, FileNotFoundException, SQLException, ScriptException {
+    // Initialize user data
+    String CUSTOMER1_ID = "123456789";
+    String CUSTOMER1_PASSWORD = "password";
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, "Foo", "Bar", 0, 0);
+
+    // Prepare user data for export
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setRequestingTransactionHistory(true);
+    user.setRequestingCryptoHistory(true);
+    user.setRequestingTransferHistory(true);
+    user.setDateFrom("2022-01-01");
+    user.setDateTo("2022-12-31");
+
+    // Set up mock HttpServletResponse
+    MockHttpServletResponse response = new MockHttpServletResponse();    
+    
+    // Call the method to test
+    String result = controller.exportInfo(user, response);
+
+    // Verify the result
+    assertEquals("welcome", result);
+
+    // Verify the PDF statement was generated correctly
+    assertTrue(response.getContentType().contains("application/pdf"));
+    assertTrue(response.getHeader("Content-Disposition").contains("attachment; filename=statement.pdf")); 
+  }
+
+
+  /**
+  * Tests the addHistorySection method of the controller class with a non-empty history.
+  * Validates that the history section is added correctly to the PDF document.
+  *
+  * @throws DocumentException  if an error occurs during PDF document processing
+  */
+  @Test
+  public void testAddHistorySection_NonEmptyHistory() throws DocumentException {
+    // Initialize document and history data
+    Document document = new Document();
+    document.open();
+    List<Map<String, Object>> history = new ArrayList<>();
+    Map<String, Object> entry1 = new HashMap<>();
+    entry1.put("date", "2022-01-01");
+    entry1.put("type", "deposit");
+    entry1.put("amount", "100.00");
+    history.add(entry1);
+    Map<String, Object> entry2 = new HashMap<>();
+    entry2.put("date", "2022-01-02");
+    entry2.put("type", "withdrawal");
+    entry2.put("amount", "50.00");
+    history.add(entry2);
+
+    // Call the method to test
+    int numberOfActions = controller.addHistorySection(document, "Transaction History:", history, "No transaction entries found");
+
+    // Verify the result
+    assertEquals(2, numberOfActions);
+}
+
+/**
+* Tests the addHistorySection method of the controller class with a non-empty history.
+* Validates that the history section is added correctly to the PDF document.
+*
+* @throws DocumentException if an error occurs during PDF document processing
+*/
+@Test
+public void testAddHistorySection_EmptyHistory() throws DocumentException {
+      Document document = new Document();
+      document.open();
+      List<Map<String, Object>> history = new ArrayList<>();
+      int numberOfActions = controller.addHistorySection(document, "Transaction History:", history, "No transaction entries found");
+      assertEquals(0, numberOfActions);
+  }
+
+/**
+ * Tests the createHTMLTableOfHistory method of the controller class with non-empty history.
+ * Validates that the HTML table representing transaction history is created correctly.
+ */
+@Test
+public void testCreateHTMLTableOfHistory_NonEmptyHistory() {
+    // Initialize history data
+    List<Map<String, Object>> history = new ArrayList<>();
+    Map<String, Object> entry1 = new HashMap<>();
+    entry1.put("date", "2022-01-01");
+    entry1.put("type", "deposit");
+    entry1.put("amount", "100.00");
+    history.add(entry1);
+    Map<String, Object> entry2 = new HashMap<>();
+    entry2.put("date", "2022-01-02");
+    entry2.put("type", "withdrawal");
+    entry2.put("amount", "50.00");
+    history.add(entry2);
+
+    // Call the method to test
+    PdfPTable table = controller.createHTMLTableOfHistory(history);
+
+    // Verify the result
+    assertNotNull(table);
+    assertEquals(3, table.getRows().size());
+    assertEquals(3, table.getNumberOfColumns());
+  }
+  
+   /**
+   * Test method to verify the behavior of createHTMLTableOfHistory
+   * when provided with an empty history.
+   */
+   @Test
+    public void testCreateHTMLTableOfHistory_EmptyHistory() {
+        List<Map<String, Object>> history = new ArrayList<>();
+        PdfPTable table = controller.createHTMLTableOfHistory(history);
+        assertNull(table);
+    }
 
   /**
    * Enum for {@link CryptoTransactionTester}
