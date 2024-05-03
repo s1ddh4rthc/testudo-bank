@@ -39,7 +39,10 @@ public class MvcController {
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
+  private final static int MAX_NUM_CERTIFICATES_OF_DEPOSIT_DISPLAYED = 3;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int NUM_DEPOSITS_THRESHOLD_FOR_INTEREST = 5;
+  private final static int DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES = 2000;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -47,10 +50,20 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_CERTIFICATE_OF_DEPOSIT_PURCHASE_ACTION = "PurchaseCD";
+  public static String TRANSACTION_HISTORY_CERTIFICATE_OF_DEPOSIT_REDEEM_ACTION = "RedeemCD";
+  public static String CERTIFICATE_OF_DEPOSIT_LOGS_ACTIVE_STATUS = "Active";
+  public static String CERTIFICATE_OF_DEPOSIT_LOGS_REDEEMED_STATUS = "Redeemed";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  private final static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  public final static double CERTIFICATE_OF_DEPOSIT_INTEREST_RATE = 1.0175;
+  public final static double CERTIFICATE_OF_DEPOSIT_EARLY_WITHDRAWL_PENALTY = 0.1;
+  public final static int CERTIFICATE_OF_DEPOSIT_TERM_IN_MONTHS = 12;
+  public final static int MINIMUM_ALLOWED_CERTIFICATE_OF_DEPOSIT_AMT_IN_PENNIES = 10000;
+  public final static long MILLISECONDS_IN_YEAR = 1000L * 60 * 60 * 24 * 365;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -180,6 +193,39 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "purchaseCD_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for buying cryptocurrency.
+   * 
+   * @param model
+   * @return "purchaseCD_form" page
+   */
+  @GetMapping("/purchaseCD")
+	public String showPurchaseCDForm(Model model) {
+    User user = new User();
+    user.setCertificateOfDepositEarlyWithdrawlPenalty(CERTIFICATE_OF_DEPOSIT_EARLY_WITHDRAWL_PENALTY);;
+    user.setCertificateOfDepositInterestRate(CERTIFICATE_OF_DEPOSIT_INTEREST_RATE);
+    user.setCertificateOfDepositTermInMonths(CERTIFICATE_OF_DEPOSIT_TERM_IN_MONTHS);
+		model.addAttribute("user", user);
+		return "purchaseCD_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "redeemCD_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for buying cryptocurrency.
+   * 
+   * @param model
+   * @return "redeemCD_form" page
+   */
+  @GetMapping("/redeemCD")
+	public String showRedeemCDForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);    
+		return "redeemCD_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -213,6 +259,18 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
+    List<Map<String,Object>> certificateOfDepositLogs = TestudoBankRepository.getCertificatesOfDeposit(jdbcTemplate, user.getUsername(), MAX_NUM_CERTIFICATES_OF_DEPOSIT_DISPLAYED);
+    String certificateOfDepositLogsOutput = HTML_LINE_BREAK;
+    for(Map<String, Object> certificateOfDepositLog : certificateOfDepositLogs){
+      certificateOfDepositLogsOutput += certificateOfDepositLog + HTML_LINE_BREAK;
+    }
+
+    List<Map<String,Object>> activeCertificateOfDepositLogs = TestudoBankRepository.getActiveCertificatesOfDeposit(jdbcTemplate, user.getUsername());
+    String activeCertificateOfDepositLogsOutput = HTML_LINE_BREAK;
+    for(Map<String, Object> activeCertificateOfDepositLog : activeCertificateOfDepositLogs){
+      activeCertificateOfDepositLogsOutput += activeCertificateOfDepositLog + HTML_LINE_BREAK;
+    }
+
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
@@ -238,6 +296,9 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setBalanceInterestRate(BALANCE_INTEREST_RATE);
+    user.setCertificateOfDepositLogs(certificateOfDepositLogsOutput);
+    user.setActiveCertificateOfDepositLogs(activeCertificateOfDepositLogsOutput);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -249,6 +310,16 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  // Scales a penny balance by INTEREST_RATE
+  private static int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+
+  // Adds a year to the input date
+  private static Date getOneYearAfter(Date start) {
+    return new Date(start.getTime() + MILLISECONDS_IN_YEAR);
   }
 
   // HTML POST HANDLERS ////
@@ -358,7 +429,9 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (userDepositAmtInPennies >= DEPOSIT_AMT_THRESHOLD_FOR_INTEREST_IN_PENNIES) {
+      applyInterest(user, currentTime);
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -410,8 +483,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
-      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
+      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
       // IMPORTANT: Compare new overdraft balance to max overdraft limit AFTER applying the interest rate!
@@ -799,12 +871,199 @@ public class MvcController {
   }
 
   /**
+   * HTML POST request handler for the Purchase Certificate of Deposit Form page.
+   * <p>
+   * The same username+password handling from the login page is used.
+   * <p>
+   * If the password attempt is correct, the user is not in overdraft,
+   * and the deposit amount is a valid amount (greater than the 
+   * MINIMUM_ALLOWED_CERTIFICATE_OF_DEPOSIT_AMT_IN_PENNIES) that does 
+   * not exceed balance,
+   * the deposit amount will be withdrawn from the users account and a
+   * new CD will be created and associated with the user.
+   * <p>
+   * If the password attempt is incorrect or the amount to purchase is invalid,
+   * the user is redirected to the "welcome" page.
+   * <p>
+   *
+   * @param user
+   * @return "account_info" page if purchase successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/purchaseCD")
+  public String submitPurchaseCertificateOfDeposit(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // CD balance must be at least MINIMUM_ALLOWED_CERTIFICATE_OF_DEPOSIT_AMT_IN_PENNIES
+    int amountToDepositCDInPennies = convertDollarsToPennies(user.getAmountToDepositCD());
+    if (amountToDepositCDInPennies < MINIMUM_ALLOWED_CERTIFICATE_OF_DEPOSIT_AMT_IN_PENNIES) {
+      return "welcome";
+    }
+
+    // cannot purchase CD while in overdraft
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }
+
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // check if balance will cover purchase. Do not allow customers to purchase with overdraft funds.
+    if (amountToDepositCDInPennies > userBalanceInPennies) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't complete purchase.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+
+
+    //// Transaction is valid, complete the purchase ///
+
+    Date currentTime = new java.util.Date();
+    String timestampPurchased = SQL_DATETIME_FORMATTER.format(currentTime);
+    String timestampMatured = SQL_DATETIME_FORMATTER.format(getOneYearAfter(currentTime));
+
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, amountToDepositCDInPennies);
+    
+
+      
+    // create an entry in CertificateOfDepositLogs table
+    TestudoBankRepository.insertRowToCertificateOfDepositLogsTable      (jdbcTemplate, 
+                    userID, 
+                    timestampPurchased, 
+                    timestampMatured, 
+                    CERTIFICATE_OF_DEPOSIT_LOGS_ACTIVE_STATUS, 
+                    amountToDepositCDInPennies, 
+                    CERTIFICATE_OF_DEPOSIT_INTEREST_RATE, 
+                    CERTIFICATE_OF_DEPOSIT_EARLY_WITHDRAWL_PENALTY);
+
+    // Create entry in TransactionHistory table
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, timestampPurchased, TRANSACTION_HISTORY_CERTIFICATE_OF_DEPOSIT_PURCHASE_ACTION, amountToDepositCDInPennies);
+
+    // Update model
+    updateAccountInfo(user);
+    return "account_info";
+
+  }
+
+    /**
+   * HTML POST request handler for the Redeem Certificate of Deposit Form page.
+   * <p>
+   * The same username+password handling from the login page is used.
+   * <p>
+   * If the password attempt is correct, and the Certificate of Deposit ID is valid, the CD is redeemed
+   * and its value is added to the customer's account.
    * 
+   * A Certificate of Deposit ID is valid to redeem if
+   *  - It is owned by the correct customer
+   *  - Its status is active
+   * 
+   * If the redemption is before the timestampMatured, then the value of the CD
+   * is the deposit amount less the early withdrawl penalty. Otherwise, the 
+   * value is the deposit amount plus the interest.
+   * <p>
+   * If the password attempt is incorrect or the amount to redeem is invalid,
+   * the user is redirected to the "welcome" page.
+   * <p>
+   *
+   * @param user
+   * @return "account_info" page if redeem successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/redeemCD")
+  public String submitRedeemCertificateOfDeposit(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+
+    // Fetch CD by ID
+    List<Map<String,Object>> certificateOfDepositLogs = TestudoBankRepository.getActiveCertificatesOfDepositByID(jdbcTemplate, user.getCertificateOfDepositID(), userID);
+
+    // CD IDs are unique so if we get anything other than 1 log, its an error.
+    if (certificateOfDepositLogs.size() != 1) {
+      return "welcome";
+    } 
+
+    Map<String, Object> certificateOfDepositToRedeem = certificateOfDepositLogs.get(0);
+
+
+    //// Transaction is valid Complete Redeem Action ////
+
+    LocalDateTime localCurrentDateTime = LocalDateTime.now();
+    String currentTime = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(localCurrentDateTime));
+    int CDValueInPennies;
+    if (localCurrentDateTime.isBefore((LocalDateTime) certificateOfDepositToRedeem.get("TimestampMatured"))) {
+      // Redeeming before Mature date
+      CDValueInPennies = (int) ((int) certificateOfDepositToRedeem.get("DepositAmount") *  (1.0 - ((float) certificateOfDepositToRedeem.get("EarlyWithdrawlPenaltyRate"))));
+    } else {
+      // Redeeming after Mature date
+      CDValueInPennies = (int) ((int) certificateOfDepositToRedeem.get("DepositAmount") *  ((float) certificateOfDepositToRedeem.get("InterestRate")));
+    }
+
+    // Update customer balance
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, CDValueInPennies);
+    
+    // Change status of CD in the CD logs to redeemed
+    TestudoBankRepository.setCertificateOfDepositStatusAsRedeemed(jdbcTemplate, (int) certificateOfDepositToRedeem.get("CertificateOfDepositID"));
+      
+
+    // Create entry in TransactionHistory table
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CERTIFICATE_OF_DEPOSIT_REDEEM_ACTION, CDValueInPennies);
+
+    // Update model
+    updateAccountInfo(user);
+    return "account_info";
+
+  }
+
+  /**
+   * Count the number of deposits for interest incentive.
+   * <p>
+   * Apply interest when necessary (on NUM_DEPOSITS_THRESHOLD_FOR_INTEREST-th deposit).
+   * <p> 
+   * Log the interest application in the Transaction History table.
    * 
    * @param user
+   * @param currentTime string formatted date time to ensure that all logs produced match
+   * the timestamp of the broader action (e.g. deposit submission).
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  public String applyInterest(@ModelAttribute("user") User user, String currentTime) {
+    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+    numberOfDepositsForInterest++;
+    
+    if (numberOfDepositsForInterest >= NUM_DEPOSITS_THRESHOLD_FOR_INTEREST) { // apply interest and reset count in SQL DB
+      int oldBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+      int newBalance = (int) (BALANCE_INTEREST_RATE * oldBalance);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalance);
+
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED, newBalance - oldBalance);
+
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), 0);
+      return "account_info";
+    } else { // increment count in SQL DB
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numberOfDepositsForInterest);
+    }
 
     return "welcome";
 

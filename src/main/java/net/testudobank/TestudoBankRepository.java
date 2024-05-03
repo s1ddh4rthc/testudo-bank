@@ -51,6 +51,35 @@ public class TestudoBankRepository {
     return transactionLogs;
   }
 
+  public static List<Map<String,Object>> getCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDepositLogs WHERE CustomerId='%s' ORDER BY TimestampMatured DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
+
+  public static List<Map<String,Object>> getCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDepositLogs WHERE CustomerId='%s' ORDER BY TimestampMatured DESC;", customerID);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
+  public static List<Map<String,Object>> getActiveCertificatesOfDepositByID(JdbcTemplate jdbcTemplate, int certificateOfDepositID, String customerID) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDepositLogs WHERE CertificateOfDepositID = %d AND CustomerId='%s' AND Status = 'Active' ORDER BY TimestampMatured DESC;", certificateOfDepositID, customerID);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
+
+  public static List<Map<String,Object>> getActiveCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDepositLogs WHERE CustomerId='%s' AND Status = 'Active' ORDER BY TimestampMatured DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
+
+  public static List<Map<String,Object>> getActiveCertificatesOfDeposit(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCertificateOfDepositSql = String.format("Select * from CertificateOfDepositLogs WHERE CustomerId='%s' AND Status = 'Active' ORDER BY TimestampMatured DESC;", customerID);
+    List<Map<String,Object>> certificateOfDepositLogs = jdbcTemplate.queryForList(getCertificateOfDepositSql);
+    return certificateOfDepositLogs;
+  }
+
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
@@ -92,6 +121,23 @@ public class TestudoBankRepository {
                                                               action,
                                                               amtInPennies);
     jdbcTemplate.update(insertRowToTransactionHistorySql);
+  }
+
+  public static void insertRowToCertificateOfDepositLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestampPurchased, String timestampMatured, String status, int amtInPennies, double interestRate, double earlyWithdrawlPenaltyRate) {
+    String insertRowToCertificateOfDepositLogsSql = String.format("INSERT INTO CertificateOfDepositLogs VALUES (NULL, '%s', '%s', '%s', '%s', %d, %f, %f);",                    
+                                                    customerID, 
+                                                    timestampPurchased,
+                                                    timestampMatured,
+                                                    status,
+                                                    amtInPennies,
+                                                    interestRate,
+                                                    earlyWithdrawlPenaltyRate);
+    jdbcTemplate.update(insertRowToCertificateOfDepositLogsSql);
+  }
+
+  public static void setCertificateOfDepositStatusAsRedeemed(JdbcTemplate jdbcTemplate, int certificateOfDepositID) { 
+    String certificateOfDepositStatusAsRedeemedSql = String.format("UPDATE CertificateOfDepositLogs SET Status = 'Redeemed' WHERE CertificateOfDepositID='%s';", certificateOfDepositID);
+    jdbcTemplate.update(certificateOfDepositStatusAsRedeemedSql);
   }
 
   public static void insertRowToOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int depositAmtIntPennies, int oldOverdraftBalanceInPennies, int newOverdraftBalanceInPennies) {

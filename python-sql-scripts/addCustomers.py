@@ -51,7 +51,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell', 'InterestApplied', 'PurchaseCD', 'RedeemCD')),
   Amount int
 );
 '''
@@ -92,6 +92,20 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty CertificateOfDepositLogs table
+create_cert_of_deposit_log_table_sql = '''
+CREATE TABLE CertificateOfDepositLogs (
+  CertificateOfDepositID int PRIMARY KEY AUTO_INCREMENT,
+  CustomerID varchar(255),
+  TimestampPurchased DATETIME,
+  TimestampMatured DATETIME,
+  Status varchar(255) CHECK (Status IN ('Active', 'Redeemed')),
+  DepositAmount int,
+  InterestRate float,
+  EarlyWithdrawlPenaltyRate float
+);
+'''
+cursor.execute(create_cert_of_deposit_log_table_sql)
 
 
 # The two sets created below are used to ensure that this

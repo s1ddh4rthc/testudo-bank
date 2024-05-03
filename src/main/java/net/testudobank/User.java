@@ -96,7 +96,33 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
 
+  //// Interest Fields ////
+
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private double balanceInterestRate;
+
+  //// Certificate of Deposit Fields ////
+  @Setter @Getter
+  private int certificateOfDepositTermInMonths;
+
+  @Setter @Getter
+  private double certificateOfDepositInterestRate;
+
+  @Setter @Getter
+  private double certificateOfDepositEarlyWithdrawlPenalty;
+
+  @Setter @Getter
+  private double amountToDepositCD;
+
+  @Setter @Getter
+  private int certificateOfDepositID;
+
+  @Setter @Getter
+  private String certificateOfDepositLogs;
+
+  @Setter @Getter
+  private String activeCertificateOfDepositLogs;
 }

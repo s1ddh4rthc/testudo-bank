@@ -38,15 +38,21 @@
     <span>Solana Coins Owned: </span><span>${user.solBalance}</span><br/>
     <span>Current $ETH Price: </span><span>${user.ethPrice}</span><br/>
     <span>Current $SOL Price: </span><span>${user.solPrice}</span><br/>
+    <span>Current Interest Rate: </span><span>${String.format("%.2f%%", (user.balanceInterestRate - 1) * 100)}</span><br/>
     <span>Re-payment logs: </span><span>${user.logs}</span><br/>
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <span>Active Certificate of Deposit Logs: </span><span>${user.activeCertificateOfDepositLogs}</span><br/>
+    <span>All Certificate of Deposit Logs: </span><span>${user.certificateOfDepositLogs}</span><br/>
     <br/>
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/purchaseCD'>Purchase CD</a>
+    <a href='/redeemCD'>Redeem CD</a>
+
     <a href='/'>Logout</a>
 	</div>
 </body>
