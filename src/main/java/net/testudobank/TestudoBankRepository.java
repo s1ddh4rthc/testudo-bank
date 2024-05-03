@@ -1,6 +1,8 @@
 package net.testudobank;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -168,6 +170,37 @@ public class TestudoBankRepository {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
   }
+
+  public static List<Map<String, Object>> getTransactionsBetweenDates(JdbcTemplate jdbcTemplate, String customerID, String fromDate, String toDate) {
+    //Need to format it one day ahead to make the end bound inclusive
+    LocalDate toDateObj = LocalDate.parse(toDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    toDateObj = toDateObj.plusDays(1);
+    toDate = toDateObj.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    String getTransactionsSql = String.format("SELECT * FROM TransactionHistory WHERE CustomerID='%s' AND Timestamp BETWEEN '%s' AND '%s';", customerID, fromDate, toDate);
+    List<Map<String, Object>> transactions = jdbcTemplate.queryForList(getTransactionsSql);
+    return transactions;
+  }
+
+  public static List<Map<String, Object>> getTransfersBetweenDates(JdbcTemplate jdbcTemplate, String customerID, String fromDate, String toDate) {
+    //Need to format it one day ahead to make the end bound inclusive
+    LocalDate toDateObj = LocalDate.parse(toDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    toDateObj = toDateObj.plusDays(1);
+    toDate = toDateObj.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    String getTransactionsSql = String.format("SELECT * FROM TransferHistory WHERE (TransferFrom='%s' OR TransferTo='%s') AND Timestamp BETWEEN '%s' AND '%s';", customerID, customerID, fromDate, toDate);
+    List<Map<String, Object>> transactions = jdbcTemplate.queryForList(getTransactionsSql);
+    return transactions;
+  }
+
+  public static List<Map<String, Object>> getCryptoHistoryBetweenDates(JdbcTemplate jdbcTemplate, String customerID, String fromDate, String toDate) {
+    //Need to format it one day ahead to make the end bound inclusive
+    LocalDate toDateObj = LocalDate.parse(toDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    toDateObj = toDateObj.plusDays(1);
+    toDate = toDateObj.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    String getTransactionsSql = String.format("SELECT * FROM CryptoHistory WHERE CustomerID='%s' AND Timestamp BETWEEN '%s' AND '%s';", customerID, fromDate, toDate);
+    List<Map<String, Object>> transactions = jdbcTemplate.queryForList(getTransactionsSql);
+    return transactions;
+  }
+
   
   public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 
     String getCustomerIDSql =  String.format("SELECT CustomerID FROM Customers WHERE CustomerID='%s';", customerID);

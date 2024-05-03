@@ -8,12 +8,6 @@
   <meta charset="ISO-8859-1">
   <title>Welcome Page</title>
   <style type="text/css">
-    label {
-      display: inline-block;
-      width: 200px;
-      margin: 5px;
-      text-align: left;
-    }
     input[type=text], input[type=password], select {
       width: 200px;	
     }
@@ -31,20 +25,25 @@
       padding: 10px;
       margin: 10px;
     }
+    .buy-crypto {
+            margin-left: 100px;
+        }
+    
   </style>
 </head>
 
 <body>
 	<div align="center">
 		<h2>Welcome to Testudo Bank!</h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
+    <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
 		<a href='/login'>View Account</a> <br/>
     <a href='/deposit'>Deposit</a> <br/>
     <a href='/withdraw'>Withdraw</a> <br/>
     <a href='/dispute'>Dispute</a> <br/>
     <a href='/transfer'>Transfer</a> <br/>
-    <a href='/buycrypto'>Buy Cryptocurrency</a>
-    <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
+    <a href='/exportinfo'>Export Transactions</a> <br/>
+    <a href='/buycrypto' class="buy-crypto">Buy Cryptocurrency</a> 
+    <a href='/sellcrypto' class="buy-crypto">Sell Cryptocurrency</a> <br/>
 
 	</div>
 </body>
