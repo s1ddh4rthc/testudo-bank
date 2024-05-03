@@ -18,6 +18,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import javax.swing.text.html.HTML;
+
+import org.apache.tomcat.util.log.UserDataHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -41,6 +44,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
+  private final static String PENDING_REQUESTS_STATUS = "pending";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
@@ -147,6 +151,36 @@ public class MvcController {
 	}
 
   /**
+   * HTML GET request handler that serves the "request_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's request form input.
+   * 
+   * @param model
+   * @return "request_form" page
+   */
+  @GetMapping("/request")
+	public String showRequestForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "request_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "pending_requests" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's request form input.
+   * 
+   * @param model
+   * @return "pending_requests" page
+   */
+  @GetMapping("/completeRequests")
+  public String showPendingRequests(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "pending_requests";
+  }
+
+  /**
    * HTML GET request handler that serves the "buycrypto_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
    * the user's input for buying cryptocurrency.
@@ -207,6 +241,22 @@ public class MvcController {
       transferHistoryOutput += transferLog + HTML_LINE_BREAK;
     }
 
+    System.out.println("trying to update request history");
+
+    List<Map<String,Object>> requestHist = TestudoBankRepository.getRequestLogs(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSFERS_DISPLAYED);
+    String requestHistoryOutput = HTML_LINE_BREAK;
+    for (Map<String, Object> requestLog : requestHist) {
+      requestHistoryOutput += requestLog + HTML_LINE_BREAK;
+    }
+
+    System.out.println("updated request history");
+
+    // List<Map<String,Object>> pendingRequests = TestudoBankRepository.getPendingRequestLogs(jdbcTemplate, user.getUsername(), PENDING_REQUESTS_STATUS);
+    // String pendingRequestsOutput = HTML_LINE_BREAK;
+    // for (Map<String,Object> pendingRequest : pendingRequests) {
+    //   pendingRequestsOutput += pendingRequest + HTML_LINE_BREAK;
+    // }
+
     List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
     StringBuilder cryptoHistoryOutput = new StringBuilder(HTML_LINE_BREAK);
     for (Map<String, Object> cryptoLog : cryptoLogs) {
@@ -232,6 +282,8 @@ public class MvcController {
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
+    user.setRequestHist(requestHistoryOutput);
+    // user.setPendingRequests(pendingRequestsOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
@@ -345,7 +397,6 @@ public class MvcController {
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
-
     // only adds deposit to transaction history if is not transfer
     if (user.isTransfer()){
       // Adds transaction recieve to transaction history
@@ -358,7 +409,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    System.out.println("updating account info");
     updateAccountInfo(user);
     return "account_info";
   }
@@ -624,6 +675,81 @@ public class MvcController {
 
     return "account_info";
   }
+
+  @PostMapping("/request")
+  public String submitRequest(@ModelAttribute("user") User requester) {
+
+    // checks to see the customer you are requesting from exists
+    if (!TestudoBankRepository.doesCustomerExist(jdbcTemplate, requester.getRequestRecipientID())){
+      return "welcome";
+    }
+
+    String requesterUserID = requester.getUsername();
+    String requesterPasswordAttempt = requester.getPassword();
+    String requesterPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, requesterUserID);
+
+    // creates new user for recipient
+    User recipient = new User();
+    String recipientUserID = requester.getRequestRecipientID();
+    String recipientPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, recipientUserID);
+    recipient.setUsername(recipientUserID);
+    recipient.setPassword(recipientPassword);
+
+    /// Invalid Input/State Handling ///
+
+    // unsuccessful login
+    if (requesterPasswordAttempt.equals(requesterPassword) == false) {
+      return "welcome";
+    }
+
+    // case where customer already has too many reversals
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, requesterUserID);
+    if (numOfReversals >= MAX_DISPUTES) {
+      return "welcome";
+    }
+
+    // case where customer tries to send money to themselves
+    if (requester.getTransferRecipientID().equals(requesterUserID)){
+      return "welcome";
+    }
+
+    // initialize variables for transfer amount
+    double requestAmount = requester.getAmountToTransfer();
+    int requestAmountInPennies = convertDollarsToPennies(requestAmount);
+
+    // negative transfer amount is not allowed
+    if (requestAmount < 0) {
+      return "welcome";
+    } 
+  
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this transfer
+
+    String status = "pending";
+    // Inserting request into request history for both customers
+    TestudoBankRepository.insertRowToRequestLogsTable(jdbcTemplate, recipientUserID, recipientPassword, currentTime, status, requestAmountInPennies);
+    updateAccountInfo(requester);
+
+    return "account_info";
+  }
+
+  // @PostMapping("/completeRequests")
+  // public String completeRequest(@ModelAttribute("user") User payer) {
+  //   if (!TestudoBankRepository.doesCustomerExist(jdbcTemplate, payer.getRequestRecipientID())){
+  //     return "welcome";
+  //   }
+  //   String payerUserID = payer.getUsername();
+  //   String payerPasswordAttempt = payer.getPassword();
+  //   String payerPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, payerUserID);
+
+  //   // create user for recipient
+  //   User recipient = new User();
+  //   String recipientUserID = payer.getRequestRecipientID();
+  //   String recipientPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, recipientUserID);
+  //   recipient.setUsername(recipientUserID);
+  //   recipient.setPassword(recipientPassword);
+
+
+  // }
 
   /**
    * HTML POST request handler for the Buy Crypto Form page.

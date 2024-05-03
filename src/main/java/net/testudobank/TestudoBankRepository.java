@@ -57,6 +57,20 @@ public class TestudoBankRepository {
     return transferLogs;
   }
 
+  public static List<Map<String,Object>> getRequestLogs(JdbcTemplate jdbcTemplate, String customerID, int numRequestsToFetch) {
+    System.out.println("in request logs");
+    String getRequestsSql = String.format("Select * from PendingRequests WHERE RequestFrom='%s' OR RequestTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numRequestsToFetch);
+    System.out.println("sql written");
+    List<Map<String,Object>> requestLogs = jdbcTemplate.queryForList(getRequestsSql);
+    return requestLogs;
+  }
+
+  public static List<Map<String,Object>> getPendingRequestLogs(JdbcTemplate jdbcTemplate, String customerID, String status) {
+    String getPendingRequestsSql = String.format("Select * from PendingRequests WHERE RequestTo='%s AND Status='%s' ORDER BY Timestamp DESC LIMIT 10;", customerID, status);
+    List<Map<String,Object>> pendingRequests = jdbcTemplate.queryForList(getPendingRequestsSql);
+    return pendingRequests;
+  }
+
   public static List<Map<String,Object>> getOverdraftLogs(JdbcTemplate jdbcTemplate, String customerID){
     String getOverDraftLogsSql = String.format("SELECT * FROM OverdraftLogs WHERE CustomerID='%s';", customerID);
     List<Map<String,Object>> overdraftLogs = jdbcTemplate.queryForList(getOverDraftLogsSql);
@@ -162,6 +176,16 @@ public class TestudoBankRepository {
                                                     timestamp,
                                                     transferAmount);
     jdbcTemplate.update(transferHistoryToSql);
+  }
+
+  public static void insertRowToRequestLogsTable(JdbcTemplate jdbcTemplate, String requesterID, String requestedID, String timestamp, String status, int requestAmount) {
+    String requestHistoryToSql = String.format("INSERT INTO PendingRequests VALUES ('%s', '%s', '%s', '%s', '%d');",
+                                                  requesterID,
+                                                  requestedID,
+                                                  timestamp,
+                                                  status,
+                                                  requestAmount);
+    jdbcTemplate.update(requestHistoryToSql);
   }
 
   public static void insertRowToCryptoLogsTable(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, String action, String timestamp, double cryptoAmount) {
