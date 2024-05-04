@@ -185,8 +185,13 @@ public class MvcControllerIntegTest {
 
     // verify customer balance was increased by 1.5%
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5)*1.015;
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // Verify interest increases by the required amount
+    double CUSTOMER1_EXPECTED_INTEREST =(CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5)*0.015;
+    int CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES, (int)customer1Data.get("Interest"));
 
     // verify that the Deposits and the interest are the only logs in TransactionHistory table
     assertEquals(6, transactionHistoryTableData.size());
@@ -250,9 +255,14 @@ public class MvcControllerIntegTest {
 
 
     // verify customer balance was increased and interest was applied
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE = ((CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT_ABOVE_20*5+CUSTOMER1_AMOUNT_TO_DEPOSIT_BELOW_20*3)*1.015);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = ((CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT_ABOVE_20*5+CUSTOMER1_AMOUNT_TO_DEPOSIT_BELOW_20*3) * 1.015);
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // Verify interest increases by the required amount
+    double CUSTOMER1_EXPECTED_INTEREST =(CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT_ABOVE_20*5+CUSTOMER1_AMOUNT_TO_DEPOSIT_BELOW_20*3) * 0.015;
+    int CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES, (int)customer1Data.get("Interest"));
 
     // verify that the Deposits and the interest are the only logs in TransactionHistory table
     assertEquals(9, transactionHistoryTableData.size());
@@ -308,6 +318,11 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
 
+    // Verify interest increases by the required amount
+    double CUSTOMER1_EXPECTED_INTEREST =(CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5)*0.015 + ((CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5)*1.015 + CUSTOMER1_AMOUNT_TO_DEPOSIT*5)*0.015;
+    int CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES, (int)customer1Data.get("Interest"));
+
     // verify that the Deposits and the interest are the only logs in TransactionHistory table
     assertEquals(12, transactionHistoryTableData.size());
     }
@@ -350,6 +365,10 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5);
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // Verify interest increases by the required amount
+   assertEquals(0, (int)customer1Data.get("Interest"));
+
 
     // verify that the Deposits and the interest are the only logs in TransactionHistory table
     assertEquals(5, transactionHistoryTableData.size());
@@ -401,9 +420,14 @@ public class MvcControllerIntegTest {
 
 
     // verify customer balance was increased and interest was not applied
-    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5)*1.015;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = (CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT*5) * 1.015;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // Verify interest increases by the required amount
+    double CUSTOMER1_EXPECTED_INTEREST = (CUSTOMER1_BALANCE+CUSTOMER1_AMOUNT_TO_DEPOSIT * 5) * 0.015;
+    int CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_INTEREST);
+    assertEquals(CUSTOMER1_EXPECTED_INTEREST_IN_PENNIES, (int)customer1Data.get("Interest"));
 
     // verify that the Deposits and the interest are the only logs in TransactionHistory table
     assertEquals(6, transactionHistoryTableData.size());
