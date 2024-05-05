@@ -178,6 +178,36 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+    /**
+     * HTML GET request handler that serves the "invest_form" page to the user.
+     * An empty `User` object is also added to the Model as an Attribute to store
+     * the user's input for investing in stock.
+     * 
+     * @param model
+     * @return "invest_form" page
+     */
+    @GetMapping("/invest")
+    public String showInvestForm(Model model) {
+        User user = new User();
+        model.addAttribute("user", user);
+        return "invest_form";
+    }
+
+    /**
+     * HTML GET request handler that serves the "sellstock_form" page to the user.
+     * An empty `User` object is also added to the Model as an Attribute to store
+     * the user's input for selling stock.
+     * 
+     * @param model
+     * @return "invest_form" page
+     */
+    @GetMapping("/sellstock")
+    public String showSellForm(Model model) {
+        User user = new User();
+        model.addAttribute("user", user);
+        return "sellstock_form";
+    }
+
   //// HELPER METHODS ////
 
   /**

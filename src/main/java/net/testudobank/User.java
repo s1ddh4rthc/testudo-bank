@@ -98,4 +98,16 @@ public class User {
 
   @Setter @Getter
   private int numDepositsForInterest;
+
+  @Setter @Getter @ToString.Include
+  private String whichStockToInvest;
+
+  @Setter @Getter @Positive
+  private double amountToBuyStock;
+
+  @Setter @Getter @ToString.Include
+  private String whichStockToSell;
+
+  @Setter @Getter @Positive
+  private double amountToSellStock;
 }

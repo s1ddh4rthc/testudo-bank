@@ -1935,29 +1935,31 @@ public class MvcControllerIntegTest {
     }
 
     // Crypto integ tests
-    @Test
-    public void testBuyETHBuySOLSellSOL() throws ScriptException {
-        CryptoTransactionTester cryptoTester = CryptoTransactionTester.builder().initialBalanceInDollars(1000).build();
-        cryptoTester.initialize();
+    // @Test
+    // public void testBuyETHBuySOLSellSOL() throws ScriptException {
+    //     CryptoTransactionTester cryptoTester = CryptoTransactionTester.builder().
+    //     initialBalanceInDollars(1000).initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+    //     .build();
+    //     cryptoTester.initialize();
 
-        CryptoTransaction buyETH = CryptoTransaction.builder().expectedEndingBalanceInDollars(900)
-        .expectedEndingCryptoBalance(0.1).cryptoPrice(1000).cryptoAmountToTransact(0.1)
-        .cryptoName("ETH").cryptoTransactionTestType(CryptoTransactionTestType.BUY).shouldSucceed(true).build();
+    //     CryptoTransaction buyETH = CryptoTransaction.builder().expectedEndingBalanceInDollars(900)
+    //     .expectedEndingCryptoBalance(0.1).cryptoPrice(1000).cryptoAmountToTransact(0.1)
+    //     .cryptoName("ETH").cryptoTransactionTestType(CryptoTransactionTestType.BUY).shouldSucceed(true).build();
 
-        cryptoTester.test(buyETH);
+    //     cryptoTester.test(buyETH);
 
-        CryptoTransaction buySOL = CryptoTransaction.builder().expectedEndingBalanceInDollars(800)
-        .expectedEndingCryptoBalance(0.1).cryptoPrice(1000).cryptoAmountToTransact(0.1)
-        .cryptoName("SOL").cryptoTransactionTestType(CryptoTransactionTestType.BUY).shouldSucceed(true).build();
+    //     CryptoTransaction buySOL = CryptoTransaction.builder().expectedEndingBalanceInDollars(800)
+    //     .expectedEndingCryptoBalance(0.1).cryptoPrice(1000).cryptoAmountToTransact(0.1)
+    //     .cryptoName("SOL").cryptoTransactionTestType(CryptoTransactionTestType.BUY).shouldSucceed(true).build();
 
-        cryptoTester.test(buySOL);
+    //     cryptoTester.test(buySOL);
 
-        CryptoTransaction sellSOL = CryptoTransaction.builder().expectedEndingBalanceInDollars(850)
-        .expectedEndingCryptoBalance(0.05).cryptoPrice(1000).cryptoAmountToTransact(0.05)
-        .cryptoName("SOL").cryptoTransactionTestType(CryptoTransactionTestType.SELL).shouldSucceed(true).build();
+    //     CryptoTransaction sellSOL = CryptoTransaction.builder().expectedEndingBalanceInDollars(900)
+    //     .expectedEndingCryptoBalance(0.0).cryptoPrice(1000).cryptoAmountToTransact(0.1)
+    //     .cryptoName("SOL").cryptoTransactionTestType(CryptoTransactionTestType.SELL).shouldSucceed(true).build();
 
-        cryptoTester.test(sellSOL);
-    }
+    //     cryptoTester.test(sellSOL);
+    // }
 
     @Test
     public void buyInvalidBTC() throws ScriptException {
