@@ -1582,13 +1582,17 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+
+  // BUDGET ALLOCATION TESTS //
+
   /*
-   * Tests that when the total allocated budget is greater than the current user's balance, no budget is allocated and the welcome
-   * screen is returned.
+   * Tests that when the total allocated budget is greater than the current user's balance, no budget is allocated and the "welcome"
+   * view is returned.
    */
   @Test
   public void testAccountBalanceLessThanAllocatedBudgetNonEmptyAccountBalance() throws ScriptException {
-    //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+
+    // Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
@@ -1617,6 +1621,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    */
   @Test
   public void testNegativeInputAllocatedBudget() throws ScriptException {
+    
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
@@ -1652,10 +1657,11 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
   /*
    * Tests that when a user has overdraft balance, they are not allowed to allocate their budget
-   * to any category
+   * to any category. Hence, the "welcome" page is returned and their balance remains the same.
    */
   @Test
   public void testOverdraftBalanceAllocatedBudget() throws ScriptException {
+    
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
@@ -1663,6 +1669,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
     int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+    
     // Budget Form Fields & Form Submission
     User customer1FormInputs = new User();
     customer1FormInputs.setUsername(CUSTOMER1_ID);
@@ -1680,7 +1687,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     // Ensure that no row has been added to the Budgets table, where the CustomerID = CustomerID of Customer1
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM Budgets WHERE customerID = ?;", Integer.class, CUSTOMER1_ID));
 
-    // Make sure the balance of the user remains the same (because of Overdraft)
+    // Make sure the balance of the user remains the same (because of Overdraft balance)
     List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
@@ -1694,57 +1701,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    */
   @Test
   public void testBudgetAllocatedOneCategory() throws ScriptException {
-       //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
-      double CUSTOMER1_BALANCE = 1000;
-      int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
-   
-      // Budget Form Fields & Form Submission
-      User customer1FormInputs = new User();
-      customer1FormInputs.setUsername(CUSTOMER1_ID);
-      customer1FormInputs.setPassword(CUSTOMER1_PASSWORD);
-      customer1FormInputs.setBudgetGroceries(10);
-      customer1FormInputs.setBudgetHousing(0);
-      customer1FormInputs.setBudgetTransportation(10);
-      customer1FormInputs.setBudgetSavings(0);
-      customer1FormInputs.setBudgetOther(100);
-
-    String responsePage = controller.allocateBudget(customer1FormInputs);
-
-    // Ensure that the "account_info" response page is returned
-    assertEquals("account_info", responsePage);
-
-    // Ensure that one row has been created in the Budgets table and has the correct allocated budgets
-    assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM Budgets WHERE customerID = ?;", Integer.class, CUSTOMER1_ID));
-    String getBudgetDataSql = String.format("SELECT FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount FROM Budgets WHERE CustomerID = '%s';", CUSTOMER1_ID);
-    List<Map<String, Object>> budgetQueryResults = jdbcTemplate.queryForList(getBudgetDataSql);
-    if (!budgetQueryResults.isEmpty()) {
-        // If Budget Data is found
-        Map<String, Object> budgetData = budgetQueryResults.get(0);
-        double foodAndGroceriesAmount = (int) budgetData.get("FoodAndGroceriesAmount");
-        double housingAndUtilitiesAmount = (int) budgetData.get("HousingAndUtilitiesAmount");
-        double transportationAmount = (int) budgetData.get("TransportationAmount");
-        double  savingsAndInvestmentAmount = (int) budgetData.get("SavingsAndInvestmentAmount");
-        double otherAmount = (int) budgetData.get("OtherAmount");
-
-        /* ensure the allocated budgets from the Budgets table match up correctly */
-        assertEquals(10, foodAndGroceriesAmount/100);
-        assertEquals(0, housingAndUtilitiesAmount/100);
-        assertEquals(0,  savingsAndInvestmentAmount/100);
-        assertEquals(10, transportationAmount/100);
-        assertEquals(100, otherAmount/100);
-
-    }
-
-  }
-
-  /*
-   * Tests a case where the user allocates their budget to different categories once, and then resubmits the form
-   * with different budget category allocations. The Budgets table should still have one row (for that user), and the values
-   * for each column should only contain the newly allocated budgets (not the old ones).
-   */
-  @Test
-  public void allocateBudgetCategoriesTwice() throws ScriptException {
+      
       //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
       double CUSTOMER1_BALANCE = 1000;
       int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
@@ -1770,7 +1727,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     String getBudgetDataSql = String.format("SELECT FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount FROM Budgets WHERE CustomerID = '%s';", CUSTOMER1_ID);
     List<Map<String, Object>> budgetQueryResults = jdbcTemplate.queryForList(getBudgetDataSql);
     if (!budgetQueryResults.isEmpty()) {
-        // If Budget Data is found
+        
+        // If Budget Data is found for the user with the given CustomerID, get the values for each for each of the allocated budgets
         Map<String, Object> budgetData = budgetQueryResults.get(0);
         double foodAndGroceriesAmount = (int) budgetData.get("FoodAndGroceriesAmount");
         double housingAndUtilitiesAmount = (int) budgetData.get("HousingAndUtilitiesAmount");
@@ -1779,6 +1737,59 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
         double otherAmount = (int) budgetData.get("OtherAmount");
 
         /* ensure the allocated budgets from the Budgets table match up correctly */
+        assertEquals(10, foodAndGroceriesAmount/100);
+        assertEquals(0, housingAndUtilitiesAmount/100);
+        assertEquals(0,  savingsAndInvestmentAmount/100);
+        assertEquals(10, transportationAmount/100);
+        assertEquals(100, otherAmount/100);
+
+    }
+
+  }
+
+  /*
+   * Tests a case where the user allocates their budget to different categories once, and then resubmits the form
+   * with different budget category allocations. The Budgets table should still have one row (for that user), and the values
+   * for each column should now be updated with the newly allocated budgets (not the old ones).
+   */
+  @Test
+  public void allocateBudgetCategoriesTwice() throws ScriptException {
+      
+      //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+      double CUSTOMER1_BALANCE = 1000;
+      int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+   
+      // Budget Form Fields & Form Submission
+      User customer1FormInputs = new User();
+      customer1FormInputs.setUsername(CUSTOMER1_ID);
+      customer1FormInputs.setPassword(CUSTOMER1_PASSWORD);
+      customer1FormInputs.setBudgetGroceries(10);
+      customer1FormInputs.setBudgetHousing(0);
+      customer1FormInputs.setBudgetTransportation(10);
+      customer1FormInputs.setBudgetSavings(0);
+      customer1FormInputs.setBudgetOther(100);
+
+    String responsePage = controller.allocateBudget(customer1FormInputs);
+
+    // Ensure that the "account_info" response page is returned
+    assertEquals("account_info", responsePage);
+
+    // Ensure that one row has been created in the Budgets table and has the correct allocated budgets
+    assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM Budgets WHERE customerID = ?;", Integer.class, CUSTOMER1_ID));
+    String getBudgetDataSql = String.format("SELECT FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount FROM Budgets WHERE CustomerID = '%s';", CUSTOMER1_ID);
+    List<Map<String, Object>> budgetQueryResults = jdbcTemplate.queryForList(getBudgetDataSql);
+    if (!budgetQueryResults.isEmpty()) {
+
+        // If Budget Data is found forthe user with the given CustomerID, obtain the allocated budget amounts
+        Map<String, Object> budgetData = budgetQueryResults.get(0);
+        double foodAndGroceriesAmount = (int) budgetData.get("FoodAndGroceriesAmount");
+        double housingAndUtilitiesAmount = (int) budgetData.get("HousingAndUtilitiesAmount");
+        double transportationAmount = (int) budgetData.get("TransportationAmount");
+        double  savingsAndInvestmentAmount = (int) budgetData.get("SavingsAndInvestmentAmount");
+        double otherAmount = (int) budgetData.get("OtherAmount");
+
+        // ensure the allocated budgets from the Budgets table match up correctly
         assertEquals(10, foodAndGroceriesAmount/100);
         assertEquals(0, housingAndUtilitiesAmount/100);
         assertEquals(0,  savingsAndInvestmentAmount/100);
@@ -1796,9 +1807,11 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     customer1FormInputs.setBudgetSavings(10);
     customer1FormInputs.setBudgetOther(200);
     responsePage = controller.allocateBudget(customer1FormInputs);
+    
     // Ensure that the "account_info" response page is returned
     assertEquals("account_info", responsePage);
-     // Ensure that one row is still present in the Budgets table
+    
+    // Ensure that one row is still present in the Budgets table
     assertEquals(1, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM Budgets WHERE customerID = ?;", Integer.class, CUSTOMER1_ID));
     getBudgetDataSql = String.format("SELECT FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount FROM Budgets WHERE CustomerID = '%s';", CUSTOMER1_ID);
     budgetQueryResults = jdbcTemplate.queryForList(getBudgetDataSql);
@@ -1809,7 +1822,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
         double transportationAmount = (int) budgetData.get("TransportationAmount");
         double  savingsAndInvestmentAmount = (int) budgetData.get("SavingsAndInvestmentAmount");
         double otherAmount = (int) budgetData.get("OtherAmount");
-        /* ensure the allocated budgets from the Budgets table match up correctly */
+        
+        // ensure the allocated budgets from the Budgets table match up correctly */
         assertEquals(20, foodAndGroceriesAmount/100);
         assertEquals(0, housingAndUtilitiesAmount/100);
         assertEquals(10,  savingsAndInvestmentAmount/100);

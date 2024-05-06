@@ -43,6 +43,7 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <!-- Allocated Budget Details -->
     <span>Total Allocated Budget: </span><span>${user.totalAllocatedBudget}</span><br/>
     <span>Allocated Grocery Budget: </span><span>${user.budgetGroceries}</span><br/>
     <span>Allocated Housing & Utilities Budget: </span><span>${user.budgetHousing}</span><br/>

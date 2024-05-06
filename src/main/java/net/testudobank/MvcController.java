@@ -184,7 +184,7 @@ public class MvcController {
   /**
    * HTML GET request handler that serves the "budget_allocation_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
-   * the user's dispute form input.
+   * the user's form input.
    * 
    * @param model
    * @return "budget_allocation_form" page
@@ -256,12 +256,12 @@ public class MvcController {
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
 
-    // Update the User Budgets
+    // Update the User Budgets via an SQL query to the Budgets Table in the MySQL DB
     String getBudgetDataSql = String.format("SELECT FoodAndGroceriesAmount, HousingAndUtilitiesAmount, TransportationAmount, SavingsAndInvestmentAmount, OtherAmount FROM Budgets WHERE CustomerID = '%s';", user.getUsername());
     List<Map<String, Object>> budgetQueryResults = jdbcTemplate.queryForList(getBudgetDataSql);
-
     if (!budgetQueryResults.isEmpty()) {
-        // If Budget Data is found
+
+        // If Budget Data is found belonging to a customer with CustomerID, set the User's budget fields appropriately
         Map<String, Object> budgetData = budgetQueryResults.get(0);
         double foodAndGroceriesAmount = (int) budgetData.get("FoodAndGroceriesAmount");
         double housingAndUtilitiesAmount = (int) budgetData.get("HousingAndUtilitiesAmount");
@@ -860,17 +860,20 @@ public class MvcController {
     if (userOverdraftBalanceInPennies > 0) {
       return "welcome";
     }
-    // get budget for each entered category
+
+    // Get the inputted budget for each category
     double groceriesBudget = user.getBudgetGroceries();
     double housingBudget = user.getBudgetHousing();
     double transportationBudget = user.getBudgetTransportation();
     double savingsBudget = user.getBudgetSavings();
     double otherBudget = user.getBudgetOther();
 
+    // If any of the budgets are less than 0 (negative), return the "welcome" page
     if (groceriesBudget < 0 || housingBudget < 0 || transportationBudget < 0 ||
         savingsBudget < 0 || otherBudget < 0) {
           return "welcome";
     } else {
+
       // Validate that allocated budget does not exceed the user's balance, and apply the deduction
       int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
       double totalAllocatedBudget = groceriesBudget + housingBudget + transportationBudget + savingsBudget + otherBudget;
@@ -878,11 +881,13 @@ public class MvcController {
       if (userBalanceInPennies < totalAllocatedBudgetInPennies) {
         return "welcome";
       } else {
+
         user.setTotalAllocatedBudget(totalAllocatedBudget);
-        // Add Information to DB
+
+        // Add Information to DB via the insertRowToBudgetsTable() method
         TestudoBankRepository.insertRowToBudgetsTable(jdbcTemplate, userID, convertDollarsToPennies(groceriesBudget), convertDollarsToPennies(housingBudget), convertDollarsToPennies(transportationBudget), convertDollarsToPennies(savingsBudget), convertDollarsToPennies(otherBudget));
         updateAccountInfo(user);        
-        return "account_info"; // revise this section later
+        return "account_info";
       }
     }
   }

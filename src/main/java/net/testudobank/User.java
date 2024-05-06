@@ -99,6 +99,7 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  // Budget-related fields
   @Setter @Getter
   private double totalAllocatedBudget;
 

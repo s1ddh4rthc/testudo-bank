@@ -92,7 +92,7 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
-# Make empty Budegts table
+# Make empty Budgets table
 create_budgets_table_sql = '''
 CREATE TABLE Budgets (
   CustomerID varchar(255),
@@ -104,9 +104,6 @@ CREATE TABLE Budgets (
 );
 '''
 cursor.execute(create_budgets_table_sql)
-
-# Make empty 
-
 
 # The two sets created below are used to ensure that this
 # automated, randomized process does not accidentally 

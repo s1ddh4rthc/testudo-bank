@@ -49,8 +49,7 @@ CREATE TABLE CryptoHistory (
   CryptoAmount decimal(30,18)
 );
 
-
-
+/* Budget Table Script */
 CREATE TABLE Budgets (
   CustomerID varchar(255),
   FoodAndGroceriesAmount int,

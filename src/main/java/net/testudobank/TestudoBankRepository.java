@@ -178,6 +178,11 @@ public class TestudoBankRepository {
     }
   }
   
+  /*
+   * This method will add a new row into the Budgets table that contains of the allocated
+   * budgets that a user with CustomerID has entered. If the user already has a row in the Budgets
+   * table, then these fields will be updated, and no new row will be created.
+   */
   public static void insertRowToBudgetsTable(JdbcTemplate jdbcTemplate, String customerID, int foodAndGroceriesAmount, int housingAndUtilitiesAmount, int transportationBudget, int savingsAndInvestmentsAmount, int otherAmount) {
     // Check if the customerID already exists in the BUDGETS table
     String checkCustomerIDSql = "SELECT COUNT(*) FROM Budgets WHERE CustomerID = ?";
