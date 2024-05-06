@@ -99,4 +99,24 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  // Budget-related fields
+  @Setter @Getter
+  private double totalAllocatedBudget;
+
+  @Setter @Getter
+  private double budgetGroceries;
+
+  @Setter @Getter
+  private double budgetHousing;
+
+  @Setter @Getter
+  private double budgetTransportation;
+
+  @Setter @Getter
+  private double budgetSavings;
+
+  @Setter @Getter
+  private double budgetOther;
+
+
 }
