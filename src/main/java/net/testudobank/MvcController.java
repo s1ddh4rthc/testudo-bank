@@ -208,7 +208,7 @@ public class MvcController {
    * @param model
    * @return "sellsp500_form" page
    */
-  @GetMapping("/sellsp500_form")
+  @GetMapping("/sellsp500")
 	public String showSellSP500Form(Model model) {
     User user = new User();
     user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
@@ -276,11 +276,13 @@ public class MvcController {
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
-
+    user.setSP500Hist(SP500HistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setSP500Balance(TestudoBankRepository.getCustomerSP500Balance(jdbcTemplate, user.getUsername()).orElse(0.0));
+    user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
     
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
@@ -410,7 +412,9 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
-    } else {
+    } else if (user.isSP500Transaction()) {
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SP500_SELL_ACTION, userDepositAmtInPennies);
+    }else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
@@ -496,6 +500,8 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_SEND_ACTION, userWithdrawAmtInPennies);
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
+    } else if (user.isSP500Transaction()) {
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SP500_BUY_ACTION, userWithdrawAmtInPennies);
     } else {
       // Adds withdraw to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
@@ -898,19 +904,81 @@ public String buySP500(@ModelAttribute("user") User user) {
 
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
-    // Deduct purchase amount from user's balance
     TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, costOfSP500PurchaseInPennies);
-
-    // TODO: add SP500 to DB schema and increase the balance for that
-
-    // Record the purchase transaction
+    TestudoBankRepository.increaseCustomerSP500Balance(jdbcTemplate, userID, costOfSP500PurchaseInUSD);
     TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, "BUY_SP500", costOfSP500PurchaseInPennies);
-
-    // Update account information
+    TestudoBankRepository.insertRowToSP500LogsTable(jdbcTemplate, userID, "BUY_SP500", currentTime, sp500AmountToBuy);
     updateAccountInfo(user);
 
     return "account_info";
 }
+
+/**
+   * HTML POST request handler for the Sell S&P500 Form page.
+   * <p>
+   * The same username+password handling from the login page is used.
+   * <p>
+   * If the password attempt is correct, and the purchase amount is a valid amount
+   * that does not exceed crypto balance, the cost of the index fund in cash will be
+   * added to the users cash balance, and index fund will be subtracted from the users account
+   * <p>
+   * If the password attempt is incorrect or the amount to purchase is invalid,
+   * the user is redirected to the "welcome" page.
+   * <p>
+   * Index fund purchase function is implemented by re-using deposit handler.
+   * Logic of deposit (applying to overdraft, adding to balance, etc.) is delegated to this handler.
+   *
+   * @param user
+   * @return "account_info" page if sell successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/sellsp500")
+  public String sellSP500(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // must sell a positive amount
+    double amountToSell = user.getAmountToSellSP500();
+    if (amountToSell <= 0) {
+      return "welcome";
+    }
+
+    // possible for user to not have any S&P500
+    Optional<Double> SP500Balance = TestudoBankRepository.getCustomerSP500Balance(jdbcTemplate, userID);
+    if (!SP500Balance.isPresent()) {
+      return "welcome";
+    }
+
+    // check if user has required SP500Balance
+    if (SP500Balance.get() < amountToSell) {
+      return "welcome";
+    }
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    user.setAmountToDeposit(amountToSell);
+    user.setSP500Transaction(true);
+    String depositResponse = submitDeposit(user);
+
+    if (depositResponse.equals("account_info")) {
+
+      TestudoBankRepository.decreaseCustomerSP500Balance(jdbcTemplate, userID, amountToSell);
+      TestudoBankRepository.insertRowToSP500LogsTable(jdbcTemplate, userID, SP500_HISTORY_SELL_ACTION, currentTime, amountToSell);
+
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
+  }
 
   /**
    * 

@@ -153,7 +153,7 @@ public class TestudoBankRepository {
   }
 
   public static void initCustomerSP500Balance(JdbcTemplate jdbcTemplate, String customerID) {
-    String balanceInitSql = "INSERT INTO SP500Holdings (Amount,CustomerID) VALUES (0, ? , ? )";
+    String balanceInitSql = "INSERT INTO SP500Holdings (Amount,CustomerID) VALUES (0, ? )";
     jdbcTemplate.update(balanceInitSql, customerID);
   }
 

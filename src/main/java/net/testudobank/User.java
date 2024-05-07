@@ -109,7 +109,7 @@ public class User {
   private double solBalance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
-  private double sSP500Balance;
+  private double SP500Balance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;

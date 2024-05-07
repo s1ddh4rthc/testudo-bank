@@ -12,9 +12,6 @@ import java.util.Map;
 
 import javax.script.ScriptException;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import net.testudobank.CryptoPriceClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,6 +26,9 @@ import org.testcontainers.jdbc.JdbcDatabaseDelegate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import net.testudobank.CryptoPriceClient;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
@@ -1527,6 +1527,224 @@ public class MvcControllerIntegTest {
   }
 
   /**
+   * Enum for {@link SP500TransactionTester}
+   */
+  @AllArgsConstructor
+  enum SP500TransactionTestType {
+    BUY("Buy", "CryptoBuy", "SP500Buy"),
+    SELL("Sell", "CryptoSell", "SP500Sell");
+
+    final String cryptoHistoryActionName;
+    final String transactionHistoryActionName;
+    final String SP500HistoryActionName;
+  }
+
+  /**
+   * Class to represent transaction properties for {@link SP500TransactionTester}
+   */
+  @Builder
+  static class SP500Transaction {
+
+    /**
+     * The price of SP500 in dollars at the time of the transaction
+     */
+    final double SP500Price;
+
+    /**
+     * The expected (cash) balance of the user after the transaction
+     */
+    final double expectedEndingBalanceInDollars;
+
+    /**
+     * The (cash) overdraft balance of the user before the transaction takes place
+     */
+    @Builder.Default
+    final double initialOverdraftBalanceInDollars = 0.0;
+
+    /**
+     * The expected ending overdraft balance of the user
+     */
+    @Builder.Default
+    final double expectedEndingOverdraftBalanceInDollars = 0.0;
+
+    /**
+     * The expected ending SP500 balance of the user
+     */
+    @Builder.Default
+    double expectedEndingSP500Balance = 0.0;
+
+    /**
+     * The amount of SP500 to buy (in units of the cryptocurrency)
+     */
+    final double SP500AmountToTransact;
+
+    /**
+     * Whether the transaction is made with the correct password
+     */
+    @Builder.Default
+    final boolean validPassword = true;
+
+    /**
+     * Whether the transaction is expected to succeed with the supplied parameters
+     */
+    final boolean shouldSucceed;
+
+    /**
+     * Whether the transaction should add to the overdraft logs
+     */
+    @Builder.Default
+    final boolean overdraftTransaction = false;
+
+    /**
+     * The type of the transaction (buy or sell)
+     */
+    final SP500TransactionTestType SP500TransactionTestType;
+  }
+
+  /**
+   * Helper class to test SP500 buying and selling in with various parameters.
+   * This does several checks to see if the transaction took place correctly.
+   */
+  @Builder
+  static class SP500TransactionTester {
+
+    /**
+     * The initial (cash) balance of the user
+     */
+    final double initialBalanceInDollars;
+
+    /**
+     * The (cash) overdraft balance of the user
+     */
+    @Builder.Default
+    final double initialOverdraftBalanceInDollars = 0.0;
+
+    /**
+     * The initial SP500 balance of the user in units of SP500
+     */
+    @Builder.Default
+    final Double initialSP500Balance = 0.0;
+
+    void initialize() throws ScriptException {
+      int balanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(initialBalanceInDollars);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+          CUSTOMER1_LAST_NAME, balanceInPennies,
+          MvcControllerIntegTestHelpers.convertDollarsToPennies(initialOverdraftBalanceInDollars), 0, 0);
+          MvcControllerIntegTestHelpers.setSP500Balance(dbDelegate, CUSTOMER1_ID, initialSP500Balance);
+    }
+
+    // Counter for number of transactions completed by this tester
+    private int numTransactions = 0;
+
+    // Counter for the number of overdraft transaction completed by this tester
+    private int numOverdraftTransactions = 0;
+
+    /**
+     * Attempts a transaction
+     */
+    void test(SP500Transaction transaction) {
+      User user = new User();
+      user.setUsername(CUSTOMER1_ID);
+      if (transaction.validPassword) {
+        user.setPassword(CUSTOMER1_PASSWORD);
+      } else {
+        user.setPassword("wrong_password");
+      }
+
+      // Mock the price of the cryptocurrency
+      Mockito.when(cryptoPriceClient.getCurrentSP500Value()).thenReturn(transaction.SP500Price);
+
+      // attempt transaction
+      LocalDateTime SP500TransactionTime = MvcControllerIntegTestHelpers
+          .fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+      String returnedPage;
+      if (transaction.SP500TransactionTestType == SP500TransactionTestType.BUY) {
+        user.setAmountToBuySP500(transaction.SP500AmountToTransact);
+        returnedPage = controller.buySP500(user);
+      } else {
+        user.setAmountToSellSP500(transaction.SP500AmountToTransact);
+        returnedPage = controller.sellSP500(user);
+      }
+
+      // check the balance
+      try {
+        double endingSP500Balance = jdbcTemplate
+            .queryForObject("SELECT Amount FROM SP500Holdings WHERE CustomerID=?",
+                BigDecimal.class, CUSTOMER1_ID)
+            .doubleValue();
+        assertEquals(transaction.expectedEndingSP500Balance, endingSP500Balance);
+      } catch (EmptyResultDataAccessException e) {
+        assertEquals(transaction.expectedEndingSP500Balance, 0);
+      }
+
+      // check the cash balance
+      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(transaction.expectedEndingBalanceInDollars),
+          jdbcTemplate.queryForObject("SELECT Balance FROM Customers WHERE CustomerID=?", Integer.class, CUSTOMER1_ID));
+
+      // check the overdraft balance
+      assertEquals(
+          MvcControllerIntegTestHelpers.convertDollarsToPennies(transaction.expectedEndingOverdraftBalanceInDollars),
+          jdbcTemplate.queryForObject("SELECT OverdraftBalance FROM Customers WHERE CustomerID=?", Integer.class,
+              CUSTOMER1_ID));
+
+      if (!transaction.shouldSucceed) {
+        // verify no transaction took place
+        assertEquals("welcome", returnedPage);
+        assertEquals(numTransactions,
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+        assertEquals(numTransactions,
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SP500History;", Integer.class));
+        assertEquals(numOverdraftTransactions,
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM OverdraftLogs;", Integer.class));
+      } else {
+        assertEquals("account_info", returnedPage);
+
+        // check transaction logs
+        assertEquals(numTransactions + 1,
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+        List<Map<String, Object>> transactionHistoryTableData = jdbcTemplate
+            .queryForList("SELECT * FROM TransactionHistory ORDER BY Timestamp DESC;");
+        Map<String, Object> customer1TransactionLog = transactionHistoryTableData.get(0);
+        int expectedSP500ValueInPennies = MvcControllerIntegTestHelpers
+            .convertDollarsToPennies(transaction.SP500Price * transaction.SP500AmountToTransact);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, SP500TransactionTime, CUSTOMER1_ID,
+            transaction.SP500TransactionTestType.transactionHistoryActionName, expectedSP500ValueInPennies);
+
+        // check SP500 logs
+        assertEquals(numTransactions + 1,
+            jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SP500History;", Integer.class));
+        List<Map<String, Object>> SP500HistoryTableData = jdbcTemplate
+            .queryForList("SELECT * FROM SP500History ORDER BY Timestamp DESC;");
+        Map<String, Object> customer1SP500Log = SP500HistoryTableData.get(0);
+        MvcControllerIntegTestHelpers.checkSP500Log(customer1SP500Log, SP500TransactionTime, CUSTOMER1_ID,
+            transaction.SP500TransactionTestType.SP500HistoryActionName, transaction.SP500AmountToTransact);
+
+        // check overdraft logs (if applicable)
+        if (transaction.overdraftTransaction) {
+          assertEquals(numOverdraftTransactions + 1,
+              jdbcTemplate.queryForObject("SELECT COUNT(*) FROM OverdraftLogs;", Integer.class));
+          List<Map<String, Object>> overdraftLogTableData = jdbcTemplate
+              .queryForList("SELECT * FROM OverdraftLogs ORDER BY Timestamp DESC;");
+          Map<String, Object> customer1OverdraftLog = overdraftLogTableData.get(0);
+          MvcControllerIntegTestHelpers.checkOverdraftLog(customer1OverdraftLog, SP500TransactionTime, CUSTOMER1_ID,
+              expectedSP500ValueInPennies,
+              MvcControllerIntegTestHelpers.convertDollarsToPennies(transaction.initialOverdraftBalanceInDollars),
+              MvcControllerIntegTestHelpers
+                  .convertDollarsToPennies(transaction.expectedEndingOverdraftBalanceInDollars));
+          numOverdraftTransactions++;
+        } else {
+          assertEquals(numOverdraftTransactions,
+              jdbcTemplate.queryForObject("SELECT COUNT(*) FROM OverdraftLogs;", Integer.class));
+        }
+
+        numTransactions++;
+
+      }
+    }
+  }
+  
+
+  /**
    * Test that no crypto buy transaction occurs when the user password is
    * incorrect
    */
@@ -1796,6 +2014,378 @@ public class MvcControllerIntegTest {
     cryptoTransactionTester.test(cryptoTransaction);
   }
 
+  
+
+  /**
+   * Test the user flow of buying ETH, buying SOL, and then selling SOL.
+   */
+  @Test
+  public void testBuyETHBuySOLSellSOLUserFlow() throws ScriptException {
+    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialCryptoBalance(Map.of("SOL", 0.0, "ETH", 0.0))
+        .build();
+
+    tester.initialize();
+    // Buy ETH
+    CryptoTransaction buyEth = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("ETH")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    tester.test(buyEth);
+
+    // Buy SOL
+    CryptoTransaction buySol = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(800)
+        .expectedEndingCryptoBalance(0.1)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+
+    // Sell some SOL
+    tester.test(buySol);
+    CryptoTransaction sellSol = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(890)
+        .expectedEndingCryptoBalance(.01)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.09)
+        .cryptoName("SOL")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(true)
+        .build();
+
+    tester.test(sellSol);
+  }
+
+  /**
+   * Test that attempting to buy a cryptocurrency that is not supported (BTC) will
+   * return the "welcome" page.
+   */
+  @Test
+  public void testBuyBtcInvalid() throws ScriptException {
+    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+
+        tester.initialize();
+
+    CryptoTransaction buyBtc = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+
+    tester.test(buyBtc);
+  }
+
+  
+  /**
+   * Test that attempting to sell a cryptocurrency that is not supported (BTC) will
+   * return the "welcome" page.
+   */
+  @Test
+  public void testSellBtcInvalid() throws ScriptException {
+    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+
+    tester.initialize();
+
+    CryptoTransaction sellBtc = CryptoTransaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingCryptoBalance(0.0)
+        .cryptoPrice(1000)
+        .cryptoAmountToTransact(0.1)
+        .cryptoName("BTC")
+        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    tester.test(sellBtc);
+  }
+
+  // S&P500 tests
+
+  /**
+   * Test that no SP500 buy transaction occurs when the user password is
+   * incorrect
+   */
+  @Test
+  public void testSP500BuyInvalidPassword() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .validPassword(false)
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that no SP500 sell transaction occurs when the user password is
+   * incorrect
+   */
+  @Test
+  public void testSP500SellInvalidPassword() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .validPassword(false)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test simple buying of SP500currency
+   */
+  @Test
+  public void testSP500BuySimple() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialSP500Balance(Collections.singletonMap("ETH", 0.0))
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(900)
+        .expectedEndingSP500Balance(0.1)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
+        .shouldSucceed(true)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test simple selling of SP500currency
+   */
+  @Test
+  public void testSP500SellSimple() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialSP500Balance(Collections.singletonMap("ETH", 0.1))
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1100)
+        .expectedEndingSP500Balance(0)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
+        .shouldSucceed(true)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test buying of SP500currency with an insufficient balance does not invoke a
+   * transaction
+   */
+  @Test
+  public void testSP500BuyInsufficientBalance() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .SP500Price(1000)
+        .SP500AmountToTransact(10)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that buying a negative amount of SP500currency does not invoke a
+   * transaction
+   */
+  @Test
+  public void testSP500BuyNegativeAmount() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .SP500Price(1000)
+        .SP500AmountToTransact(-0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that selling a negative amount of SP500currency does not invoke a
+   * transaction
+   */
+  @Test
+  public void testSP500SellNegativeAmount() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialSP500Balance(Collections.singletonMap("ETH", 0.1))
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingSP500Balance(0.1)
+        .SP500Price(1000)
+        .SP500AmountToTransact(-0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that no buying should take place when user is under overdraft
+   */
+  @Test
+  public void testSP500BuyOverdraft() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialOverdraftBalanceInDollars(100)
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingOverdraftBalanceInDollars(100)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
+        .overdraftTransaction(true)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that selling SP500currency first pays off overdraft balance
+   */
+  @Test
+  public void testSP500SellOverdraft() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialOverdraftBalanceInDollars(50)
+        .initialSP500Balance(Collections.singletonMap("ETH", 0.15))
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .initialOverdraftBalanceInDollars(50)
+        .expectedEndingBalanceInDollars(1050)
+        .expectedEndingSP500Balance(0.05)
+        .expectedEndingOverdraftBalanceInDollars(0)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
+        .overdraftTransaction(true)
+        .shouldSucceed(true)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that no buy transaction occurs when the SP500currency price cannot be
+   * obtained
+   */
+  @Test
+  public void testSP500BuyInvalidPrice() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialSP500Balance(Collections.singletonMap("ETH", 0.0))
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingSP500Balance(0)
+        .SP500Price(-1)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
+  /**
+   * Test that no sell transaction occurs when the SP500currency price cannot be
+   * obtained
+   */
+  @Test
+  public void testSP500SellInvalidPrice() throws ScriptException {
+    SP500TransactionTester SP500TransactionTester = SP500TransactionTester.builder()
+        .initialBalanceInDollars(1000)
+        .initialSP500Balance(Collections.singletonMap("ETH", 0.1))
+        .build();
+
+    SP500TransactionTester.initialize();
+
+    SP500Transaction SP500Transaction = SP500Transaction.builder()
+        .expectedEndingBalanceInDollars(1000)
+        .expectedEndingSP500Balance(0.1)
+        .SP500Price(-1)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
+        .shouldSucceed(false)
+        .build();
+    SP500TransactionTester.test(SP500Transaction);
+  }
+
   /**
    * Verifies the case where a customer deposits an amount
    * that increments numDepositsForInterest.
@@ -2014,44 +2604,44 @@ public class MvcControllerIntegTest {
    */
   @Test
   public void testBuyETHBuySOLSellSOLUserFlow() throws ScriptException {
-    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+    SP500TransactionTester tester = SP500TransactionTester.builder()
         .initialBalanceInDollars(1000)
-        .initialCryptoBalance(Map.of("SOL", 0.0, "ETH", 0.0))
+        .initialSP500Balance(Map.of("SOL", 0.0, "ETH", 0.0))
         .build();
 
     tester.initialize();
     // Buy ETH
-    CryptoTransaction buyEth = CryptoTransaction.builder()
+    SP500Transaction buyEth = SP500Transaction.builder()
         .expectedEndingBalanceInDollars(900)
-        .expectedEndingCryptoBalance(0.1)
-        .cryptoPrice(1000)
-        .cryptoAmountToTransact(0.1)
-        .cryptoName("ETH")
-        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .expectedEndingSP500Balance(0.1)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("ETH")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
         .shouldSucceed(true)
         .build();
     tester.test(buyEth);
 
     // Buy SOL
-    CryptoTransaction buySol = CryptoTransaction.builder()
+    SP500Transaction buySol = SP500Transaction.builder()
         .expectedEndingBalanceInDollars(800)
-        .expectedEndingCryptoBalance(0.1)
-        .cryptoPrice(1000)
-        .cryptoAmountToTransact(0.1)
-        .cryptoName("SOL")
-        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .expectedEndingSP500Balance(0.1)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("SOL")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
         .shouldSucceed(true)
         .build();
 
     // Sell some SOL
     tester.test(buySol);
-    CryptoTransaction sellSol = CryptoTransaction.builder()
+    SP500Transaction sellSol = SP500Transaction.builder()
         .expectedEndingBalanceInDollars(890)
-        .expectedEndingCryptoBalance(.01)
-        .cryptoPrice(1000)
-        .cryptoAmountToTransact(0.09)
-        .cryptoName("SOL")
-        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .expectedEndingSP500Balance(.01)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.09)
+        .SP500Name("SOL")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
         .shouldSucceed(true)
         .build();
 
@@ -2059,23 +2649,23 @@ public class MvcControllerIntegTest {
   }
 
   /**
-   * Test that attempting to buy a cryptocurrency that is not supported (BTC) will
+   * Test that attempting to buy a SP500currency that is not supported (BTC) will
    * return the "welcome" page.
    */
   @Test
   public void testBuyBtcInvalid() throws ScriptException {
-    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+    SP500TransactionTester tester = SP500TransactionTester.builder()
         .initialBalanceInDollars(1000)
         .build();
 
         tester.initialize();
 
-    CryptoTransaction buyBtc = CryptoTransaction.builder()
+    SP500Transaction buyBtc = SP500Transaction.builder()
         .expectedEndingBalanceInDollars(1000)
-        .cryptoPrice(1000)
-        .cryptoAmountToTransact(.1)
-        .cryptoName("BTC")
-        .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+        .SP500Price(1000)
+        .SP500AmountToTransact(.1)
+        .SP500Name("BTC")
+        .SP500TransactionTestType(SP500TransactionTestType.BUY)
         .shouldSucceed(false)
         .build();
 
@@ -2084,24 +2674,24 @@ public class MvcControllerIntegTest {
 
   
   /**
-   * Test that attempting to sell a cryptocurrency that is not supported (BTC) will
+   * Test that attempting to sell a SP500currency that is not supported (BTC) will
    * return the "welcome" page.
    */
   @Test
   public void testSellBtcInvalid() throws ScriptException {
-    CryptoTransactionTester tester = CryptoTransactionTester.builder()
+    SP500TransactionTester tester = SP500TransactionTester.builder()
         .initialBalanceInDollars(1000)
         .build();
 
     tester.initialize();
 
-    CryptoTransaction sellBtc = CryptoTransaction.builder()
+    SP500Transaction sellBtc = SP500Transaction.builder()
         .expectedEndingBalanceInDollars(1000)
-        .expectedEndingCryptoBalance(0.0)
-        .cryptoPrice(1000)
-        .cryptoAmountToTransact(0.1)
-        .cryptoName("BTC")
-        .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+        .expectedEndingSP500Balance(0.0)
+        .SP500Price(1000)
+        .SP500AmountToTransact(0.1)
+        .SP500Name("BTC")
+        .SP500TransactionTestType(SP500TransactionTestType.SELL)
         .shouldSucceed(false)
         .build();
     tester.test(sellBtc);
