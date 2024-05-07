@@ -104,4 +104,19 @@ public class CryptoPriceClient {
     public void clearEthPriceCache() {
     }
 
+    /**
+     * Method which is used to return current value of 1 share of an S&P 500 index fund 
+     * 
+     *
+     * @return the current value of 1 share of an S&P 500 index fund in USD
+     */
+    public double getCurrentSP500Value() {
+      
+      // Generate a positive random number between 0 and 50
+      double randomOffset = Math.random() * 50;
+
+      // Add this positive number to 30
+      return 30 + randomOffset;
+
+    }
 }

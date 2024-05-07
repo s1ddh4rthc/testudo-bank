@@ -39,6 +39,18 @@ public class TestudoBankRepository {
 
   }
 
+  public static Optional<Double> getCustomerSP500Balance(JdbcTemplate jdbcTemplate, String customerID) {
+    String getUserSP500BalanceSql = "SELECT Amount FROM SP500Holdings WHERE CustomerID= ?;";
+
+    try {
+      return Optional.ofNullable(jdbcTemplate.queryForObject(getUserSP500BalanceSql, BigDecimal.class, customerID)).map(BigDecimal::doubleValue);
+    } catch (EmptyResultDataAccessException ignored) {
+      // user may not have SP500 row yet
+      return Optional.empty();
+    }
+
+  }
+
   public static int getCustomerOverdraftBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
     String getUserOverdraftBalanceSql = String.format("SELECT OverdraftBalance FROM Customers WHERE CustomerID='%s';", customerID);
     int userOverdraftBalanceInPennies = jdbcTemplate.queryForObject(getUserOverdraftBalanceSql, Integer.class);
@@ -72,6 +84,11 @@ public class TestudoBankRepository {
   public static List<Map<String,Object>> getCryptoLogs(JdbcTemplate jdbcTemplate, String customerID) {
     String getTransferHistorySql = "Select * from CryptoHistory WHERE CustomerID=? ORDER BY Timestamp DESC";
     return jdbcTemplate.queryForList(getTransferHistorySql, customerID);
+  }
+
+  public static List<Map<String,Object>> getSP500Logs(JdbcTemplate jdbcTemplate, String customerID) {
+    String getSP500HistorySql = "Select * from SP500History WHERE CustomerID=? ORDER BY Timestamp DESC";
+    return jdbcTemplate.queryForList(getSP500HistorySql, customerID);
   }
 
   public static int getCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
@@ -135,9 +152,19 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceInitSql, customerID, cryptoName);
   }
 
+  public static void initCustomerSP500Balance(JdbcTemplate jdbcTemplate, String customerID) {
+    String balanceInitSql = "INSERT INTO SP500Holdings (Amount,CustomerID) VALUES (0, ? , ? )";
+    jdbcTemplate.update(balanceInitSql, customerID);
+  }
+
   public static void increaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double increaseAmt) {
     String balanceIncreaseSql = "UPDATE CryptoHoldings SET CryptoAmount = CryptoAmount + ? WHERE CustomerID= ? AND CryptoName= ?";
     jdbcTemplate.update(balanceIncreaseSql, increaseAmt, customerID, cryptoName);
+  }
+
+  public static void increaseCustomerSP500Balance(JdbcTemplate jdbcTemplate, String customerID, double increaseAmt) {
+    String balanceIncreaseSql = "UPDATE SP500Holdings SET Amount = Amount + ? WHERE CustomerID= ?";
+    jdbcTemplate.update(balanceIncreaseSql, increaseAmt, customerID);
   }
 
   public static void decreaseCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
@@ -148,6 +175,11 @@ public class TestudoBankRepository {
   public static void decreaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double decreaseAmt) {
     String balanceDecreaseSql = "UPDATE CryptoHoldings SET CryptoAmount = CryptoAmount - ? WHERE CustomerID= ? AND CryptoName= ?";
     jdbcTemplate.update(balanceDecreaseSql, decreaseAmt, customerID, cryptoName);
+  }
+
+  public static void decreaseCustomerSP500Balance(JdbcTemplate jdbcTemplate, String customerID, double decreaseAmt) {
+    String balanceDecreaseSql = "UPDATE SP500Holdings SET Amount = Amount - ? WHERE CustomerID= ?";
+    jdbcTemplate.update(balanceDecreaseSql, decreaseAmt, customerID);
   }
 
   public static void deleteRowFromOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp) {
@@ -167,6 +199,11 @@ public class TestudoBankRepository {
   public static void insertRowToCryptoLogsTable(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, String action, String timestamp, double cryptoAmount) {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
+  }
+
+  public static void insertRowToSP500LogsTable(JdbcTemplate jdbcTemplate, String customerID, String action, String timestamp, double amount) {
+    String SP500HistorySql = "INSERT INTO SP500History (CustomerID, Timestamp, Action, Amount) VALUES (?, ?, ?, ?, ?)";
+    jdbcTemplate.update(SP500HistorySql, customerID, timestamp, action, amount);
   }
   
   public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 

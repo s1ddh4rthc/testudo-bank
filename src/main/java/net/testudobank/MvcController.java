@@ -49,6 +49,10 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  public static String TRANSACTION_HISTORY_SP500_SELL_ACTION = "SP500Sell";
+  public static String TRANSACTION_HISTORY_SP500_BUY_ACTION = "SP500Buy";
+  public static String SP500_HISTORY_SELL_ACTION = "Sell";
+  public static String SP500_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
 
@@ -180,6 +184,38 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "buysp500_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for buying S&P500 index funds.
+   * 
+   * @param model
+   * @return "buysp500_form" page
+   */
+  @GetMapping("/buysp500")
+	public String showBuySP500Form(Model model) {
+    User user = new User();
+    user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
+		model.addAttribute("user", user);
+		return "buysp500_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "sellsp500_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for selling cS&P500 index funds.
+   * 
+   * @param model
+   * @return "sellsp500_form" page
+   */
+  @GetMapping("/sellsp500_form")
+	public String showSellSP500Form(Model model) {
+    User user = new User();
+    user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
+		model.addAttribute("user", user);
+		return "sellsp500_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -213,6 +249,12 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
+    List<Map<String, Object>> SP500Logs = TestudoBankRepository.getSP500Logs(jdbcTemplate, user.getUsername());
+    StringBuilder SP500HistoryOutput = new StringBuilder(HTML_LINE_BREAK);
+    for (Map<String, Object> SP500Log : SP500Logs) {
+      SP500HistoryOutput.append(SP500Log).append(HTML_LINE_BREAK);
+    }
+
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
@@ -222,6 +264,7 @@ public class MvcController {
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
+    
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -233,10 +276,12 @@ public class MvcController {
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
+
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
@@ -812,6 +857,60 @@ public class MvcController {
       return "welcome";
     }
   }
+
+  @PostMapping("/buysp500")
+public String buySP500(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+        return "welcome";
+    }
+
+    // must buy a positive amount
+    double sp500AmountToBuy = user.getAmountToBuySP500();
+    if (sp500AmountToBuy <= 0) {
+        return "welcome";
+    }
+
+    // cannot buy sp500 while in overdraft
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }
+
+    double sp500PricePerUnit = cryptoPriceClient.getCurrentSP500Value();
+
+    double costOfSP500PurchaseInUSD = sp500PricePerUnit * sp500AmountToBuy;
+
+    int costOfSP500PurchaseInPennies = convertDollarsToPennies(costOfSP500PurchaseInUSD);
+
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // check if balance will cover purchase
+    if (costOfSP500PurchaseInPennies > userBalanceInPennies) {
+        return "welcome";
+    }
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    // Deduct purchase amount from user's balance
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, costOfSP500PurchaseInPennies);
+
+    // TODO: add SP500 to DB schema and increase the balance for that
+
+    // Record the purchase transaction
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, "BUY_SP500", costOfSP500PurchaseInPennies);
+
+    // Update account information
+    updateAccountInfo(user);
+
+    return "account_info";
+}
 
   /**
    * 
