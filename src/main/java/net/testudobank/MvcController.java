@@ -531,13 +531,13 @@ public class MvcController {
         int balanceInINR = TestudoBankRepository.getCustomerBalanceInINR(jdbcTemplate, userID);
         double convertedAmt = userWithdrawAmtInPennies * 83.48;
         int newBalanceInINR = balanceInINR + (int) convertedAmt;
-        TestudoBankRepository.setCustomerBalanceInGBP(jdbcTemplate, userID, newBalanceInINR);
+        TestudoBankRepository.setCustomerBalanceInINR(jdbcTemplate, userID, newBalanceInINR);
       }
       else {
         int balanceInCNY = TestudoBankRepository.getCustomerBalanceInCNY(jdbcTemplate, userID);
         double convertedAmt = userWithdrawAmtInPennies * 7.24;
         int newBalanceInCNY = balanceInCNY + (int) convertedAmt;
-        TestudoBankRepository.setCustomerBalanceInGBP(jdbcTemplate, userID, newBalanceInCNY);
+        TestudoBankRepository.setCustomerBalanceInCNY(jdbcTemplate, userID, newBalanceInCNY);
       }
     }
 
