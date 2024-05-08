@@ -9,11 +9,14 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 public class TestudoBankRepository {
+  //SQL query to retreive password
   public static String getCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
-    String getCustomerPasswordSql = String.format("SELECT Password FROM Passwords WHERE CustomerID='%s';", customerID);
-    String customerPassword = jdbcTemplate.queryForObject(getCustomerPasswordSql, String.class);
+    // Define the SQL query with a parameter placeholder
+    String getCustomerPasswordSql = "SELECT Password FROM Passwords WHERE CustomerID=?";
+    // Execute the parameterized query
+    String customerPassword = jdbcTemplate.queryForObject(getCustomerPasswordSql, new Object[]{customerID}, String.class);
     return customerPassword;
-  }
+}
 
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
