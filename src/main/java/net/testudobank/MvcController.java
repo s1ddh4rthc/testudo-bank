@@ -239,7 +239,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()));
-    user.setInterest((int)TestudoBankRepository.getCustomerInterestInPennies(jdbcTemplate, user.getUsername())/100.0);
+    user.setInterest((int)TestudoBankRepository.getCustomerInterestInPennies(jdbcTemplate, user.getUsername()) / 100.0);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -828,15 +828,15 @@ public class MvcController {
     if (numDeposits % 5 == 0){
 
       double initialBalance = user.getBalance();
-      int initialBalanceInPennies = (int)(initialBalance *100) ;
+      int initialBalanceInPennies = (int)(initialBalance * 100) ;
       double newBalance = initialBalance * MvcController.BALANCE_INTEREST_RATE;
-      int newBalanceInPennies = (int)(newBalance*100);
+      int newBalanceInPennies = (int)(newBalance * 100);
       pageToReturn = "account_info";
       String currTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
       int interestAcrruedInPennies = newBalanceInPennies-initialBalanceInPennies;
       double initialInterest = user.getInterest();
-      double newInterest = initialInterest + (interestAcrruedInPennies/100.0);
-      int newInterestInPennies = (int) (newInterest *100);
+      double newInterest = initialInterest + (interestAcrruedInPennies / 100.0);
+      int newInterestInPennies = (int) (newInterest * 100);
 
       user.setBalance(newBalance);
       user.setInterest(newInterest);
@@ -845,7 +845,7 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userId, currTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAcrruedInPennies);
     }
 
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userId, numDeposits%5);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userId, numDeposits % 5);
     
     return pageToReturn;
 
