@@ -99,4 +99,15 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private int netValueOfTransaction;
+
+  @Setter @Getter
+  private int totalDeposited;
+
+  @Setter @Getter
+  private int totalWithdrawn;
+
+  @Setter @Getter
+  private int numberOfTransactions;
 }

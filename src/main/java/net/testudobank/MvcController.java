@@ -5,6 +5,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+
+import ch.qos.logback.core.joran.action.Action;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
@@ -82,7 +85,6 @@ public class MvcController {
 	public String showLoginForm(Model model) {
 		User user = new User();
     model.addAttribute("user", user);
-
 		return "login_form";
 	}
 
@@ -239,7 +241,15 @@ public class MvcController {
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
-
+  // Updates database with user's Account Summary information 
+  private void updateSummaryInfo(User user) {
+    List<Map<String,Object>> transactionLogs = TestudoBankRepository.getRecentTransactions(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSACTIONS_DISPLAYED);
+    user.setNumberOfTransactions(transactionLogs.size());
+    user.setTotalDeposited(TestudoBankRepository.getCustomerTotalDeposited(jdbcTemplate, user.getUsername()));
+    user.setTotalWithdrawn(TestudoBankRepository.getCustomerTotalWithdrawn(jdbcTemplate, user.getUsername()));
+    user.setNetValueOfTransaction(user.getTotalDeposited() - user.getTotalWithdrawn());
+    TestudoBankRepository.setAccountSummary(jdbcTemplate, user.getUsername(), user.getNetValueOfTransaction(), user.getTotalDeposited(), user.getTotalWithdrawn(), user.getNumberOfTransactions());
+  }
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
     return (int) (dollarAmount * 100);
@@ -328,6 +338,7 @@ public class MvcController {
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
+    calcDeposit(user, userDepositAmtInPennies);
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
@@ -359,6 +370,7 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
+    updateSummaryInfo(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -402,9 +414,9 @@ public class MvcController {
     if (userWithdrawAmt < 0) {
       return "welcome";
     }
-
     //// Complete Withdraw Transaction ////
     int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt); // dollar amounts stored as pennies to avoid floating point errors
+    calcWithdrawal(user, userWithdrawAmtInPennies);
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
     int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
@@ -443,6 +455,7 @@ public class MvcController {
 
   
     // update Model so that View can access new main balance, overdraft balance, and logs
+    updateSummaryInfo(user);
     updateAccountInfo(user);
     return "account_info";
 
@@ -810,4 +823,17 @@ public class MvcController {
 
   }
 
+  // Calculates and updates total deposit in database
+  public void calcDeposit(User user, int amount) {
+    int newAmount = TestudoBankRepository.getCustomerTotalDeposited(jdbcTemplate, user.getUsername()) + amount;
+    TestudoBankRepository.setCustomerTotalDeposited(jdbcTemplate, user.getUsername(), newAmount);
+    user.setTotalDeposited(newAmount);
+  }
+  
+ // Calculates and updates total withdrawals in database
+  public void calcWithdrawal(User user, int amount) {
+    int newAmount = TestudoBankRepository.getCustomerTotalWithdrawn(jdbcTemplate, user.getUsername()) + amount;
+    TestudoBankRepository.setCustomerTotalWithdrawn(jdbcTemplate, user.getUsername(), newAmount);
+    user.setTotalWithdrawn(newAmount);
+  }
 }
