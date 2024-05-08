@@ -85,12 +85,13 @@ public class TestudoBankRepository {
     jdbcTemplate.update(customerInterestDepositsSql);
   }
 
-  public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies) {
-    String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d);",
+  public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies, double treesPlanted) {
+    String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d, %f);",
                                                               customerID,
                                                               timestamp,
                                                               action,
-                                                              amtInPennies);
+                                                              amtInPennies,
+                                                              treesPlanted);
     jdbcTemplate.update(insertRowToTransactionHistorySql);
   }
 
@@ -127,6 +128,12 @@ public class TestudoBankRepository {
   public static void increaseCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseAmtInPennies) {
     String balanceIncreaseSql = String.format("UPDATE Customers SET Balance = Balance + %d WHERE CustomerID='%s';", increaseAmtInPennies, customerID);
     jdbcTemplate.update(balanceIncreaseSql);
+  }
+
+  
+  public static void increaseTotalDeposit(JdbcTemplate jdbcTemplate, String customerID, int increaseAmtInPennies) {
+    String totalDepositIncreaseSql = String.format("UPDATE Customers SET TotalDeposit = TotalDeposit + %d WHERE CustomerID='%s';", increaseAmtInPennies, customerID);
+    jdbcTemplate.update(totalDepositIncreaseSql);
   }
 
   public static void initCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {

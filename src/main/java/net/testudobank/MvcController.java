@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  public static double PENNIES_PER_TREE = 10000.0;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -198,6 +199,10 @@ public class MvcController {
     List<Map<String,Object>> transactionLogs = TestudoBankRepository.getRecentTransactions(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSACTIONS_DISPLAYED);
     String transactionHistoryOutput = HTML_LINE_BREAK;
     for(Map<String, Object> transactionLog : transactionLogs){
+      // if TreesPlanted field is 0, don't print that field in the user's transaction history
+      if ((Float) transactionLog.get("TreesPlanted") == 0) {
+        transactionLog.remove("TreesPlanted");
+      }
       transactionHistoryOutput += transactionLog + HTML_LINE_BREAK;
     }
 
@@ -213,7 +218,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, TotalDeposit, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -226,6 +231,7 @@ public class MvcController {
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
+    user.setTreesPlanted((int) userData.get("TotalDeposit") / PENNIES_PER_TREE);
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
@@ -336,25 +342,36 @@ public class MvcController {
       TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
       TestudoBankRepository.insertRowToOverdraftLogsTable(jdbcTemplate, userID, currentTime, userDepositAmtInPennies, userOverdraftBalanceInPennies, newOverdraftBalanceInPennies);
       
-      // add any excess deposit amount to main balance in Customers table
+      // add any excess deposit amount to main balance and total deposit in Customers table
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
+        TestudoBankRepository.increaseTotalDeposit(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
-    } else { // simple deposit case
+    } else { // simple deposit case -- increase balance and total deposit in Customers table
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      TestudoBankRepository.increaseTotalDeposit(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 
     // only adds deposit to transaction history if is not transfer
     if (user.isTransfer()){
       // Adds transaction recieve to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies, 0);
     } else if (user.isCryptoTransaction()) {
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies, 0);
     } else {
-      // Adds deposit to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+      int userAmtEligibleForTreesInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
+      
+      // only if the overdraft is paid off an the account goes into positives can trees be planted in the transaction history
+      if (userAmtEligibleForTreesInPennies > 0) { 
+        // Adds deposit to transaction history
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies, (double) userAmtEligibleForTreesInPennies / PENNIES_PER_TREE);
+      }
+      // otherwise, no trees are planted
+      else {
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies, 0);
+      }
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
@@ -433,12 +450,12 @@ public class MvcController {
     // only adds withdraw to transaction history if is not transfer
     if (user.isTransfer()){
       // Adds transfer send to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_SEND_ACTION, userWithdrawAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_SEND_ACTION, userWithdrawAmtInPennies, 0);
     } else if (user.isCryptoTransaction()) {
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies, 0);
     } else {
       // Adds withdraw to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies, 0);
     }
 
   

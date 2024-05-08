@@ -33,8 +33,8 @@ public class MvcControllerIntegTestHelpers {
   }
 
   // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
-  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits) throws ScriptException {
-    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int totalDeposit, int overdraftBalance, int numFraudReversals, int numInterestDeposits) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %d)", ID, firstName, lastName, balance, totalDeposit, overdraftBalance, numFraudReversals, numInterestDeposits);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
 
     String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
@@ -43,7 +43,7 @@ public class MvcControllerIntegTestHelpers {
 
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
-    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, balance, 0, 0, 0);
   }
 
   // Set crypto balance to specified amount
@@ -65,6 +65,19 @@ public class MvcControllerIntegTestHelpers {
     assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
     System.out.println("Timestamp stored in TransactionHistory table for the request: " + transactionLogTimestamp);
   }
+
+    // Verifies that a single transaction log in the TransactionHistory table matches the expected customerID, timestamp, action, and amount
+    public static void checkTransactionLogPlantingTrees(Map<String,Object> transactionLog, LocalDateTime timeWhenRequestSent, String expectedCustomerID, String expectedAction, int expectedAmountInPennies, float expectedTreesPlanted) {
+      assertEquals(expectedCustomerID, (String)transactionLog.get("CustomerID"));
+      assertEquals(expectedAction, (String)transactionLog.get("Action"));
+      assertEquals(expectedAmountInPennies, (int)transactionLog.get("Amount"));
+      assertEquals(expectedTreesPlanted, (float)transactionLog.get("TreesPlanted"));
+      // verify that the timestamp for the Deposit is within a reasonable range from when the request was first sent
+      LocalDateTime transactionLogTimestamp = (LocalDateTime)transactionLog.get("Timestamp");
+      LocalDateTime transactionLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+      assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
+      System.out.println("Timestamp stored in TransactionHistory table for the request: " + transactionLogTimestamp);
+    }
 
   // Verifies that a single overdraft repayment log in the OverdraftLogs table matches the expected customerID, timestamp, depositAmt, oldOverBalance, and newOverBalance
   public static void checkOverdraftLog(Map<String,Object> overdraftLog, LocalDateTime timeWhenRequestSent, String expectedCustomerID, int expectedDepositAmtInPennies, int expectedOldOverBalanceInPennies, int expectedNewOverBalanceInPennies) {
