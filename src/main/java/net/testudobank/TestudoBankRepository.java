@@ -1,10 +1,17 @@
 package net.testudobank;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.tomcat.jni.Local;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -177,4 +184,28 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  /**
+   * Retrieves the transaction log for a specific month for a given customer. 
+   * 
+   * @param jdbcTemplate the JdbcTemplate object for database access
+   * @param customerID the ID of the customer whose transaction log is to be retrieved
+   * @param month the month for which the transaction log is to be retrieved
+   * @return a list of maps representing transaction records for the specified month
+ */
+  public static List<Map<String,Object>> getSpecificMonthTransactionLog(JdbcTemplate jdbcTemplate, String customerID, int month) {
+    LocalDateTime firstDayOfMonth = LocalDateTime.now().withMonth(month).withDayOfMonth(1).with(LocalTime.MIN);
+    LocalDateTime lastDayOfMonth = firstDayOfMonth.with(TemporalAdjusters.lastDayOfMonth()).with(LocalTime.MAX);
+
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    String formattedFirstDayOfMonth = firstDayOfMonth.format(formatter);
+    String formattedLastDayOfMonth = lastDayOfMonth.format(formatter);
+
+    String getTransactionHistorySql = String.format("SELECT * FROM TransactionHistory WHERE CustomerId='%s' AND Timestamp >= '%s' AND Timestamp <= '%s' ORDER BY Timestamp ASC;", customerID, formattedFirstDayOfMonth, formattedLastDayOfMonth);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+
+    return transactionLogs;
+  }
+
+
 }

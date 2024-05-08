@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.script.ScriptException;
@@ -112,5 +114,11 @@ public class MvcControllerIntegTestHelpers {
   // Converts the java.util.Date object into the LocalDateTime returned by the MySQL DB
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) { 
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+  }
+
+  // Uses given customer details to add a new transaction associated with a customer to the MySQL DB.
+  public static void addTransactionToDB(DatabaseDelegate dbDelegate, String customerID, String timestamp, String action, String amount) throws ScriptException {
+    String insertTransactionSql = String.format("INSERT INTO testudo_bank.TransactionHistory (CustomerID, Timestamp, Action, Amount) VALUES ('%s', '%s', '%s', '%s')", customerID, timestamp, action, amount);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertTransactionSql);
   }
 }

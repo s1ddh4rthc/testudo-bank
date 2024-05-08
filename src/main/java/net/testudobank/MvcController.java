@@ -5,19 +5,39 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
+import java.io.File;
+import java.io.IOError;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
-
+import java.io.FileInputStream;
 import java.util.Optional;
 import java.util.Set;
+import java.io.FileOutputStream;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.python.antlr.PythonParser.dotted_as_name_return;
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -183,6 +203,17 @@ public class MvcController {
   //// HELPER METHODS ////
 
   /**
+   * Helper method that calculates the interest on a provided amount of
+   * money in the form of pennies.
+   * 
+   * @param pennyAmount
+   * @return interest on the provided amount of pennies.
+   */
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
+
+  /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
    * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
    * 
@@ -249,6 +280,71 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+   /**
+   * Helper function to build a formatted string to be written to a text file that 
+   * can be downloaded (the transaction monthly summary report). First displays the overall
+   * month and year for which the summary applies as well as the specific days (the 
+   * first and last day of the month). Then lists all transactions during that period including
+   * the type, amount, and specific date. If no transactions that month, that will be explicitly
+   * stated. Finally some summary statistics are calculated: the net deposits that month, 
+   * the net widthdrawals that month, and the net change in bank balance that month.
+   * 
+   * @param selectedMonthTransactions
+   * @param month
+   * @return output which is a formatted string to be written to the downloadable text file
+   */
+  public String buildSummaryReportFile(List<Map<String,Object>> selectedMonthTransactions, int month) {
+    final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd HH:mm");
+    LocalDateTime firstDayOfMonth = LocalDateTime.now().withMonth(month).withDayOfMonth(1).with(LocalTime.MIN);
+    LocalDateTime lastDayOfMonth = firstDayOfMonth.with(TemporalAdjusters.lastDayOfMonth()).with(LocalTime.MAX);
+
+    String formattedFirstDayOfMonth = firstDayOfMonth.format(formatter);
+    String formattedLastDayOfMonth = lastDayOfMonth.format(formatter);
+    
+    double totalDeposited = 0.0;
+    double totalWithdrawn = 0.0;
+    String output = "";
+    
+    output += "****Transaction Summary Report for ";
+    output += firstDayOfMonth.getMonth() + " " + LocalDateTime.now().getYear();
+    output += "****\n\n";
+    output += "Report timeframe: " + formattedFirstDayOfMonth;
+    output += " to " + formattedLastDayOfMonth + "\n\n";
+    output += "Transactions:\n";
+    output += "___________________________________\n\n";
+    
+    //display transactions and calculate summary statistics
+    if (selectedMonthTransactions.size() > 0) {
+      for (Map<String,Object> transaction : selectedMonthTransactions) {
+      
+        double amount = Double.parseDouble(transaction.get("Amount").toString());
+        String transactionType = transaction.get("Action").toString();
+        String transactionDate = transaction.get("Timestamp").toString();
+        
+        output += "Type: " + transactionType;
+        output += "\nAmount: $" + amount;
+        output += "\nDate: " + transactionDate.substring(0, 10) + " " + transactionDate.substring(11, 16) + "\n\n";
+        
+        if (transactionType.equals("Deposit")) {
+          totalDeposited += amount;
+        } else if (transactionType.equals("Withdraw")) {
+          totalWithdrawn += amount;
+        }
+      }
+    } else {
+      output += "There were no transactions during this period.\n\n";
+    }
+    
+    
+    output += "Overall Summary: \n";
+    output += "___________________________________\n\n";
+    output += "Total Deposited this Month: $" + totalDeposited + "\n\n";
+    output += "Total Withdrawn this Month: $" + totalWithdrawn + "\n\n";
+    output += "Net Change in Bank Balance: $" + (totalDeposited - totalWithdrawn) + "\n\n";
+
+    return output;
   }
 
   // HTML POST HANDLERS ////
@@ -357,8 +453,8 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
+    // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
   }
@@ -410,7 +506,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -799,15 +895,78 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Applies interest to entire balance every 5 valid deposits.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
+    String userID = user.getUsername();
+    double userDepositAmt = user.getAmountToDeposit();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    if (userDepositAmt >= 20 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0
+      && TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) != 0) {
+      int NumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+      // Apply interest after every 5 deposits
+      if (NumDepositsForInterest == 5) {
+        int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        int interest = (int) (currentBalance * (BALANCE_INTEREST_RATE - 1));
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interest);
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interest);
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      } else {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, NumDepositsForInterest);
+      }
+      return "account_info";
+    }
     return "welcome";
+  }
 
+
+  /**
+   * HTML POST request handler for generating downloadable summary reports.
+   * 
+   * Retrieves the user's transaction log for the specified month and generates a summary report.
+   * If the selected month is in the future (chronologically impossibel), the user is redirected 
+   * to the "welcome" page.
+   * 
+   * Generates a downloadable text file containing the summary report, which includes 
+   * transaction details for the specified month. The conents of the report are generated by the
+   * buildSummaryReportFile helper function.
+   * 
+   * @param userID the username of the user
+   * @param month the month for which the summary report is generated
+   * @param response the HTTP response object used for serving the downloadable file
+   * @return "account_info" page if the summary report is successfully generated. Otherwise, redirects to "welcome" page.
+   * @throws IOException if an I/O error occurs while writing the file or serving the response
+   */
+  @PostMapping("/downloadreport")
+  public String buildDownloadableSummaryReport(@RequestParam("username") String userID, @RequestParam("month") String month, HttpServletResponse response) throws IOException {
+
+    //if month selected is in the future (past the current month), go back to welcome page
+    if (Integer.parseInt(month) > LocalDateTime.now().getMonthValue()) {
+      return "welcome";
+    }
+    
+    List<Map<String,Object>> selectedMonthTransactions = TestudoBankRepository.getSpecificMonthTransactionLog(jdbcTemplate, userID, Integer.parseInt(month));
+    String reportContents = buildSummaryReportFile(selectedMonthTransactions, Integer.parseInt(month));
+
+    //generate temporary file to hold contents and mark for deletion
+    File file = File.createTempFile("SummaryReport", ".txt");
+    file.deleteOnExit();
+    java.nio.file.Files.write(file.toPath(), reportContents.getBytes());
+
+    response.setContentType("text/plain");
+    response.setHeader("Content-Disposition", "attachment; filename=\"SummaryReport.txt\"");
+    response.setContentLength((int) file.length());
+
+    // Write the summary report contents to the response output stream.
+    try (PrintWriter out = response.getWriter()) {
+      out.print(reportContents);
+      out.flush();
+    }
+
+    return "account_info";
   }
 
 }
