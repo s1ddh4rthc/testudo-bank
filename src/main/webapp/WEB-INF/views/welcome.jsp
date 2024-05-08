@@ -1,52 +1,24 @@
-<%@ page language="java" contentType="text/html; charset=ISO-8859-1"
-    pageEncoding="ISO-8859-1"%>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>    
-<!DOCTYPE html>
-<html>
-<head>
-  <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
-  <meta charset="ISO-8859-1">
-  <title>Welcome Page</title>
-  <style type="text/css">
-    label {
-      display: inline-block;
-      width: 200px;
-      margin: 5px;
-      text-align: left;
-    }
-    input[type=text], input[type=password], select {
-      width: 200px;	
-    }
-    input[type=radio] {
-      display: inline-block;
-      margin-left: 45px;
-    }
-    
-    input[type=checkbox] {
-      display: inline-block;
-      margin-right: 190px;
-    }	
-    
-    button {
-      padding: 10px;
-      margin: 10px;
-    }
-  </style>
-</head>
+<%@ page language="java" contentType="text/html; charset=ISO-8859-1" pageEncoding="ISO-8859-1" %>
+  <%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
+    <!DOCTYPE html>
+    <html lang="en">
 
-<body>
-	<div align="center">
-		<h2>Welcome to Testudo Bank!</h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
-		<a href='/login'>View Account</a> <br/>
-    <a href='/deposit'>Deposit</a> <br/>
-    <a href='/withdraw'>Withdraw</a> <br/>
-    <a href='/dispute'>Dispute</a> <br/>
-    <a href='/transfer'>Transfer</a> <br/>
-    <a href='/buycrypto'>Buy Cryptocurrency</a>
-    <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Welcome to Testudo Bank!</title>
+      <link rel="icon"
+        href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
+      <link rel="stylesheet" href="styles.css">
+    </head>
 
-	</div>
-</body>
+    <body>
+      <%@ include file="base.jsp" %>
+        <div class="center-div-css">
+          <h1>Welcome to Testudo Bank!</h1>
+          <img class="main-img" src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" alt="Testudo Bank Logo">
+          <p>Manage your finances easily with Testudo Bank.</p>
+        </div>
+    </body>
 
-</html>
+    </html>
