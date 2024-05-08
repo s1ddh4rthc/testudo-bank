@@ -1,6 +1,7 @@
 package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -10,6 +11,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import javax.script.ScriptException;
@@ -32,6 +34,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import net.testudobank.MvcController;
+import net.testudobank.TestudoBankRepository;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
@@ -1965,7 +1968,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
 
-    /**
+  /**
    * Test the situation where a customer with no pre-existing Crypto buys ETH, buys SOL,
    * and then sells some of their SOL.
    */
@@ -1988,6 +1991,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
 
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
+    
     cryptoTransaction = CryptoTransaction.builder()
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
             .expectedEndingBalanceInDollars(1000)
@@ -1998,6 +2007,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(true)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
+
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
 
     cryptoTransaction = CryptoTransaction.builder()
             .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
@@ -2033,7 +2048,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .shouldSucceed(false)
             .build();
     cryptoTransactionTester.test(cryptoTransaction);  
-   }
+  }
 
 
   /**
@@ -2058,6 +2073,151 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);  
    }
+
+  /**
+   * Verifies the simplest report generation case. No edge transaction dates and customer selects
+   * a chronologically valid month to generate a report for.
+   */
+  @Test
+  public void testSimpleMonthForSummaryReport() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    double CUSTOMER2_BALANCE = 123.45;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    // verify that customer1's data is still the only data populated in Customers table
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    assertEquals(2, customersTableData.size());
+
+
+    List<Map<String,Object>> transactions = new ArrayList<>();
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-05-01T08:30:00", "Deposit", "100");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-05-10T12:15:00", "Withdraw", "50");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-05-20T10:45:00", "Deposit", "200");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER2_ID, "2024-05-20T10:45:00", "Deposit", "200");
+
+    
+    transactions = TestudoBankRepository.getSpecificMonthTransactionLog(jdbcTemplate, CUSTOMER1_ID, 5);
+    String summary = controller.buildSummaryReportFile(transactions, 5);
+
+    // verify customer balance was increased by $12.34
+    double EXPECTED_TOTAL_DEPOSITED = 300;
+    double EXPECTED_TOTAL_WITHDRAWN = 50;
+    double EXPECTED_NET_CHANGE_IN_BALANCE = EXPECTED_TOTAL_DEPOSITED - EXPECTED_TOTAL_WITHDRAWN;
+    
+    assertTrue(summary.contains("Total Deposited this Month: $" + EXPECTED_TOTAL_DEPOSITED));
+    assertTrue(summary.contains("Total Withdrawn this Month: $" + EXPECTED_TOTAL_WITHDRAWN));
+    assertTrue(summary.contains("Net Change in Bank Balance: $" + EXPECTED_NET_CHANGE_IN_BALANCE));
+  }
+
+
+  /**
+   * Tests the situation where a customer is trying to generate a report with transactions on the very
+   * first and last day. More specifically, the transactions are at the very first and last possible
+   * second which is the 1st of the month at 00:00:00 (hour:minute:second) and last of the month at
+   * 23:59:59.
+   */
+  @Test
+  public void testSummaryReportTransactionsOnFirstAndLastValidTimeIncluded() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    double CUSTOMER2_BALANCE = 123.45;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    // verify that customer1's data is still the only data populated in Customers table
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    assertEquals(2, customersTableData.size());
+
+
+    List<Map<String,Object>> transactions = new ArrayList<>();
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-03-01T00:00:00", "Deposit", "200");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-03-31T23:59:59", "Withdraw", "50");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-03-03T11:00:00", "Withdraw", "100");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER2_ID, "2024-05-20T10:45:00", "Deposit", "600");
+    
+    transactions = TestudoBankRepository.getSpecificMonthTransactionLog(jdbcTemplate, CUSTOMER1_ID, 3);
+    String summary = controller.buildSummaryReportFile(transactions, 3);
+
+    // verify customer balance was increased by $12.34
+    double EXPECTED_TOTAL_DEPOSITED = 200;
+    double EXPECTED_TOTAL_WITHDRAWN = 150;
+    double EXPECTED_NET_CHANGE_IN_BALANCE = EXPECTED_TOTAL_DEPOSITED - EXPECTED_TOTAL_WITHDRAWN;
+    
+    assertTrue(summary.contains("Total Deposited this Month: $" + EXPECTED_TOTAL_DEPOSITED));
+    assertTrue(summary.contains("Total Withdrawn this Month: $" + EXPECTED_TOTAL_WITHDRAWN));
+    assertTrue(summary.contains("Net Change in Bank Balance: $" + EXPECTED_NET_CHANGE_IN_BALANCE));
+  }
+
+  /**
+   * Tests the situation where a customer is trying to generate a report when they have transactions 
+   * on the very last time moment of the previous month and very first time moment of the next month
+   * after the month of the transaction report. More specifically, the transactions are at the very 
+   * first and last possible second which is the 1st of the following month of the report at 00:00:00 
+   * (hour:minute:second) and last of the prior month at 23:59:59.
+   */
+  @Test
+  public void testSummaryReportTransactionsJustBeforeAndAfterSelectedMonthNotIncluded() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    double CUSTOMER2_BALANCE = 123.45;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    // verify that customer1's data is still the only data populated in Customers table
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    assertEquals(2, customersTableData.size());
+
+
+    List<Map<String,Object>> transactions = new ArrayList<>();
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-04-30T23:59:59", "Deposit", "100");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-06-01T00:00:00", "Withdraw", "50");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER1_ID, "2024-05-03T11:00:00", "Withdraw", "25");
+    MvcControllerIntegTestHelpers.addTransactionToDB(dbDelegate, CUSTOMER2_ID, "2024-05-20T10:45:00", "Deposit", "270");
+
+    
+    transactions = TestudoBankRepository.getSpecificMonthTransactionLog(jdbcTemplate, CUSTOMER1_ID, 5);
+    String summary = controller.buildSummaryReportFile(transactions, 5);
+
+    // verify customer balance was increased by $12.34
+    double EXPECTED_TOTAL_DEPOSITED = 0;
+    double EXPECTED_TOTAL_WITHDRAWN = 25;
+    double EXPECTED_NET_CHANGE_IN_BALANCE = EXPECTED_TOTAL_DEPOSITED - EXPECTED_TOTAL_WITHDRAWN;
+    
+    assertTrue(summary.contains("Total Deposited this Month: $" + EXPECTED_TOTAL_DEPOSITED));
+    assertTrue(summary.contains("Total Withdrawn this Month: $" + EXPECTED_TOTAL_WITHDRAWN));
+    assertTrue(summary.contains("Net Change in Bank Balance: $" + EXPECTED_NET_CHANGE_IN_BALANCE));
+  }
+  
+
+  /**
+   * Tests the situation where a customer selects and invalid month for the transaction which would
+   * be a month in the future past the current month. If this happens, the user should be redirected
+   * to the welcome page.
+   */
+  @Test
+  public void testInvalidMonthForSummaryReport() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    
+    String returnedPage = "";
+    try {
+      returnedPage = controller.buildDownloadableSummaryReport(CUSTOMER1_ID, "12", null);
+    } catch(Throwable error) {
+      System.out.println("Could not write to file.");
+    }
+    
+    assertEquals("welcome", returnedPage);
+  }
 
   
 }
