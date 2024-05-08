@@ -11,14 +11,15 @@
     </head>
 
     <body>
+      <!-- Allows For Css to be in one file also has the Navigation bar -->
       <%@ include file="base.jsp" %>
         <div class="form-container">
           <h2>Buy Crypto!!!</h2>
           <form:form action="buycrypto" method="post" modelAttribute="user">
-          <div class="form-group">
-            <label for="username">Username:</label>
-            <form:input path="username" /><br />
-          </div>
+            <div class="form-group">
+              <label for="username">Username:</label>
+              <form:input path="username" /><br />
+            </div>
 
             <div class="form-group">
               <label for="password">Password:</label>

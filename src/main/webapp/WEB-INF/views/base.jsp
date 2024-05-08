@@ -6,27 +6,27 @@
         <link rel="icon"
             href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
         <meta charset="ISO-8859-1">
-        <link rel="stylesheet" href="styles.css">
+        <!-- CSS for all the HTML files -->
         <style>
             body {
                 font-family: sans-serif;
                 margin: auto;
                 padding: 0;
                 background-color: #f5f5f5;
-
             }
 
+            /* Navigation bar CSS */
             header {
+                /*Text color for Nav Bar*/
                 color: #fff;
             }
-
 
             ul {
                 list-style-type: none;
                 margin: 0;
                 padding: 0;
                 overflow: hidden;
-                background-color: #d41334;
+                background-color: #e31638;
                 position: sticky;
                 top: 0;
             }
@@ -54,6 +54,7 @@
             }
 
 
+            /*Css For Buttons*/
             button {
                 background: #e32343;
                 border: 1px solid #e32343;
@@ -80,22 +81,7 @@
                 opacity: .5;
             }
 
-            .mainimg {
-                position: absolute;
-                left: 0;
-            }
-
-            .title {
-                color: black;
-                text-align: center;
-                flex: 1;
-            }
-
-            .title a {
-                color: eggshell;
-                text-decoration: none;
-            }
-
+            /*Css for Forms*/
             .form-container {
                 max-width: 400px;
                 margin: 50px auto;
@@ -130,12 +116,7 @@
             }
 
 
-            .logo {
-                float: left;
-                width: 100px;
-                height: 100px;
-            }
-
+            /*Css for Crypto Prices*/
             .crypto-price {
                 font-weight: bold;
                 color: #d5203f;
@@ -146,6 +127,7 @@
                 margin-top: 50px;
             }
 
+            /*Css for Welcome Page Testudo*/
             .main-img {
                 width: 115px;
                 height: 115px;
@@ -173,7 +155,6 @@
                 <li><a href='/deposit'>Deposit</a> </li>
                 <li><a href='/withdraw'>Withdraw</a> </li>
                 <li><a href='/transfer'>Transfer</a> </li>
-                <!-- <li class="title" style="border:none"><a href='/'>&nbsp;&nbsp;&nbsp;&nbsp;Testudo Bank!   <img class="main-img" src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" alt="Testudo Bank Logo" style="width: 30px; height: 30px; margin-left: 5px;" ></a></li> -->
                 <li style="float:right"><a href='/dispute'>Dispute</a> </li>
                 <li style="float:right"><a href='/buycrypto'>Buy Cryptocurrency</a></li>
                 <li style="float:right; border-left:1px solid #e9b9b9"><a href='/sellcrypto'>Sell Cryptocurrency</a>

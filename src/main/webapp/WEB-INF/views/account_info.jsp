@@ -8,6 +8,7 @@
     <meta charset="ISO-8859-1">
     <title>${user.firstName} ${user.lastName} - Testudo Bank</title>
     <style type="text/css">
+      /*CSS for Basic Account info Table*/
       .user-info-table {
         width: 60%;
         margin-bottom: 1rem;
@@ -23,6 +24,7 @@
 
       }
 
+      /*CSS for Logged History Tables*/
       .bank-table {
         margin-bottom: 1rem;
       }
@@ -35,13 +37,13 @@
 
 
 
-
+      /*CSS for Grid for buttons*/
       .button-container {
-        margin-left: 2rem;
-        margin-right: 2rem;
+        margin-left: 17rem;
+        margin-right: 17rem;
         display: grid;
         grid-template-columns: repeat(5, auto);
-        gap: 10px;
+        grid-gap: 0;
       }
 
       .button-container button {
@@ -58,6 +60,7 @@
 
         <h2><span>${user.firstName}</span> <span>${user.lastName}</span> Bank Account Info</h2>
 
+        <!-- Css For User Info table -->
         <table class="user-info-table">
           <tr>
             <td><span>Username: </span></td>
@@ -84,10 +87,13 @@
             <td><span>${user.solBalance}</span></td>
           </tr>
         </table>
+
+        <!-- HTML for Current Crypto Prices -->
         <h3>Crypto Prices</h3>
         <span>Current $ETH Price: </span><span class="crypto-price">${user.ethPrice}</span><br />
         <span>Current $SOL Price: </span><span class="crypto-price">${user.solPrice}</span><br />
 
+        <!-- Re-Payment Logs Table -->
         <h3>Re-payment logs:</h3>
         <table class="bank-table">
           <thead>
@@ -103,13 +109,13 @@
             <script>
               var logs = "${user.logs}";
               var logEntries = logs.split("}");
-              logEntries.pop(); // Remove the last empty element
+              logEntries.pop();
 
               logEntries.forEach(function (logEntry) {
-                // Remove the curly braces and split the entry by commas
+                // Parse the Information
                 var fields = logEntry.replaceAll("{", "").split(", ");
 
-                // Extract individual fields
+                // Extract fields
                 var customerId = fields[0].split("=")[1];
                 var timestamp = fields[1].split("=")[1];
                 var depositAmt = fields[2].split("=")[1];
@@ -120,28 +126,32 @@
                 var formattedTimestamp = new Date(timestamp).toLocaleString();
 
                 // Create table row
-                var row = document.createElement("tr");
-                var cell1 = document.createElement("td");
-                var cell2 = document.createElement("td");
-                var cell3 = document.createElement("td");
-                var cell4 = document.createElement("td");
-                var cell5 = document.createElement("td");
-                cell1.textContent = customerId;
-                cell2.textContent = formattedTimestamp;
-                cell3.textContent = depositAmt;
-                cell4.textContent = oldOverBalance;
-                cell5.textContent = newOverBalance;
-                row.appendChild(cell1);
-                row.appendChild(cell2);
-                row.appendChild(cell3);
-                row.appendChild(cell4);
-                row.appendChild(cell5);
+                var createRow = document.createElement("tr");
+                // Create the cells to add to row
+                var idCell = document.createElement("td");
+                var timeCell = document.createElement("td");
+                var depositCell = document.createElement("td");
+                var oldOverBalanceCell = document.createElement("td");
+                var newOverBalanceCell = document.createElement("td");
+                // Add information to cell
+                idCell.textContent = customerId;
+                timeCell.textContent = formattedTimestamp;
+                depositCell.textContent = depositAmt;
+                oldOverBalanceCell.textContent = oldOverBalance;
+                newOverBalanceCell.textContent = newOverBalance;
+                // Add cells to the row
+                createRow.appendChild(idCell);
+                createRow.appendChild(timeCell);
+                createRow.appendChild(depositCell);
+                createRow.appendChild(oldOverBalanceCell);
+                createRow.appendChild(oldOverBalanceCell);
                 document.getElementById("logsBody").appendChild(row);
               });
             </script>
           </tbody>
         </table>
 
+        <!-- Transaction History Table HTML -->
         <h3>Transaction History:</h3>
         <table class="bank-table">
           <thead>
@@ -156,13 +166,13 @@
             <script>
               var transactionHist = "${user.transactionHist}";
               var transactions = transactionHist.split("}");
-              transactions.pop(); // Remove the last empty element
+              transactions.pop();
 
               transactions.forEach(function (transaction) {
-                // Remove the curly braces and split the transaction by commas
+                // Parse Data
                 var fields = transaction.replaceAll("{", "").split(", ");
 
-                // Extract individual fields
+                // Extract fields
                 var customerId = fields[0].split("=")[1];
                 var timestamp = fields[1].split("=")[1];
                 var action = fields[2].split("=")[1];
@@ -173,25 +183,30 @@
 
                 // Create table row
                 var row = document.createElement("tr");
-                var cell1 = document.createElement("td");
-                var cell2 = document.createElement("td");
-                var cell3 = document.createElement("td");
-                var cell4 = document.createElement("td");
-                cell1.textContent = customerId;
-                cell2.textContent = formattedTimestamp;
-                cell3.textContent = action;
-                cell4.textContent = amount;
-                row.appendChild(cell1);
-                row.appendChild(cell2);
-                row.appendChild(cell3);
-                row.appendChild(cell4);
+                //Create Cells
+                var idCell = document.createElement("td");
+                var timeCell = document.createElement("td");
+                var actionCell = document.createElement("td");
+                var amountCell = document.createElement("td");
+                //Input the text for cells
+                idCell.textContent = customerId;
+                timeCell.textContent = formattedTimestamp;
+                actionCell.textContent = action;
+                amountCell.textContent = amount;
+                // Add cells to row
+                row.appendChild(idCell);
+                row.appendChild(timeCell);
+                row.appendChild(actionCell);
+                row.appendChild(amountCell);
                 document.getElementById("transactionBody").appendChild(row);
               });
             </script>
           </tbody>
         </table>
+
+
+        <!-- Tansfer History Table HTML -->
         <h3>Transfer History:</h3>
-        <!-- <span>Transfer History: </span><span>${user.transferHist}</span><br /> -->
         <table class="bank-table">
           <thead>
             <tr>
@@ -205,13 +220,13 @@
             <script>
               var transferHist = "${user.transferHist}";
               var transfers = transferHist.split("}");
-              transfers.pop(); // Remove the last empty element
+              transfers.pop();
 
               transfers.forEach(function (transfer) {
-                // Remove the curly braces and split the transfer by commas
+                // Parse Data
                 var fields = transfer.replaceAll("{", "").split(", ");
 
-                // Extract individual fields
+                // Extract fields
                 var transferFrom = fields[0].split("=")[1];
                 var transferTo = fields[1].split("=")[1];
                 var timestamp = fields[2].split("=")[1];
@@ -222,26 +237,28 @@
 
                 // Create table row
                 var row = document.createElement("tr");
-                var cell1 = document.createElement("td");
-                var cell2 = document.createElement("td");
-                var cell3 = document.createElement("td");
-                var cell4 = document.createElement("td");
-                cell1.textContent = transferFrom;
-                cell2.textContent = transferTo;
-                cell3.textContent = formattedTimestamp;
-                cell4.textContent = amount;
-                row.appendChild(cell1);
-                row.appendChild(cell2);
-                row.appendChild(cell3);
-                row.appendChild(cell4);
+                // Create cells for data
+                var transferFromCell = document.createElement("td");
+                var transferToCell = document.createElement("td");
+                var timeCell = document.createElement("td");
+                var amountCell = document.createElement("td");
+                // Fill cells with data
+                transferFromCell.textContent = transferFrom;
+                transferToCell.textContent = transferTo;
+                timeCell.textContent = formattedTimestamp;
+                amountCell.textContent = amount;
+                row.appendChild(transferFromCell);
+                row.appendChild(transferToCell);
+                row.appendChild(timeCell);
+                row.appendChild(amountCell);
                 document.getElementById("transferBody").appendChild(row);
               });
             </script>
           </tbody>
         </table>
 
+        <!-- Crypto History Table HTML -->
         <h3>Crypto History:</h3>
-        <!-- <span>Crypto History: </span><span>${user.cryptoHist}</span><br /> -->
         <table class="bank-table">
           <thead>
             <tr>
@@ -256,13 +273,13 @@
             <script>
               var cryptoHist = "${user.cryptoHist}";
               var cryptoEntries = cryptoHist.split("}");
-              cryptoEntries.pop(); // Remove the last empty element
+              cryptoEntries.pop();
 
               cryptoEntries.forEach(function (cryptoEntry) {
-                // Remove the curly braces and split the entry by commas
+                // Parse Data
                 var fields = cryptoEntry.replaceAll("{", "").split(", ");
 
-                // Extract individual fields
+                // Extract fields
                 var customerId = fields[0].split("=")[1];
                 var timestamp = fields[1].split("=")[1];
                 var action = fields[2].split("=")[1];
@@ -274,21 +291,23 @@
 
                 // Create table row
                 var row = document.createElement("tr");
-                var cell1 = document.createElement("td");
-                var cell2 = document.createElement("td");
-                var cell3 = document.createElement("td");
-                var cell4 = document.createElement("td");
-                var cell5 = document.createElement("td");
-                cell1.textContent = customerId;
-                cell2.textContent = formattedTimestamp;
-                cell3.textContent = action;
-                cell4.textContent = cryptoName;
-                cell5.textContent = cryptoAmount;
-                row.appendChild(cell1);
-                row.appendChild(cell2);
-                row.appendChild(cell3);
-                row.appendChild(cell4);
-                row.appendChild(cell5);
+                // Create cells
+                var idCell = document.createElement("td");
+                var timeCell = document.createElement("td");
+                var actionCell = document.createElement("td");
+                var cryptoNameCell = document.createElement("td");
+                var cryptoAmountCell = document.createElement("td");
+                // Fill the cells with corresponding
+                idCell.textContent = customerId;
+                timeCell.textContent = formattedTimestamp;
+                actionCell.textContent = action;
+                cryptoNameCell.textContent = cryptoName;
+                cryptoAmountCell.textContent = cryptoAmount;
+                row.appendChild(idCell);
+                row.appendChild(timeCell);
+                row.appendChild(actionCell);
+                row.appendChild(cryptoNameCell);
+                row.appendChild(cryptoAmountCell);
                 document.getElementById("cryptoBody").appendChild(row);
               });
             </script>
@@ -296,12 +315,14 @@
         </table>
 
         <br>
+
+        <!-- Navigate buttons -->
         <div class=" button-container">
-          <button href='/deposit'>Deposit</button>
-          <button href='/withdraw'>Withdraw</button>
-          <button href='/dispute'>Dispute</button>
-          <button href='/transfer'>Transfer</button>
-          <button href='/'>Logout</button>
+          <a href='/deposit'><button>Deposit</button></a>
+          <a href='/withdraw'><button>Withdraw</button></a>
+          <a href='/dispute'><button>Dispute</button></a>
+          <a href='/transfer'><button>Transfer</button></a>
+          <a href='/'><button>Logout</button></a>
         </div>
       </div>
   </body>

@@ -11,25 +11,26 @@
     </head>
 
     <body>
+      <!-- Allows For Css to be in one file also has the Navigation bar -->
       <%@ include file="base.jsp" %>
-      <div class="form-container">
-        <h2>Make a Deposit</h2>
-        <form:form action="deposit" method="post" modelAttribute="user">
-          <div class="form-group">
-            <label for="username">Username:</label>
-            <form:input path="username" id="username" />
-          </div>
-          <div class="form-group">
-            <label for="password">Password:</label>
-            <form:password path="password" id="password" />
-          </div>
-          <div class="form-group">
-            <label for="amountToDeposit">Amount to Deposit ($):</label>
-            <form:input path="amountToDeposit" id="amountToDeposit" type="number" />
-          </div>
-          <button type="submit">Deposit</button>
-        </form:form>
-      </div>
+        <div class="form-container">
+          <h2>Make a Deposit</h2>
+          <form:form action="deposit" method="post" modelAttribute="user">
+            <div class="form-group">
+              <label for="username">Username:</label>
+              <form:input path="username" id="username" />
+            </div>
+            <div class="form-group">
+              <label for="password">Password:</label>
+              <form:password path="password" id="password" />
+            </div>
+            <div class="form-group">
+              <label for="amountToDeposit">Amount to Deposit ($):</label>
+              <form:input path="amountToDeposit" id="amountToDeposit" type="number" />
+            </div>
+            <button type="submit">Deposit</button>
+          </form:form>
+        </div>
     </body>
 
     </html>

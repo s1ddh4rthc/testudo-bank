@@ -13,10 +13,13 @@
     </head>
 
     <body>
+      <!-- Allows For Css to be in one file also has the Navigation bar -->
       <%@ include file="base.jsp" %>
         <div class="center-div-css">
           <h1>Welcome to Testudo Bank!</h1>
-          <img class="main-img" src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" alt="Testudo Bank Logo">
+          <img class="main-img"
+            src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png"
+            alt="Testudo Bank Logo">
           <p>Manage your finances easily with Testudo Bank.</p>
         </div>
     </body>
