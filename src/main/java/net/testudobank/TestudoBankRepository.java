@@ -19,14 +19,14 @@ public class TestudoBankRepository {
 }
 
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
-    String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
-    int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);
+    String getNumberOfReversalsSql = "SELECT NumFraudReversals FROM Customers WHERE CustomerID=?";
+    int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, new Object[]{customerID}, Integer.class);
     return numOfReversals;
   }
 
   public static int getCustomerCashBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
-    String getUserBalanceSql =  String.format("SELECT Balance FROM Customers WHERE CustomerID='%s';", customerID);
-    int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
+    String getUserBalanceSql = "SELECT Balance FROM Customers WHERE CustomerID=?";
+    int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, new Object[]{customerID}, Integer.class);
     return userBalanceInPennies;
   }
 
