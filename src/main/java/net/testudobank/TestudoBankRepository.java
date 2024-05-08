@@ -80,6 +80,12 @@ public class TestudoBankRepository {
     return numberOfDepositsForInterest;
   }
 
+  public static int getCustomerInterestInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getUserBalanceSql =  String.format("SELECT Interest FROM Customers WHERE CustomerID='%s';", customerID);
+    int userBalanceInPennies = jdbcTemplate.queryForObject(getUserBalanceSql, Integer.class);
+    return userBalanceInPennies;
+  }
+
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
     String customerInterestDepositsSql = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", numDepositsForInterest, customerID);
     jdbcTemplate.update(customerInterestDepositsSql);
@@ -121,6 +127,11 @@ public class TestudoBankRepository {
 
   public static void setCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
     String updateBalanceSql = String.format("UPDATE Customers SET Balance = %d WHERE CustomerID='%s';", newBalanceInPennies, customerID);
+    jdbcTemplate.update(updateBalanceSql);
+  }
+
+  public static void setCustomerInterest(JdbcTemplate jdbcTemplate, String customerID, int newInterest) {
+    String updateBalanceSql = String.format("UPDATE Customers SET Interest = %d WHERE CustomerID='%s';", newInterest, customerID);
     jdbcTemplate.update(updateBalanceSql);
   }
 
