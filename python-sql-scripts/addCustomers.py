@@ -92,6 +92,17 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty Account summary table
+create_summary_table_sql = '''
+CREATE TABLE AccountSummary (
+  CustomerID varchar(255),
+  NetValueOfTransactions int,
+    TotalDeposited int,
+    TotalWithdrawn int,
+  NumberOfTransactions int
+);
+'''
+cursor.execute(create_summary_table_sql)
 
 
 # The two sets created below are used to ensure that this
@@ -147,6 +158,19 @@ for i in range(num_customers_to_add):
                 "'" + customer_password + "'")
     cursor.execute(insert_password_sql)
     
+    # add customer ID to the AccountSummary table
+    insert_defaultSummary_sql = '''
+    INSERT INTO AccountSummary
+    VALUES  ({0},{1},{2},{3},{4});
+    '''.format("'" + customer_id + "'",
+                0,
+                0,
+                0,
+                0)
+    cursor.execute(insert_defaultSummary_sql)
+
+
+
     # add this customer's randomly-generated ID to the set
     # to ensure this ID is not re-used by accident.
     ids_just_added.add(customer_id)

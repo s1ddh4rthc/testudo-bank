@@ -42,6 +42,11 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+
+    <span>Net Change: </span><span>${user.netValueOfTransaction}</span><br/>
+    <span>Deposit Total: </span><span>${user.totalDeposited}</span><br/>
+    <span>Withdrawn Total: </span><span>${user.totalWithdrawn}</span><br/>
+    <span>Number of Transactions: </span><span>${user.numberOfTransactions}</span><br/>
     <br/>
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>

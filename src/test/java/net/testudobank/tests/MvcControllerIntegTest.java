@@ -30,6 +30,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import net.testudobank.MvcController;
+import net.testudobank.TestudoBankRepository;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
@@ -1582,4 +1583,103 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
   
+  /**
+   * Test basic summary of deposit
+   */
+  @Test
+  public void testSummaryDepositBasic() throws ScriptException{
+    // initialize customer1 with a balance of $100 
+    double CUSTOMER1_BALANCE = 100;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.createSummaryTable(dbDelegate);
+    MvcControllerIntegTestHelpers.addCustomerToSummary(dbDelegate, db, CUSTOMER1_ID);
+    // Prepare Deposit Form to Deposit $10 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 10; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify customer Total Deposit was increased by $10
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, TestudoBankRepository.getCustomerTotalDeposited(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(1000, TestudoBankRepository.getCustomerNetValueOfTransaction(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(1, TestudoBankRepository.getRecentTransactions(jdbcTemplate, CUSTOMER1_ID, 10).size());
+  }
+
+  /**
+   * Test basic summary of withdraw
+   */
+  @Test
+  public void testSummaryWithdrawBasic() throws ScriptException{
+    // initialize customer1 with a balance of $100 
+    double CUSTOMER1_BALANCE = 100;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.createSummaryTable(dbDelegate);
+    MvcControllerIntegTestHelpers.addCustomerToSummary(dbDelegate, db, CUSTOMER1_ID);
+    // Prepare Withdraw Form to Withdraw $10 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_WITHDRAW = 10; // user input is in dollar amount, not pennies.
+    User customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(CUSTOMER1_AMOUNT_TO_WITHDRAW); 
+
+    // send request to the Withdraw Form's POST handler in MvcController
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+
+    // verify customer Total Withdraw was increased by $10
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, TestudoBankRepository.getCustomerTotalWithdrawn(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(-1000, TestudoBankRepository.getCustomerNetValueOfTransaction(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(1, TestudoBankRepository.getRecentTransactions(jdbcTemplate, CUSTOMER1_ID, 10).size());
+  }
+
+  /**
+   * Test sequence of depositing $10 then withdrawing $20
+   */
+  @Test
+  public void testSummarySequenceBasic() throws ScriptException{
+    // initialize customer1 with a balance of $100 
+    double CUSTOMER1_BALANCE = 100;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.createSummaryTable(dbDelegate);
+    MvcControllerIntegTestHelpers.addCustomerToSummary(dbDelegate, db, CUSTOMER1_ID);
+    // Prepare Deposit Form to Deposit $10 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 10; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // verify customer Total Deposit was increased by $10
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, TestudoBankRepository.getCustomerTotalDeposited(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(1000, TestudoBankRepository.getCustomerNetValueOfTransaction(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(1, TestudoBankRepository.getRecentTransactions(jdbcTemplate, CUSTOMER1_ID, 10).size());
+
+    // Prepare to withdraw
+    double CUSTOMER1_AMOUNT_TO_WITHDRAW = 20; // user input is in dollar amount, not pennies.
+    User customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(CUSTOMER1_AMOUNT_TO_WITHDRAW); 
+
+    // send request to the Withdraw Form's POST handler in MvcController
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+
+    // verify correct net value, total withdrawn, and number of transactions is correct
+    CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW); 
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, TestudoBankRepository.getCustomerTotalWithdrawn(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(-1000, TestudoBankRepository.getCustomerNetValueOfTransaction(jdbcTemplate, CUSTOMER1_ID));
+    assertEquals(2, TestudoBankRepository.getRecentTransactions(jdbcTemplate, CUSTOMER1_ID, 10).size());
+  }
 }

@@ -177,4 +177,50 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static int getCustomerTotalDeposited(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerTotalDeposited = String.format("SELECT TotalDeposited FROM AccountSummary WHERE CustomerID='%s';", customerID);
+    int TotalDeposited= jdbcTemplate.queryForObject(getCustomerTotalDeposited, Integer.class);
+    return TotalDeposited;
+  }
+
+  public static void setCustomerTotalDeposited(JdbcTemplate jdbcTemplate, String customerID, int newCustomerTotalDeposited) {
+    String CustomerTotalDeposited = String.format("UPDATE AccountSummary SET TotalDeposited = %d WHERE CustomerID='%s';", newCustomerTotalDeposited, customerID);
+    jdbcTemplate.update(CustomerTotalDeposited);
+  }
+
+  public static int getCustomerTotalWithdrawn(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerTotalWithdrawn = String.format("SELECT TotalWithdrawn FROM AccountSummary WHERE CustomerID='%s';", customerID);
+    int TotalWithdrawn= jdbcTemplate.queryForObject(getCustomerTotalWithdrawn, Integer.class);
+    return TotalWithdrawn;
+  }
+
+  public static void setCustomerTotalWithdrawn(JdbcTemplate jdbcTemplate, String customerID, int newCustomerTotalWithdrawn) {
+    String CustomerTotalWithdrawn = String.format("UPDATE AccountSummary SET TotalWithdrawn = %d WHERE CustomerID='%s';", newCustomerTotalWithdrawn, customerID);
+    jdbcTemplate.update(CustomerTotalWithdrawn);
+  }
+
+  public static int getCustomerNetValueOfTransaction(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerNetValueOfTransaction = String.format("SELECT NetValueOfTransactions FROM AccountSummary WHERE CustomerID='%s';", customerID);
+    int NetValueOfTransaction = jdbcTemplate.queryForObject(getCustomerNetValueOfTransaction, Integer.class);
+    return NetValueOfTransaction;
+  }
+
+  public static void setCustomerNetValueOfTransaction(JdbcTemplate jdbcTemplate, String customerID, int newCustomerNetValueOfTransaction) {
+    String CustomerNetValueOfTransaction = String.format("UPDATE AccountSummary SET TotalWithdrawn = %d WHERE CustomerID='%s';", newCustomerNetValueOfTransaction, customerID);
+    jdbcTemplate.update(CustomerNetValueOfTransaction);
+  }
+  
+  public static void setAccountSummary(JdbcTemplate jdbcTemplate, String customerID, int netValueOfTransaction, int totalDeposited, int totalWithdrawn, int numberOfTransactions) { 
+    String customerNetValueSql = String.format("UPDATE AccountSummary SET NetValueOfTransactions = %d WHERE CustomerID='%s';", netValueOfTransaction, customerID);
+    String customerTotalDepositiedSql = String.format("UPDATE AccountSummary SET TotalDeposited = %d WHERE CustomerID='%s';", totalDeposited, customerID);
+    String customerTotalWithdrawnSql = String.format("UPDATE AccountSummary SET TotalWithdrawn = %d WHERE CustomerID='%s';", totalWithdrawn, customerID);
+    String customerNumberOfTransactionsSql = String.format("UPDATE AccountSummary SET NumberOfTransactions = %d WHERE CustomerID='%s';", numberOfTransactions, customerID);
+    jdbcTemplate.update(customerNetValueSql);
+    jdbcTemplate.update(customerTotalDepositiedSql);
+    jdbcTemplate.update(customerTotalWithdrawnSql);
+    jdbcTemplate.update(customerNumberOfTransactionsSql);
+  }
+
+
 }

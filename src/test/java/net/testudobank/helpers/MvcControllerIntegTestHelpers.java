@@ -4,6 +4,9 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
@@ -112,5 +115,34 @@ public class MvcControllerIntegTestHelpers {
   // Converts the java.util.Date object into the LocalDateTime returned by the MySQL DB
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) { 
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+  }
+  // Creates an empty AccountSummary table
+  public static void createSummaryTable(DatabaseDelegate dbDelegate) throws ScriptException{
+    String insertSummarySql = "CREATE TABLE AccountSummary ("
+    + "CustomerID VARCHAR(255), "
+    + "NetValueOfTransactions INT, "
+    + "TotalDeposited INT, "
+    + "TotalWithdrawn INT, "
+    + "NumberOfTransactions INT, "
+    + "PRIMARY KEY (CustomerID)"
+    + ")";
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertSummarySql);
+  }
+
+  // Uses given customer details to initialize the customer in the AccountSummary table in the MySQL DB.
+  public static void addCustomerToSummary(DatabaseDelegate dbDelegate, MySQLContainer db, String ID) throws ScriptException {
+    String insertSummarySql = "INSERT INTO AccountSummary (CustomerID, NetValueOfTransactions, TotalDeposited, TotalWithdrawn, NumberOfTransactions) VALUES (?, ?, ?, ?, ?)";
+    // Set all values to 0
+    try (Connection connection = MvcControllerIntegTestHelpers.dataSource(db).getConnection();
+         PreparedStatement statement = connection.prepareStatement(insertSummarySql)) {
+        statement.setString(1, ID);
+        statement.setInt(2, 0);
+        statement.setInt(3, 0);
+        statement.setInt(4, 0);
+        statement.setInt(5, 0);
+        statement.executeUpdate();
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
   }
 }
