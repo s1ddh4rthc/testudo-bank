@@ -43,8 +43,9 @@ public class TestudoBankRepository {
   }
 
   public static int getCustomerOverdraftBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
-    String getUserOverdraftBalanceSql = String.format("SELECT OverdraftBalance FROM Customers WHERE CustomerID='%s';", customerID);
-    int userOverdraftBalanceInPennies = jdbcTemplate.queryForObject(getUserOverdraftBalanceSql, Integer.class);
+    String getUserOverdraftBalanceSql = "SELECT OverdraftBalance FROM Customers WHERE CustomerID=?";
+    // Execute the parameterized query
+    int userOverdraftBalanceInPennies = jdbcTemplate.queryForObject(getUserOverdraftBalanceSql, new Object[]{customerID}, Integer.class);
     return userOverdraftBalanceInPennies;
   }
 
@@ -78,8 +79,10 @@ public class TestudoBankRepository {
   }
 
   public static int getCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID) {
-    String getCustomerNumberOfDepositsForInterestSql = String.format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", customerID);
-    int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql, Integer.class);
+    String getCustomerNumberOfDepositsForInterestSql = "SELECT NumDepositsForInterest FROM Customers WHERE CustomerID=?";
+    // Execute the parameterized query
+    int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql, new Object[]{customerID}, Integer.class);
+    
     return numberOfDepositsForInterest;
   }
 
@@ -123,8 +126,11 @@ public class TestudoBankRepository {
   }
 
   public static void setCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
-    String updateBalanceSql = String.format("UPDATE Customers SET Balance = %d WHERE CustomerID='%s';", newBalanceInPennies, customerID);
-    jdbcTemplate.update(updateBalanceSql);
+    // Define the SQL query with parameter placeholders
+    String updateBalanceSql = "UPDATE Customers SET Balance = ? WHERE CustomerID = ?";
+    
+    // Execute the parameterized query
+    jdbcTemplate.update(updateBalanceSql, newBalanceInPennies, customerID);
   }
 
   public static void increaseCustomerCashBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseAmtInPennies) {
