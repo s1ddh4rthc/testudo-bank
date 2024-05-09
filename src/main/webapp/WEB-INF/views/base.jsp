@@ -42,7 +42,6 @@
 
             li a {
                 display: block;
-                font-weight: bold;
                 color: #fff;
                 text-align: center;
                 padding: 14px 16px;
