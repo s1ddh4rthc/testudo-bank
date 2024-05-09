@@ -32,6 +32,12 @@ public class MvcControllerIntegTestHelpers {
     return dataSource;
   }
 
+  public static void addSavingsGoalToDB(DatabaseDelegate dbDelegate, String customerID, String goalID, String goalName, double targetAmount, double currentAmount, LocalDateTime deadline) throws ScriptException {
+    // Insert savings goal into SavingsGoals table
+    String insertSavingsGoalSql = String.format("INSERT INTO SavingsGoals (GoalID, AccountID, GoalName, TargetAmount, CurrentAmount, Deadline) VALUES ('%s', '%s', '%s', %f, %f, '%s')", goalID, customerID, goalName, targetAmount, currentAmount, deadline);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertSavingsGoalSql);
+}
+
   // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits) throws ScriptException {
     String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits);

@@ -5,6 +5,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
@@ -19,10 +21,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 
 @Controller
 public class MvcController {
-  
   // A simplified JDBC client that is injected with the login credentials
   // specified in /src/main/resources/application.properties
   private JdbcTemplate jdbcTemplate;
@@ -51,13 +53,40 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  
+  @Autowired
+  private final SavingsService savingsService;
 
-  public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
+  public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient, @Autowired SavingsService savingsService) {
     this.jdbcTemplate = jdbcTemplate;
     this.cryptoPriceClient = cryptoPriceClient;
+    this.savingsService = savingsService;    
   }
 
   //// HTML GET HANDLERS ////
+
+    /**
+   * Endpoint to create a new Savings Account
+   * @param savingsAccount The savings account details from the request
+   * @return Redirects to a specific view
+   */
+  @PostMapping("/createSavingsAccount")
+  public String createSavingsAccount(@RequestBody SavingsAccount savingsAccount) {
+      savingsService.createSavingsAccount(savingsAccount);
+      return "redirect:/accountCreated";  // Redirect to a confirmation page or back to form
+  }
+
+
+  @GetMapping("/savings")
+  public ResponseEntity<List<SavingsAccount>> showSavingsDashboard(@RequestParam String customerID) {
+      return ResponseEntity.ok(savingsService.getAllSavingsAccountsForCustomer(customerID));
+  }
+
+  @PostMapping("/savings/goals")
+  public ResponseEntity<String> createSavingsGoal(@RequestBody SavingsGoal goal) {
+      savingsService.createSavingsGoal(goal);
+      return ResponseEntity.ok("Goal created successfully");
+  }
 
   /**
    * HTML GET request handler that serves the "welcome" page to the user.
@@ -181,7 +210,11 @@ public class MvcController {
 	}
 
   //// HELPER METHODS ////
-  
+  public void addSavingsGoal(SavingsGoal goal) {
+    savingsService.createSavingsGoal(goal);
+}
+
+
   private int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
   }

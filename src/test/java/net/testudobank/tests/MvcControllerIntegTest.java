@@ -14,7 +14,7 @@ import javax.script.ScriptException;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import net.testudobank.CryptoPriceClient;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,8 +29,7 @@ import org.testcontainers.jdbc.JdbcDatabaseDelegate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import net.testudobank.MvcController;
-import net.testudobank.User;
+import net.testudobank.*;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
 @Testcontainers
@@ -48,7 +47,7 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
-  
+
   // Spins up small MySQL DB in local Docker container
   @Container
   public static MySQLContainer db = new MySQLContainer<>("mysql:5.7.37")
@@ -61,14 +60,16 @@ public class MvcControllerIntegTest {
   private static JdbcTemplate jdbcTemplate;
   private static DatabaseDelegate dbDelegate;
   private static CryptoPriceClient cryptoPriceClient = Mockito.mock(CryptoPriceClient.class);
-
+  private static SavingsService savingsService = Mockito.mock(SavingsService.class);
+  private static SavingsRepository savingsRepository;
+  
   @BeforeAll
   public static void init() throws SQLException {
     dbDelegate = new JdbcDatabaseDelegate(db, "");
     ScriptUtils.runInitScript(dbDelegate, "createDB.sql");
     jdbcTemplate = new JdbcTemplate(MvcControllerIntegTestHelpers.dataSource(db));
     jdbcTemplate.getDataSource().getConnection().setCatalog(db.getDatabaseName());
-    controller = new MvcController(jdbcTemplate, cryptoPriceClient);
+    controller = new MvcController(jdbcTemplate, cryptoPriceClient, savingsService);
   }
 
   @AfterEach
@@ -80,6 +81,22 @@ public class MvcControllerIntegTest {
   }
 
   //// INTEGRATION TESTS ////
+  @Test
+  public void testCreateSavingsGoalWithinExistingAccount() throws ScriptException {
+      // Add a savings goal to the database
+      MvcControllerIntegTestHelpers.addSavingsGoalToDB(dbDelegate, "C001", "G001", "Retirement", 100000.0, 0.0, LocalDateTime.now().plusYears(10));
+  
+      // Call the controller method to create a savings goal
+      SavingsGoal goal = new SavingsGoal("G001", "A001", "Retirement", 100000, 0, LocalDateTime.now().plusYears(10));
+      controller.createSavingsGoal(goal);
+  
+      // Retrieve the list of savings goals from the database
+      List<Map<String, Object>> goals = jdbcTemplate.queryForList("SELECT * FROM SavingsGoals");
+  
+      // Assert that the savings goal was added to the database
+      assertEquals(1, goals.size());
+      assertEquals("G001", goals.get(0).get("GoalID"));
+  }
 
   /**
    * Verifies the simplest deposit case.
