@@ -1646,7 +1646,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Test that when the form to deposit money to an account is inputted the money is actually changed in the database
    */
   @Test
-    public void testDeposit() throws Exception {
+    public void testUIDeposit() throws Exception {
       // Prepare Test Data
       double CUSTOMER1_BALANCE = 1000.0;
       MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE), 0);
@@ -1676,7 +1676,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Test that when the form to withdraw money from an account is used the money is actually changed(removed) in the database
    */
   @Test
-  public void testWithdraw() throws Exception {
+  public void testUIWithdraw() throws Exception {
     // Prepare Test Data
     double CUSTOMER1_BALANCE = 1000.0;
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE), 0);
@@ -1705,7 +1705,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Test that when the form to buy crypto is inputted crypto is actually added to the database for the specific user
    */
   @Test
-  public void testBuyCrypto() throws Exception {
+  public void testUIBuyCrypto() throws Exception {
     // Prepare Test Data
     double CUSTOMER1_BALANCE = 10000.0;
     int initialBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
@@ -1774,7 +1774,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
    * Test that when the form to sell crypto is inputted crypto is removed from the user's account
    */
   @Test
-  public void testSellCrypto() throws Exception {
+  public void testUISellCrypto() throws Exception {
     // Prepare Test Data
     double CUSTOMER1_BALANCE = 10000.0;
     int initialBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
