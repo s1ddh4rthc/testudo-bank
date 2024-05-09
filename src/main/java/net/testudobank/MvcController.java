@@ -30,6 +30,9 @@ public class MvcController {
   // Client to get crypto price
   private CryptoPriceClient cryptoPriceClient;
 
+  // Class to handle update Emails being sent to customer
+  private EmailService emailService = new EmailService();
+
   // Formatter for converting Java Dates to SQL-compatible DATETIME Strings
   private static java.text.SimpleDateFormat SQL_DATETIME_FORMATTER = new java.text.SimpleDateFormat(
       "yyyy-MM-dd HH:mm:ss");
@@ -264,17 +267,6 @@ public class MvcController {
     return dateTime;
   }
 
-  /**
-   * This function applies interest to the Penny Amount passed in and returns an
-   * int
-   * 
-   * @param (Int) pennyAmount
-   * @return (Int) pennyAmount x interest
-   */
-  private static int applyInterestRateToPennyAmount(int pennyAmount) {
-    return (int) (pennyAmount * INTEREST_RATE);
-  }
-
   // HTML POST HANDLERS ////
 
   /**
@@ -338,11 +330,12 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
+    Boolean success = true;
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
+      success = false;
       return "welcome";
     }
 
@@ -350,12 +343,14 @@ public class MvcController {
     // complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES) {
+      success = false;
       return "welcome";
     }
 
     // Negative deposit amount is not allowed
     double userDepositAmt = user.getAmountToDeposit();
     if (userDepositAmt < 0) {
+      success = false;
       return "welcome";
     }
 
@@ -390,6 +385,7 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
           TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
     } else if (user.isCryptoTransaction()) {
+
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
           TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
     } else {
@@ -400,13 +396,9 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
-    int currentDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, currentDeposits);
-
-    if (currentDeposits >= 5) {
-      applyInterest(user, currentTime);
-    }
+    applyInterest(user);
     updateAccountInfo(user);
+    emailService.sendEmail(userID, "deposit", success, userDepositAmt);
     return "account_info";
   }
 
@@ -435,11 +427,12 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
+    Boolean success = true;
     //// Invalid Input/State Handling ////
 
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
+      success = false;
       return "welcome";
     }
 
@@ -447,12 +440,14 @@ public class MvcController {
     // complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
     if (numOfReversals >= MAX_DISPUTES) {
+      success = false;
       return "welcome";
     }
 
     // Negative deposit amount is not allowed
     double userWithdrawAmt = user.getAmountToWithdraw();
     if (userWithdrawAmt < 0) {
+      success = false;
       return "welcome";
     }
 
@@ -467,7 +462,7 @@ public class MvcController {
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into
                                                            // overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = (int) (excessWithdrawAmtInPennies * INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft
@@ -506,7 +501,9 @@ public class MvcController {
 
     // update Model so that View can access new main balance, overdraft balance, and
     // logs
+
     updateAccountInfo(user);
+    emailService.sendEmail(userID, "withdraw", success, userWithdrawAmt);
     return "account_info";
 
   }
@@ -646,7 +643,7 @@ public class MvcController {
     String senderUserID = sender.getUsername();
     String senderPasswordAttempt = sender.getPassword();
     String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
-
+    Boolean success = true;
     // creates new user for recipient
     User recipient = new User();
     String recipientUserID = sender.getTransferRecipientID();
@@ -662,17 +659,20 @@ public class MvcController {
 
     // unsuccessful login
     if (senderPasswordAttempt.equals(senderPassword) == false) {
+      success = false;
       return "welcome";
     }
 
     // case where customer already has too many reversals
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, senderUserID);
     if (numOfReversals >= MAX_DISPUTES) {
+      success = false;
       return "welcome";
     }
 
     // case where customer tries to send money to themselves
     if (sender.getTransferRecipientID().equals(senderUserID)) {
+      success = false;
       return "welcome";
     }
 
@@ -682,6 +682,7 @@ public class MvcController {
 
     // negative transfer amount is not allowed
     if (transferAmount < 0) {
+      success = false;
       return "welcome";
     }
 
@@ -699,6 +700,7 @@ public class MvcController {
     TestudoBankRepository.insertRowToTransferLogsTable(jdbcTemplate, senderUserID, recipientUserID, currentTime,
         transferAmountInPennies);
     updateAccountInfo(sender);
+    emailService.sendEmail(senderUserID, "transfer", success, transferAmount);
 
     return "account_info";
   }
@@ -889,25 +891,16 @@ public class MvcController {
   }
 
   /**
-   * Helper function to apply interest to customer's balance and update the
-   * database based on the interest accrued.
    * 
-   * @param user, currentTime
+   * 
+   * @param user
+   * @return "account_info" if interest applied. Otherwise, redirect to "welcome"
+   *         page.
    */
-  private void applyInterest(@ModelAttribute("user") User user, String currentTime) {
+  public String applyInterest(@ModelAttribute("user") User user) {
 
-    // get customer's balance and calculate interest
-    String userID = user.getUsername();
-    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-    int interestInPennies = (int) (balanceInPennies * BALANCE_INTEREST_RATE);
+    return "welcome";
 
-    // Apply interest to customer's balance
-    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestInPennies);
-
-    // insert interest accrual into transaction history
-    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
-        "Interest Accrual for 5 Deposits",
-        interestInPennies);
   }
 
 }
