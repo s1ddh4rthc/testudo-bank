@@ -212,8 +212,22 @@ public class MvcController {
   //// HELPER METHODS ////
   public void addSavingsGoal(SavingsGoal goal) {
     savingsService.createSavingsGoal(goal);
-}
+  }
+  
+  public void updateSavingsGoal(SavingsGoal updatedGoal) {
+    // Check if the updatedGoal is valid
+    if (updatedGoal == null || updatedGoal.getGoalID() == null) {
+        throw new IllegalArgumentException("Invalid savings goal or goal ID");
+    }
 
+    // Validate the goal details (you might want to check if the deadline hasn't already passed, etc.)
+    if (updatedGoal.getDeadline().isBefore(LocalDateTime.now())) {
+        throw new IllegalArgumentException("Deadline cannot be in the past");
+    }
+
+    // Assuming SavingsService has a method to handle the update
+    savingsService.updateSavingsGoal(updatedGoal);
+  }
 
   private int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);

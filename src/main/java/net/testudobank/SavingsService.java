@@ -18,12 +18,12 @@ public class SavingsService {
         }
         savingsRepository.addSavingsGoal(goal);
     }
-
+    
     public void createSavingsAccount(SavingsAccount account) {
         // Logic to save the account using SavingsRepository
         savingsRepository.save(account);
     }    
-
+        
     public void contributeToGoal(String goalID, double amount) {
         SavingsGoal goal = savingsRepository.findSavingsGoalById(goalID);
         goal.contribute(amount);
@@ -32,5 +32,14 @@ public class SavingsService {
 
     public List<SavingsAccount> getAllSavingsAccountsForCustomer(String customerID) {
         return savingsRepository.findAllSavingsAccountsByCustomerID(customerID);
+    }
+
+    public void updateSavingsGoal(SavingsGoal goal) {
+        if (goal == null || goal.getGoalID() == null) {
+            throw new IllegalArgumentException("Goal or Goal ID cannot be null");
+        }
+        
+        // Further validations and logic
+        savingsRepository.updateSavingsGoal(goal);
     }
 }

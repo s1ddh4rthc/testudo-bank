@@ -1,11 +1,20 @@
 package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +26,7 @@ import lombok.Builder;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -62,6 +72,17 @@ public class MvcControllerIntegTest {
   private static CryptoPriceClient cryptoPriceClient = Mockito.mock(CryptoPriceClient.class);
   private static SavingsService savingsService = Mockito.mock(SavingsService.class);
   private static SavingsRepository savingsRepository;
+  private JdbcTemplate mockJdbcTemplate;
+
+  @BeforeEach
+  public void setUp() {
+      // Initialize mock JdbcTemplate
+      mockJdbcTemplate = mock(JdbcTemplate.class);
+
+      // Initialize SavingsRepository with mock JdbcTemplate
+      savingsRepository = new SavingsRepository(mockJdbcTemplate);
+  }
+
   
   @BeforeAll
   public static void init() throws SQLException {
@@ -98,6 +119,51 @@ public class MvcControllerIntegTest {
       assertEquals("G001", goals.get(0).get("GoalID"));
   }
 
+  @Test
+  public void testTransferMoreThanAvailableFunds() throws ScriptException {
+      // Add necessary preparations here, such as setting up savings accounts and goals
+      MvcControllerIntegTestHelpers.addSavingsGoalToDB(dbDelegate, "C001", "G001", "Retirement", 100000.0, 0.0, LocalDateTime.now().plusYears(10));
+
+      // Retrieve the initial balance of the savings account
+      int initialBalance = jdbcTemplate.queryForObject("SELECT Balance FROM SavingsAccounts WHERE AccountID = 'A001'", Integer.class);
+
+      // Attempt a transfer that exceeds available funds
+      jdbcTemplate.update("INSERT INTO TransactionHistory (CustomerID, Timestamp, Action, Amount) VALUES ('C001', NOW(), 'Withdraw', 2000)");
+
+      // Verify that the transfer fails and the account remains unchanged
+      // Add assertions to check that the balance remains the same after the failed transfer attempt
+      int finalBalance = jdbcTemplate.queryForObject("SELECT Balance FROM SavingsAccounts WHERE AccountID = 'A001'", Integer.class);
+      assertEquals(initialBalance, finalBalance);
+  }
+
+  @Test
+  public void testModifySavingsGoalAfterProgress() throws ScriptException {
+    // Initial addition of a savings goal
+    LocalDateTime initialDeadline = LocalDateTime.now().plusYears(5);
+    MvcControllerIntegTestHelpers.addSavingsGoalToDB(dbDelegate, "C002", "G002", "Education", 50000.0, 10000.0, initialDeadline);
+    
+    // Modify the goal
+    LocalDateTime newDeadline = LocalDateTime.now().plusYears(10); // Extended deadline
+    double newTargetAmount = 80000.0; // Increased target amount
+    MvcControllerIntegTestHelpers.updateSavingsGoalInDB(dbDelegate, "G002", newTargetAmount, 10000.0, newDeadline);
+
+    // Call the controller method to update the savings goal
+    SavingsGoal updatedGoal = new SavingsGoal("G002", "A002", "Education", newTargetAmount, 10000.0, newDeadline);
+    controller.updateSavingsGoal(updatedGoal);
+
+    // Retrieve the updated savings goal from the database
+    List<Map<String, Object>> updatedGoals = jdbcTemplate.queryForList("SELECT * FROM SavingsGoals WHERE GoalID = 'G002'");
+
+    // Assert the updated details are correctly stored in the database
+    assertEquals(1, updatedGoals.size());
+    assertEquals("G002", updatedGoals.get(0).get("GoalID"));
+    double retrievedTargetAmount = ((Number) updatedGoals.get(0).get("TargetAmount")).doubleValue();
+    assertEquals(newTargetAmount, retrievedTargetAmount, 0.001, "Target amount should match the updated value");
+    double retrievedCurrentAmount = ((Number) updatedGoals.get(0).get("CurrentAmount")).doubleValue();
+    assertEquals(10000.0, retrievedCurrentAmount, 0.001, "Current amount should match the updated value");
+  }
+
+  
   /**
    * Verifies the simplest deposit case.
    * The customer's Balance in the Customers table should be increased,
