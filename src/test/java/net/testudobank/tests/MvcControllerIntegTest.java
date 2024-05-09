@@ -17,11 +17,20 @@ import lombok.Builder;
 import net.testudobank.CryptoPriceClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.delegate.DatabaseDelegate;
 import org.testcontainers.ext.ScriptUtils;
@@ -35,6 +44,7 @@ import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
 @Testcontainers
 @SpringBootTest
+@ExtendWith(MockitoExtension.class)
 public class MvcControllerIntegTest {
   //// LITERAL CONSTANTS ////
   private static String CUSTOMER1_ID = "123456789";
@@ -60,6 +70,7 @@ public class MvcControllerIntegTest {
   private static JdbcTemplate jdbcTemplate;
   private static DatabaseDelegate dbDelegate;
   private static CryptoPriceClient cryptoPriceClient = Mockito.mock(CryptoPriceClient.class);
+  private MockMvc uiMockMvc;
 
   @BeforeAll
   public static void init() throws SQLException {
@@ -76,6 +87,16 @@ public class MvcControllerIntegTest {
     // so it is OK to use runInitScript() again even though we aren't initializing the DB for the first time here.
     // runInitScript() is a poorly-named function.
     ScriptUtils.runInitScript(dbDelegate, "clearDB.sql");
+  }
+
+  /**
+   * Sets up the test environment before each test method is executed.
+   * Configures the MockMvc instance for UI testing by creating a standalone setup
+   * with the MVC controller.
+   */
+  @BeforeEach
+  public void setUp() {
+    uiMockMvc = MockMvcBuilders.standaloneSetup(controller).build();
   }
 
   //// INTEGRATION TESTS ////
@@ -1581,5 +1602,239 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
-  
+
+  /**
+   * Test that link mappings are correct within the UI and go to the right routes
+   */
+  @Test
+  public void testLinkPageMappings() throws Exception {
+    uiMockMvc.perform(get("/"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("welcome"));
+
+    uiMockMvc.perform(get("/login"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("login_form"));
+
+    uiMockMvc.perform(get("/deposit"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("deposit_form"));
+
+    uiMockMvc.perform(get("/withdraw"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("withdraw_form"));
+
+    uiMockMvc.perform(get("/dispute"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("dispute_form"));
+
+    uiMockMvc.perform(get("/transfer"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("transfer_form"));
+
+    uiMockMvc.perform(get("/buycrypto"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("buycrypto_form"));
+
+    uiMockMvc.perform(get("/sellcrypto"))
+        .andExpect(status().isOk())
+        .andExpect(view().name("sellcrypto_form"));
+  }
+
+
+  /**
+   * Test that when the form to deposit money to an account is inputted the money is actually changed in the database
+   */
+  @Test
+    public void testDeposit() throws Exception {
+      // Prepare Test Data
+      double CUSTOMER1_BALANCE = 1000.0;
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE), 0);
+
+      // Simulate Deposit Request
+      double depositAmount = 500.0;
+      uiMockMvc.perform(post("/deposit")
+          .param("username", CUSTOMER1_ID)
+          .param("password", CUSTOMER1_PASSWORD)
+          .param("amountToDeposit", String.valueOf(depositAmount)))
+          .andExpect(status().isOk());
+
+      // Retreive the customer's balance from the database
+      List<Map<String, Object>> customerSqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", 
+          CUSTOMER1_ID));
+      Map<String, Object> customerData = customerSqlResult.get(0);
+      int actualBalanceInPennies = (int) customerData.get("Balance");
+
+      // Verify Changes in Account Balance
+      double expectedBalance = CUSTOMER1_BALANCE + depositAmount;
+      double expectedBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedBalance);
+      assertEquals(expectedBalanceInPennies, actualBalanceInPennies, 0.01);
+    }
+
+
+  /**
+   * Test that when the form to withdraw money from an account is used the money is actually changed(removed) in the database
+   */
+  @Test
+  public void testWithdraw() throws Exception {
+    // Prepare Test Data
+    double CUSTOMER1_BALANCE = 1000.0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE), 0);
+
+    // Simulate Withdraw Request
+    double withdrawAmount = 200.0;
+    uiMockMvc.perform(post("/withdraw")
+        .param("username", CUSTOMER1_ID)
+        .param("password", CUSTOMER1_PASSWORD)
+        .param("amountToWithdraw", String.valueOf(withdrawAmount)))
+        .andExpect(status().isOk());
+
+    // Retrieve the customer's balance from the database
+    List<Map<String, Object>> customerSqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+    Map<String, Object> customerData = customerSqlResult.get(0);
+    int actualBalanceInPennies = (int) customerData.get("Balance");
+
+    // Verify Changes in Account Balance
+    double expectedBalance = CUSTOMER1_BALANCE - withdrawAmount;
+    double expectedBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedBalance);
+    assertEquals(expectedBalanceInPennies, actualBalanceInPennies, 0.01);
+  }
+
+
+  /**
+   * Test that when the form to buy crypto is inputted crypto is actually added to the database for the specific user
+   */
+  @Test
+  public void testBuyCrypto() throws Exception {
+    // Prepare Test Data
+    double CUSTOMER1_BALANCE = 10000.0;
+    int initialBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, initialBalanceInPennies, 0);
+
+    // Set initial crypto balances
+    double initialCryptoBalance = 0.0;
+    MvcControllerIntegTestHelpers.setCryptoBalance(dbDelegate, CUSTOMER1_ID, "ETH", initialCryptoBalance);
+    MvcControllerIntegTestHelpers.setCryptoBalance(dbDelegate, CUSTOMER1_ID, "SOL", initialCryptoBalance);
+
+
+    // TEST WITH ETH
+    double ethBuyAmount = 0.1;
+    uiMockMvc.perform(post("/buycrypto")
+        .param("username", CUSTOMER1_ID)
+        .param("password", CUSTOMER1_PASSWORD)
+        .param("whichCryptoToBuy", "ETH")
+        .param("amountToBuyCrypto", String.valueOf(ethBuyAmount)))
+        .andExpect(status().isOk());
+
+
+    // Retrieve the updated crypto balance from the database
+    List<Map<String, Object>> cryptoSqlResultETH = jdbcTemplate.queryForList(String.format("SELECT * FROM CryptoHoldings WHERE CustomerID='%s' AND CryptoName='ETH';", CUSTOMER1_ID));
+    Map<String, Object> cryptoDataETH = cryptoSqlResultETH.get(0);
+    BigDecimal cryptoBalanceAfterBuyingETH = (BigDecimal) cryptoDataETH.get("CryptoAmount");
+
+    // Check if the crypto balance is not null before converting
+    double cryptoBalanceAfterBuyingETHDouble = cryptoBalanceAfterBuyingETH != null ? cryptoBalanceAfterBuyingETH.doubleValue() : 0.0;
+
+    // Calculate the expected balance after buying crypto
+    double expectedCryptoBalanceAfterBuying = ethBuyAmount + initialCryptoBalance;// Assuming initial balance was 0
+
+    // Verify Changes in Crypto Balance
+    assertEquals(expectedCryptoBalanceAfterBuying, cryptoBalanceAfterBuyingETHDouble);
+
+
+    // TEST WITH SOL
+    double solBuyAmount = 0.1;
+    uiMockMvc.perform(post("/buycrypto")
+        .param("username", CUSTOMER1_ID)
+        .param("password", CUSTOMER1_PASSWORD)
+        .param("whichCryptoToBuy", "SOL")
+        .param("amountToBuyCrypto", String.valueOf(solBuyAmount)))
+        .andExpect(status().isOk());
+
+    // Retrieve the updated crypto balance from the database
+    List<Map<String, Object>> cryptoSqlResultSOL = jdbcTemplate.queryForList(
+        String.format("SELECT * FROM CryptoHoldings WHERE CustomerID='%s' AND CryptoName='SOL';", CUSTOMER1_ID));
+    Map<String, Object> cryptoDataSOL = cryptoSqlResultSOL.get(0);
+    BigDecimal cryptoBalanceAfterBuyingSOL = (BigDecimal) cryptoDataSOL.get("CryptoAmount");
+
+    // Check if the crypto balance is not null before converting
+    double cryptoBalanceAfterBuyingSOLDouble = cryptoBalanceAfterBuyingSOL != null ? cryptoBalanceAfterBuyingSOL.doubleValue()
+        : 0.0;
+
+    // Calculate the expected balance after buying crypto
+    double expectedCryptoBalanceAfterBuyingSOL = solBuyAmount + initialCryptoBalance;// Assuming initial balance was 0
+
+    // Verify Changes in Crypto Balance
+    assertEquals(expectedCryptoBalanceAfterBuyingSOL, cryptoBalanceAfterBuyingSOLDouble);
+
+  }
+
+
+  /**
+   * Test that when the form to sell crypto is inputted crypto is removed from the user's account
+   */
+  @Test
+  public void testSellCrypto() throws Exception {
+    // Prepare Test Data
+    double CUSTOMER1_BALANCE = 10000.0;
+    int initialBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, initialBalanceInPennies, 0);
+
+    // Set initial crypto balances
+    double initialCryptoBalance = 0.1; 
+    MvcControllerIntegTestHelpers.setCryptoBalance(dbDelegate, CUSTOMER1_ID, "ETH", initialCryptoBalance);
+    MvcControllerIntegTestHelpers.setCryptoBalance(dbDelegate, CUSTOMER1_ID, "SOL", initialCryptoBalance);
+
+    // TEST WITH ETH
+    double ethSellAmount = 0.05; 
+    uiMockMvc.perform(post("/sellcrypto")
+        .param("username", CUSTOMER1_ID)
+        .param("password", CUSTOMER1_PASSWORD)
+        .param("whichCryptoToBuy", "ETH")
+        .param("amountToSellCrypto", String.valueOf(ethSellAmount)))
+        .andExpect(status().isOk());
+
+    // Retrieve the updated crypto balance from the database
+    List<Map<String, Object>> cryptoSqlResultETH = jdbcTemplate.queryForList(
+        String.format("SELECT * FROM CryptoHoldings WHERE CustomerID='%s' AND CryptoName='ETH';", CUSTOMER1_ID));
+    Map<String, Object> cryptoDataETH = cryptoSqlResultETH.get(0);
+    BigDecimal cryptoBalanceAfterSellingETH = (BigDecimal) cryptoDataETH.get("CryptoAmount");
+
+    // Check if the crypto balance is not null before converting
+    double cryptoBalanceAfterSellingETHDouble = cryptoBalanceAfterSellingETH != null ? cryptoBalanceAfterSellingETH.doubleValue() : 0.0;
+
+    // Calculate the expected balance after selling crypto
+    double expectedCryptoBalanceAfterSellingETH = initialCryptoBalance - ethSellAmount;
+
+    // Verify Changes in Crypto Balance
+    assertEquals(expectedCryptoBalanceAfterSellingETH, cryptoBalanceAfterSellingETHDouble);
+
+    // TEST WITH SOL
+    double solSellAmount = 0.05; 
+    uiMockMvc.perform(post("/sellcrypto")
+        .param("username", CUSTOMER1_ID)
+        .param("password", CUSTOMER1_PASSWORD)
+        .param("whichCryptoToBuy", "SOL")
+        .param("amountToSellCrypto", String.valueOf(solSellAmount)))
+        .andExpect(status().isOk());
+
+    // Retrieve the updated crypto balance from the database
+    List<Map<String, Object>> cryptoSqlResultSOL = jdbcTemplate.queryForList(
+        String.format("SELECT * FROM CryptoHoldings WHERE CustomerID='%s' AND CryptoName='SOL';", CUSTOMER1_ID));
+    Map<String, Object> cryptoDataSOL = cryptoSqlResultSOL.get(0);
+    BigDecimal cryptoBalanceAfterSellingSOL = (BigDecimal) cryptoDataSOL.get("CryptoAmount");
+
+    // Check if the crypto balance is not null before converting
+    double cryptoBalanceAfterSellingSOLDouble = cryptoBalanceAfterSellingSOL != null
+        ? cryptoBalanceAfterSellingSOL.doubleValue()
+        : 0.0;
+
+    // Calculate the expected balance after selling crypto
+    double expectedCryptoBalanceAfterSellingSOL = initialCryptoBalance - solSellAmount;
+
+    // Verify Changes in Crypto Balance
+    assertEquals(expectedCryptoBalanceAfterSellingSOL, cryptoBalanceAfterSellingSOLDouble, 0.01);
+  }
+
 }
