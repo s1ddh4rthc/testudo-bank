@@ -45,7 +45,8 @@
     <a href='/transfer'>Transfer</a> <br/>
     <a href='/buycrypto'>Buy Cryptocurrency</a>
     <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
-
+    <a href='/requestLoan'>Request Loan</a> <br/>
+    <a href='/payLoan'>Pay Loan</a> <br/>
 	</div>
 </body>
 

@@ -41,9 +41,23 @@ public class MvcControllerIntegTestHelpers {
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
   }
 
+  // Create new addCustomer method for the loans feature which has new fields added to the Customer table
+  public static void addCustomerToDBLoans(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits, double loanAmount, String loanDueDate) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %f, %s)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits, loanAmount, loanDueDate);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
+
+    String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
+  }
+
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
   public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
     addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+  }
+
+  // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes and with a loan amount and loan due date
+  public static void addCustomerToDBLoans(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits, double loanAmt, String loanDueDate) throws ScriptException {
+    addCustomerToDBLoans(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0, loanAmt, loanDueDate);
   }
 
   // Set crypto balance to specified amount
