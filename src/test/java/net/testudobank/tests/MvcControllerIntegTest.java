@@ -230,7 +230,7 @@ public class MvcControllerIntegTest {
     // send request to the Reset Password Form's POST handler in MvcController
     controller.submitResetPasswordForm(passwordResetFormInputs);
 
-    // fetch updated data from the DB;
+    // fetch updated data from the DB
     String actualNewPassword = jdbcTemplate.queryForObject("SELECT Password FROM Passwords WHERE CustomerID=?", String.class, CUSTOMER1_ID);
   
     // verify that the new password is updated in Passwords table
@@ -251,7 +251,7 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
-    // User inputs for password reset
+    // User inputs for security questions
     String securityAnswer1actual = "Toyota";
     String securityAnswer2actual = "Rover";
     String securityAnswer3actual = "Mary";
@@ -262,13 +262,13 @@ public class MvcControllerIntegTest {
     securityQuestionFormInputs.setSecurityAnswer2(securityAnswer2actual); 
     securityQuestionFormInputs.setSecurityAnswer3(securityAnswer3actual); 
 
-    // send request to the Reset Password Form's POST handler in MvcController
+    // send request to the Security Question Form's POST handler in MvcController
     controller.submitSecurityQuestionsForm(securityQuestionFormInputs);
 
-    // fetch updated data from the DB;
+    // fetch updated data from the DB
     List<Map<String, Object>> actualSecurityAnswers = jdbcTemplate.queryForList("SELECT SecurityAnswer1, SecurityAnswer2, SecurityAnswer3 FROM Passwords WHERE CustomerID=?", CUSTOMER1_ID);
   
-    // verify that the new password is updated in Passwords table
+    // verify that the security question answers is updated in Passwords table
     Map<String, Object> answers = actualSecurityAnswers.get(0);
     assertEquals(securityAnswer1actual, answers.get("SecurityAnswer1"));
     assertEquals(securityAnswer2actual, answers.get("SecurityAnswer2"));
@@ -348,13 +348,14 @@ public class MvcControllerIntegTest {
     passwordResetSQFormInputs.setNewPasswordForReset(new_customer_password); 
 
     // send request to the Reset Password Form's POST handler in MvcController
+    // verify that it is redirected to welcome page
     String response = controller.submitResetPasswordForm(passwordResetSQFormInputs);
     assertEquals("welcome", response);
 
     // fetch updated data from the DB;
     String samePassword = jdbcTemplate.queryForObject("SELECT Password FROM Passwords WHERE CustomerID=?", String.class, CUSTOMER1_ID);
   
-    // verify that the new password is updated in Passwords table
+    // verify that the password is not updated in Passwords table
     assertEquals(CUSTOMER1_PASSWORD, samePassword);
   }
 
@@ -380,15 +381,13 @@ public class MvcControllerIntegTest {
     TestudoBankRepository.setSecurityAnswer2(jdbcTemplate, securityAnswer2actual, CUSTOMER1_ID);
     TestudoBankRepository.setSecurityAnswer3(jdbcTemplate, securityAnswer3actual, CUSTOMER1_ID);
 
-    // User inputs for password reset
+    // User inputs for login with SQ
     User passwordResetSQFormInputs = new User();
     passwordResetSQFormInputs.setUsername(CUSTOMER1_ID);
     passwordResetSQFormInputs.setPassword(wrongPassword);
     passwordResetSQFormInputs.setSecurityAnswer1(securityAnswer1actual);
     passwordResetSQFormInputs.setSecurityAnswer2(securityAnswer2actual); 
     passwordResetSQFormInputs.setSecurityAnswer3(securityAnswer3actual);
-
-    System.out.println("here:" + passwordResetSQFormInputs);
 
     // send 3 requests to the Login Form's POST handler in MvcController
     String responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
@@ -399,7 +398,6 @@ public class MvcControllerIntegTest {
     assertEquals("login_with_securityquestions", responsePage);
 
     // send 1 request to the Login with SQ Form's POST handler in MvcController
-    System.out.println("here:" + passwordResetSQFormInputs);
     responsePage = controller.submitLoginSQForm(passwordResetSQFormInputs);
     assertEquals("account_info", responsePage);
   }
@@ -434,8 +432,6 @@ public class MvcControllerIntegTest {
     passwordResetSQFormInputs.setSecurityAnswer2(securityAnswer2actual); 
     passwordResetSQFormInputs.setSecurityAnswer3("wrong");
 
-    System.out.println("here:" + passwordResetSQFormInputs);
-
     // send 3 requests to the Login Form's POST handler in MvcController
     String responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
     assertEquals("login", responsePage);
@@ -445,7 +441,7 @@ public class MvcControllerIntegTest {
     assertEquals("login_with_securityquestions", responsePage);
 
     // send 1 request to the Login with SQ Form's POST handler in MvcController
-    System.out.println("here:" + passwordResetSQFormInputs);
+    // verify that it redirects to welcome page
     responsePage = controller.submitLoginSQForm(passwordResetSQFormInputs);
     assertEquals("welcome", responsePage);
   }

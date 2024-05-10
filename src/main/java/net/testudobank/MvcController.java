@@ -88,6 +88,21 @@ public class MvcController {
 		return "login_form";
 	}
 
+  /**
+   * HTML GET request handler that serves the "login_with_securityquestions" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's login form input.
+   * 
+   * @param model
+   * @return "login_with_securityquestions" page
+   */
+  @GetMapping("/login_with_securityquestions")
+	public String showLoginWithSQForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
+
+		return "login_with_securityquestions";
+	}
 
     /**
    * HTML GET request handler that serves the "securityquestions_form" page to the user.
@@ -323,6 +338,7 @@ public class MvcController {
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
     int resetPasswordDay = TestudoBankRepository.getResetPasswordDay(jdbcTemplate, userID);
 
+    // If reset is pending, then redirect to Reset Password Form
     if (resetPasswordDay <= 0) {
       return "resetpassword_form";
     } else if (userPasswordAttempt.equals(userPassword)) {
@@ -354,17 +370,17 @@ public class MvcController {
 
 
   /**
-   * HTML POST request handler that uses user input from Login Form page to determine 
+   * HTML POST request handler that uses user input from Login with SQ Form page to determine 
    * login success or failure.
    * 
-   * Queries 'passwords' table in MySQL DB for the correct password associated with the
-   * username ID given by the user. Compares the user's password attempt with the correct
-   * password.
+   * Queries 'passwords' table in MySQL DB for the correct security questions associated with the
+   * username ID given by the user. Compares the user's security answer attempts with the correct
+   * security answers.
    * 
-   * If the password attempt is correct, the "account_info" page is served to the customer
+   * If the security answer attempt is correct, the "account_info" page is served to the customer
    * with all account details retrieved from the MySQL DB.
    * 
-   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * If the security answer attempt is incorrect, the user is redirected to the "welcome" page.
    * 
    * @param user
    * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
@@ -384,6 +400,7 @@ public class MvcController {
     String securityAnswer3 = TestudoBankRepository.getSecurityAnswer3(jdbcTemplate, userID);
     int resetPasswordDay = TestudoBankRepository.getResetPasswordDay(jdbcTemplate, userID);
 
+    // If reset is pending, then redirect to Reset Password Form
     if (resetPasswordDay <= 0) {
       return "resetpassword_form";
     } else if (securityAnswer1Attempt.equals(securityAnswer1)
@@ -399,12 +416,14 @@ public class MvcController {
 
 
     /**
-   * HTML POST request handler that uses user input from Login Form page to determine 
-   * login success or failure.
+   * HTML POST request handler that uses user input from Security Question Form page to set
+   * security questions for the user.
    * 
    * Queries 'passwords' table in MySQL DB for the correct password associated with the
    * username ID given by the user. Compares the user's password attempt with the correct
    * password.
+   * 
+   * If the password attempt is correct, set security answers to user input.
    * 
    * If the password attempt is correct, the "account_info" page is served to the customer
    * with all account details retrieved from the MySQL DB.
@@ -443,17 +462,22 @@ public class MvcController {
 
 
   /**
-   * HTML POST request handler that uses user input from Login Form page to determine 
-   * login success or failure.
-   * 
-   * Queries 'passwords' table in MySQL DB for the correct password associated with the
-   * username ID given by the user. Compares the user's password attempt with the correct
+   * HTML POST request handler that uses user input from Reset Password Form page to reset
    * password.
    * 
-   * If the password attempt is correct, the "account_info" page is served to the customer
-   * with all account details retrieved from the MySQL DB.
+   * Queries 'passwords' table in MySQL DB for the correct password and security questions
+   * associated with the username ID given by the user. Compares the user's password attempt
+   * with the correct password or the user's security answer attempts with the correct
+   * security answers.
    * 
-   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * If the password or security answer attempt is correct, the password will be reset with
+   * the new password.
+   * 
+   * If the password or security answer attempt is correct, the "account_info" page is served
+   * to the customer with all account details retrieved from the MySQL DB.
+   * 
+   * If the password or security answer attempt is incorrect, the user is redirected to the
+   * "welcome" page.
    * 
    * @param user
    * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
