@@ -32,6 +32,9 @@
 		<h2><span>${user.firstName}</span> <span>${user.lastName}</span> Bank Account Info</h2>
     <span>Username: </span><span>${user.username}</span><br/>
 		<span>Balance: $</span><span>${user.balance}</span><br/>
+    <span>BalanceINR: $</span><span>${user.balanceINR}</span><br/>
+    <span>BalanceGBP: $</span><span>${user.balanceGBP}</span><br/>
+    <span>BalanceCNY: $</span><span>${user.balanceCNY}</span><br/>
     <span>Overdraft Balance: $</span><span>${user.overDraftBalance}</span><br/>
     <span>Crypto Balance in USD: $</span><span>${user.cryptoBalanceUSD}</span><br/>
     <span>Ethereum Coins Owned: </span><span>${user.ethBalance}</span><br/>
@@ -47,6 +50,7 @@
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/convert'>Convert</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

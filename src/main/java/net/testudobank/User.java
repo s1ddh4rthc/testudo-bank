@@ -50,6 +50,13 @@ public class User {
   @Setter @Getter @Positive
   private double amountToWithdraw;
 
+  //// Convert Fields ////
+  @Setter @Getter @Positive
+  private double amountToConvert;
+
+  @Setter @Getter
+  private String currencyToConvertTo;
+
   //// Transfer Fields ////
 
   @Setter @Getter

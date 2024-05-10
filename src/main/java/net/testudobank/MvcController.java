@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.python.bouncycastle.util.test.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -47,6 +48,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_INTEREST_APPLIED_ACTION = "InterestApplied";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -115,6 +117,13 @@ public class MvcController {
 		model.addAttribute("user", user);
 		return "withdraw_form";
 	}
+
+  @GetMapping("/convert")
+  public String showConvertForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "convert_form";
+  }
 
   /**
    * HTML GET request handler that serves the "dispute_form" page to the user.
@@ -213,7 +222,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, BalanceINR, BalanceGBP, BalanceCNY, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -229,6 +238,8 @@ public class MvcController {
     double overDraftBalance = (int)userData.get("OverdraftBalance");
     user.setOverDraftBalance(overDraftBalance/100);
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
+    user.setAmountToConvert(user.getAmountToConvert());
+    user.setCurrencyToConvertTo(user.getCurrencyToConvertTo());
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
@@ -249,6 +260,10 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
   }
 
   // HTML POST HANDLERS ////
@@ -410,7 +425,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -446,6 +461,89 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
 
+  }
+
+  @PostMapping("/convert")
+  public String submitWithdrawAndConvert(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // If customer already has too many reversals, their account is frozen. Don't complete deposit.
+    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+    if (numOfReversals >= MAX_DISPUTES){
+      return "welcome";
+    }
+
+    // Negative deposit amount is not allowed
+    double userWithdrawAndConvertAmt = user.getAmountToConvert();
+    if (userWithdrawAndConvertAmt < 0) {
+      return "welcome";
+    }
+
+    //// Complete Withdraw Transaction ////
+    int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAndConvertAmt); // dollar amounts stored as pennies to avoid floating point errors
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
+      int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
+      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
+
+      // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
+      // IMPORTANT: Compare new overdraft balance to max overdraft limit AFTER applying the interest rate!
+      if (newOverdraftBalanceInPennies > MAX_OVERDRAFT_IN_PENNIES) {
+        return "welcome";
+      }
+
+      // this is a valid withdraw into overdraft, so we can set Balance column to 0.
+      // OK to do this even if we were already in overdraft since main balance was already 0 anyways
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, 0);
+
+      // increase overdraft balance by the withdraw amount after interest
+      TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
+
+    } else { // simple, non-overdraft withdraw case
+      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+    }
+
+    //// Complete Convert Transaction ////
+    String currencyToConvertTo = user.getCurrencyToConvertTo();
+    if (!currencyToConvertTo.equals("GBP") && !currencyToConvertTo.equals("INR") && !currencyToConvertTo.equals("CNY")) {
+      return "welcome";
+    }
+    else {
+      if (currencyToConvertTo.equals("GBP")) {
+        int balanceInGBP = TestudoBankRepository.getCustomerBalanceInGBP(jdbcTemplate, userID);
+        double convertedAmt = userWithdrawAmtInPennies * 0.80;
+        int newBalanceInGBP = balanceInGBP + (int) convertedAmt;
+        TestudoBankRepository.setCustomerBalanceInGBP(jdbcTemplate, userID, newBalanceInGBP);
+      }
+      else if (currencyToConvertTo.equals("INR")) {
+        int balanceInINR = TestudoBankRepository.getCustomerBalanceInINR(jdbcTemplate, userID);
+        double convertedAmt = userWithdrawAmtInPennies * 83.48;
+        int newBalanceInINR = balanceInINR + (int) convertedAmt;
+        TestudoBankRepository.setCustomerBalanceInINR(jdbcTemplate, userID, newBalanceInINR);
+      }
+      else {
+        int balanceInCNY = TestudoBankRepository.getCustomerBalanceInCNY(jdbcTemplate, userID);
+        double convertedAmt = userWithdrawAmtInPennies * 7.24;
+        int newBalanceInCNY = balanceInCNY + (int) convertedAmt;
+        TestudoBankRepository.setCustomerBalanceInCNY(jdbcTemplate, userID, newBalanceInCNY);
+      }
+    }
+
+    // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
+    return "account_info";
   }
 
   /**
@@ -799,14 +897,45 @@ public class MvcController {
   }
 
   /**
+   * called within the submitDeposit method to check whether a customer has accrued interest on their balance. 
    * 
-   * 
+   * This function applies interest on the customer's account balance for every 5th deposit they make over $20. If the customer is  
+   * in overdraft or if the deposit is less than $20, no interest is applied. The transaction history table is also updated if
+   * interest is applied. 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
 
-    return "welcome";
+    // make sure deposit is over 20 and customer not in overdraft
+    if (user.getAmountToDeposit() >= 20.00 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) == 0) {
+      int updatedDeposits  = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      
+      // increment number of deposits
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, updatedDeposits + 1);
+      
+      // every 5th one, apply interest rate and add to transaction history table
+      if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) % 5 == 0) {
+        double currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        double updatedBalance = (currBalance * BALANCE_INTEREST_RATE) - currBalance;
+        
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, (int) updatedBalance);
+        
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+
+        String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+        
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED_ACTION, (int) updatedBalance);
+        
+        return "account info";
+      }
+      return "welcome";
+    }
+    
+    else {
+      return "welcome";
+    }
 
   }
 
