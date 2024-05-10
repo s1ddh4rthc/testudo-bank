@@ -35,7 +35,6 @@
 </head>
 <body>
 	<div align="center">
-    <a href="/completeRequests">Complete Pending Requests</a>
 		<form:form action="request" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>

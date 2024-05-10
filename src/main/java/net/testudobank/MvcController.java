@@ -241,21 +241,17 @@ public class MvcController {
       transferHistoryOutput += transferLog + HTML_LINE_BREAK;
     }
 
-    System.out.println("trying to update request history");
-
     List<Map<String,Object>> requestHist = TestudoBankRepository.getRequestLogs(jdbcTemplate, user.getUsername(), MAX_NUM_TRANSFERS_DISPLAYED);
     String requestHistoryOutput = HTML_LINE_BREAK;
     for (Map<String, Object> requestLog : requestHist) {
       requestHistoryOutput += requestLog + HTML_LINE_BREAK;
     }
 
-    System.out.println("updated request history");
-
-    // List<Map<String,Object>> pendingRequests = TestudoBankRepository.getPendingRequestLogs(jdbcTemplate, user.getUsername(), PENDING_REQUESTS_STATUS);
-    // String pendingRequestsOutput = HTML_LINE_BREAK;
-    // for (Map<String,Object> pendingRequest : pendingRequests) {
-    //   pendingRequestsOutput += pendingRequest + HTML_LINE_BREAK;
-    // }
+    List<Map<String,Object>> pendingRequests = TestudoBankRepository.getPendingRequestLogs(jdbcTemplate, user.getUsername(), PENDING_REQUESTS_STATUS);
+    String pendingRequestsOutput = HTML_LINE_BREAK;
+    for (Map<String,Object> pendingRequest : pendingRequests) {
+      pendingRequestsOutput += pendingRequest + HTML_LINE_BREAK;
+    }
 
     List<Map<String, Object>> cryptoLogs = TestudoBankRepository.getCryptoLogs(jdbcTemplate, user.getUsername());
     StringBuilder cryptoHistoryOutput = new StringBuilder(HTML_LINE_BREAK);
@@ -283,7 +279,7 @@ public class MvcController {
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
     user.setRequestHist(requestHistoryOutput);
-    // user.setPendingRequests(pendingRequestsOutput);
+    user.setPendingRequests(pendingRequestsOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
@@ -607,6 +603,8 @@ public class MvcController {
    * Transfer function is implemented by re-using deposit and withdraw handlers to 
    * facilitate a transfer between 2 users.
    * 
+   * If the transfer is to complete a request, the request logs are updated.
+   * 
    * @param user
    * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
    */
@@ -671,6 +669,20 @@ public class MvcController {
 
     // Inserting transfer into transfer history for both customers
     TestudoBankRepository.insertRowToTransferLogsTable(jdbcTemplate, senderUserID, recipientUserID, currentTime, transferAmountInPennies);
+
+    // Check if transfer was to complete a request
+    List<Map<String,Object>> pendingRequests = TestudoBankRepository.getPendingRequestLogs(jdbcTemplate, senderUserID, currentTime);
+    for (Map<String,Object> request : pendingRequests) {
+      String userRequestFrom = request.get("RequestFrom").toString();
+      String userRequestTo = request.get("RequestTo").toString();
+      int amountRequested = Integer.getInteger(request.get("Amount").toString());
+      String previousTime = request.get("Timestamp").toString();
+      if (userRequestFrom.equals(recipientUserID) && userRequestTo.equals(senderUserID) && amountRequested == transferAmountInPennies) {
+        TestudoBankRepository.insertRowToRequestLogsTable(jdbcTemplate, userRequestFrom, userRequestTo, currentTime, "completed", transferAmountInPennies);
+        TestudoBankRepository.deleteRowFromPendingRequestsTable(jdbcTemplate, userRequestFrom, userRequestTo, previousTime, amountRequested);
+      }
+    }
+
     updateAccountInfo(sender);
 
     return "account_info";
@@ -731,25 +743,6 @@ public class MvcController {
 
     return "account_info";
   }
-
-  // @PostMapping("/completeRequests")
-  // public String completeRequest(@ModelAttribute("user") User payer) {
-  //   if (!TestudoBankRepository.doesCustomerExist(jdbcTemplate, payer.getRequestRecipientID())){
-  //     return "welcome";
-  //   }
-  //   String payerUserID = payer.getUsername();
-  //   String payerPasswordAttempt = payer.getPassword();
-  //   String payerPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, payerUserID);
-
-  //   // create user for recipient
-  //   User recipient = new User();
-  //   String recipientUserID = payer.getRequestRecipientID();
-  //   String recipientPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, recipientUserID);
-  //   recipient.setUsername(recipientUserID);
-  //   recipient.setPassword(recipientPassword);
-
-
-  // }
 
   /**
    * HTML POST request handler for the Buy Crypto Form page.
