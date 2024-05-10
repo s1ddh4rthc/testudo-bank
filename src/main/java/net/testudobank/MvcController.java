@@ -41,6 +41,9 @@ public class MvcController {
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
+
+  public static  String BILLPAY_SEND = "BillPaySent";
+  public static  String BILLPAY_RECIEVED = "BillPayRecieved";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
@@ -51,6 +54,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double DEPOSITS_BEFORE_INTERESTS = 5;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -251,6 +255,11 @@ public class MvcController {
     return dateTime;
   }
 
+  
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(pennyAmount * INTEREST_RATE);
+    return newOverdraftIncreaseAmtAfterInterestInPennies;
+  }
   // HTML POST HANDLERS ////
 
   /**
@@ -410,7 +419,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -447,6 +456,7 @@ public class MvcController {
     return "account_info";
 
   }
+
 
   /**
    * HTML POST request handler for the Dispute Form page.
@@ -805,9 +815,77 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    if(user.getOverDraftBalance()<0){
+      return "welcome";
+    }
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
 
-    return "welcome";
 
+    if(user.getAmountToDeposit()>20){
+      int curr = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, curr+1);
+    }
+    if(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) % DEPOSITS_BEFORE_INTERESTS == 0){
+      //apply interest
+      int currBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int newBalance = (int)(currBalance * BALANCE_INTEREST_RATE);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, (newBalance-currBalance));
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate,  userID, currentTime, "Interest Applied", (newBalance-currBalance) );
+    }
+    return "account_info";
+
+  }
+  /**
+   * Handles login attempts from login page.
+   * If the login information correct, and the
+   * purchase amount is a positive value, that amount is subtracted from the sender's balance and added to the payee's balance. 
+   * <br>
+   * If the amount the sender is sends exceeds their balance, the difference will go into their overdraft with interested applied.
+   * @param sender
+   * @param payee
+   * @param amount
+   * @return "account_info" if bill is sent successfully from sender to payee. Otherwises, redirects to "welcome".
+   */
+  public String billPaySend(@ModelAttribute("user") User sender,@ModelAttribute("user") User payee, double amount ){
+    String senderUserID = sender.getUsername(), payeeUserID = payee.getUsername();
+    String senderPasswordAttempt = sender.getPassword();
+    String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
+    int senderOverdraftAmountInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, senderUserID);
+  
+    /*Incorrect password */
+    if(!senderPasswordAttempt.equals(senderPassword)){
+      return "welcome";
+    }
+    int amountInPennies = convertDollarsToPennies(amount);
+    
+    /*negative amounts and 0 amounts are not allowed  */
+    if(amountInPennies<=0){
+      return "welcome";
+    }
+    /*Case where sender tries to pay themselves */
+    if(senderUserID.equals(payeeUserID)){
+      return "welcome";
+    }
+    /*Case where sender tries to pay while in overdraft*/
+    if(senderOverdraftAmountInPennies>0){
+      return "welcome";
+    }
+    
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    
+    //widthdraw bill pay amount from sender
+    sender.setAmountToWithdraw(amountInPennies);
+    submitWithdraw(sender);
+
+    //deposit bill pay amount to payee
+    payee.setAmountToDeposit(amountInPennies);
+    submitDeposit(payee);
+    
+    
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, senderUserID, BILLPAY_SEND, currentTime, amountInPennies);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, payeeUserID, BILLPAY_RECIEVED, currentTime, amountInPennies);
+    return "account_info";
   }
 
 }

@@ -2,6 +2,7 @@ package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -36,6 +37,8 @@ import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 @Testcontainers
 @SpringBootTest
 public class MvcControllerIntegTest {
+  private static final double ETH_PRICE = 500;
+  private static final double SOL_PRICE = 2000;
   //// LITERAL CONSTANTS ////
   private static String CUSTOMER1_ID = "123456789";
   private static String CUSTOMER1_PASSWORD = "password";
@@ -364,6 +367,102 @@ public class MvcControllerIntegTest {
     // verify that the Deposit's details are accurately logged in the TransactionHistory table
     Map<String,Object> customer1TransactionLog = transactionHistoryTableData.get(0);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+  }
+  /**
+   * Testing that interest is given to accounts every 5 deposits greater than 20
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestDeposited() throws ScriptException, SQLException{
+    double CUSTOMER1_BALANCE = 1000.99;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    int CUSTOMER1_OVERDRAFT = 0, CUSTOMER1_NUM_OF_FRAUD_REVERSALS = 0, CUSTOMER1_NUM_INTEREST_DEPOSITS=0;
+    int transHistSize = 0;
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT, CUSTOMER1_NUM_OF_FRAUD_REVERSALS, CUSTOMER1_NUM_INTEREST_DEPOSITS);
+    User customer1Interest = new User();
+    customer1Interest.setUsername(CUSTOMER1_ID);
+    customer1Interest.setPassword(CUSTOMER1_PASSWORD);
+
+    double []INTEREST_TEST_DEPOSITS = {30, 30, 25, 25, 40, 40, 60, 100, 90, 21};
+    for(int deposit = 0; deposit< INTEREST_TEST_DEPOSITS.length; deposit++){
+      customer1Interest.setAmountToDeposit(deposit);
+      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+
+      controller.submitDeposit(customer1Interest);
+      List<Map<String,Object>> customerTable = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionHistoryTable = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+
+      Map<String,Object> customer1Data = customerTable.get(0);
+      CUSTOMER1_BALANCE += INTEREST_TEST_DEPOSITS[deposit];
+
+      Map<String,Object> customer1TransactionLog = transactionHistoryTable.get(transHistSize++);
+
+      MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, MvcControllerIntegTestHelpers.convertDollarsToPennies(INTEREST_TEST_DEPOSITS[deposit]));
+
+      double INTEREST_APPLIED = 0;
+      if((deposit+1)%5==0){
+        double interest = CUSTOMER1_BALANCE*0.015;
+        CUSTOMER1_BALANCE+=interest;
+        Map<String,Object> customer1TransactionLogInterest = transactionHistoryTable.get(transHistSize++);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLogInterest, timeWhenDepositRequestSent, CUSTOMER1_ID,"InterestApplied" , MvcControllerIntegTestHelpers.convertDollarsToPennies(INTEREST_APPLIED));
+      }
+      
+      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE), (int)customer1Data.get("Balance"));
+      // Verify that NumDeposits for interest is always maintained
+      assertEquals((deposit + 1) % 5, (int)customer1Data.get("NumDepositsForInterest")); 
+    }
+    
+  }
+  /**
+   * Checking that interest is not given to the user when they deposit 5 amounts, each lower than $20.
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testInterestNotApplied() throws SQLException, ScriptException{
+    double CUSTOMER1_BALANCE = 1000.99;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    int CUSTOMER1_OVERDRAFT = 0, CUSTOMER1_NUM_OF_FRAUD_REVERSALS = 0, CUSTOMER1_NUM_INTEREST_DEPOSITS=0;
+    int transHistSize = 0;
+    
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT, CUSTOMER1_NUM_OF_FRAUD_REVERSALS, CUSTOMER1_NUM_INTEREST_DEPOSITS);
+    User customer1Interest = new User();
+    customer1Interest.setUsername(CUSTOMER1_ID);
+    customer1Interest.setPassword(CUSTOMER1_PASSWORD);
+
+    double []INTEREST_TEST_DEPOSITS = {10, 3, 5, 2, 4, 14, 6, 12, 9, 19};
+    for(int deposit = 0; deposit< INTEREST_TEST_DEPOSITS.length; deposit++){
+      customer1Interest.setAmountToDeposit(deposit);
+      LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+
+      controller.submitDeposit(customer1Interest);
+      List<Map<String,Object>> customerTable = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      List<Map<String,Object>> transactionHistoryTable = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+
+      Map<String,Object> customer1Data = customerTable.get(0);
+      CUSTOMER1_BALANCE += INTEREST_TEST_DEPOSITS[deposit];
+
+      Map<String,Object> customer1TransactionLog = transactionHistoryTable.get(transHistSize++);
+
+      MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, MvcControllerIntegTestHelpers.convertDollarsToPennies(INTEREST_TEST_DEPOSITS[deposit]));
+
+      double INTEREST_APPLIED = 0;
+      if((deposit+1)%5==0){
+        double interest = CUSTOMER1_BALANCE*0.015;
+        CUSTOMER1_BALANCE+=interest;
+        Map<String,Object> customer1TransactionLogInterest = transactionHistoryTable.get(transHistSize++);
+        MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLogInterest, timeWhenDepositRequestSent, CUSTOMER1_ID,"InterestApplied" , MvcControllerIntegTestHelpers.convertDollarsToPennies(INTEREST_APPLIED));
+      }
+      
+      assertEquals(MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE), (int)customer1Data.get("Balance"));
+      // Verify that NumDeposits for interest is always maintained
+      assertEquals((deposit + 1) % 5, (int)customer1Data.get("NumDepositsForInterest")); 
+    }
+    
   }
 
   /**
@@ -1053,7 +1152,100 @@ public class MvcControllerIntegTest {
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
 }
+/*
+ * This test will test a user buying ETH, SOL, then selling some of their SOL. This test should work as intended.
+ */
+@Test
+public void buyETHbuySOLsellSOL() throws ScriptException{
+  //initialize user with $2000 in balance and no ETH or SOL
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+    .initialBalanceInDollars(2000)
+    .initialCryptoBalance(Collections.singletonMap("ETH",0.0))
+    .build();
+  cryptoTransactionTester.initialize();
 
+  //test buying 0.1 ETH
+  CryptoTransaction cryptoTransactionBuyETH = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(1950)
+    .cryptoPrice(ETH_PRICE)
+    .cryptoAmountToTransact(0.1)
+    .expectedEndingCryptoBalance(0.1)
+    .cryptoName("ETH")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+  
+  cryptoTransactionTester.test(cryptoTransactionBuyETH);
+
+  //test buying 0.5 SOL
+  CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(950)
+    .cryptoPrice(SOL_PRICE)  
+    .expectedEndingCryptoBalance(0.5)
+    .cryptoAmountToTransact(0.5)
+    .cryptoName("SOL")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(true)
+    .build();
+  cryptoTransactionTester.test(cryptoTransactionBuySOL);
+
+  //test selling 0.1 of SOL
+
+  CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(1150)
+    .cryptoPrice(SOL_PRICE)
+    .expectedEndingCryptoBalance(0.4)
+    .cryptoAmountToTransact(0.1)
+    .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+    .shouldSucceed(true)
+    .build();
+  cryptoTransactionTester.test(cryptoTransactionSellSOL);
+}
+/*
+ * This test will test the scenario when a user attempts to buy a cryptocurrency that our system that doesn't suport, like BTC in this case.
+ * This test should return the user back to the welcome page.
+ */
+@Test
+public void testInvalidBuyBTC() throws ScriptException{
+  //initialize user with $5000 and 0 ETH
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(50000.00)
+      .initialCryptoBalance(Collections.singletonMap("ETH", 5.0)).build();
+
+  cryptoTransactionTester.initialize();
+  //user tries to buy BTC which doesn't exist
+  CryptoTransaction cryptoTransactionBuyBTC = CryptoTransaction.builder()
+    .expectedEndingBalanceInDollars(5000)
+    .expectedEndingCryptoBalance(0)
+    .cryptoPrice(30000)
+    .cryptoAmountToTransact(0.1)
+    .cryptoName("BTC")
+    .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+    .shouldSucceed(false)
+    .build();
+  cryptoTransactionTester.test(cryptoTransactionBuyBTC);
+}
+/*
+ * This test will test the scenario when a user attempts to sell a cryptocurrency that our system doesn't support, like BTC in this case.
+ * This test should return the user back to the welcome page.
+ */
+@Test
+public void testInvalidSell() throws ScriptException{
+  CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+      .initialBalanceInDollars(1000)
+      .initialCryptoBalance(Collections.singletonMap("BTC", 5.0))
+      .build();
+  cryptoTransactionTester.initialize();
+  CryptoTransaction cryptoTransactionSellBTC = CryptoTransaction.builder()
+      .expectedEndingBalanceInDollars(1000)
+      .expectedEndingCryptoBalance(0)
+      .cryptoPrice(30000)
+      .cryptoAmountToTransact(3.0)
+      .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+      .shouldSucceed(false)
+      .build();
+  cryptoTransactionTester.test(cryptoTransactionSellBTC);
+}
 /**
  * This test will test a scenario where the sender sends the recipient (who currently has an overdraft balance) an amount
  * that clears the recipient's overdraft balance and deposits the remainder. 
@@ -1115,6 +1307,189 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
   }
+  /**
+   * Verifies the simplest billpay case.
+   * The customer1's Balance in the Customers table should be decreased,
+   * and the BillPaySend should be logged in the TransactionHistory table.
+   * 
+   * The customer2's Balance in the Customers table should be increased,
+   * and the BillPayRecieved should be logged in the TransactionHistory table.
+   * 
+   * Assumes that both customers' account are in the simplest states
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleBillPaySend() throws ScriptException{
+    //initialize customer1 with a balance of $1000
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    //initialize customer2 with a balance of $200
+    double CUSTOMER2_BALANCE = 200;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    //amount to send in billpay
+    double BILL_PAY_AMOUNT =  300;
+    int BILL_PAY_AMOUNT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(BILL_PAY_AMOUNT);
+    
+    //initialize users for billpay
+    User CUSTOMER1 = new User(), CUSTOMER2 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+    CUSTOMER1.setAmountToWithdraw(BILL_PAY_AMOUNT);
+
+    CUSTOMER2.setUsername(CUSTOMER2_ID);
+    CUSTOMER2.setPassword(CUSTOMER2_PASSWORD);
+    CUSTOMER2.setAmountToDeposit(BILL_PAY_AMOUNT);
+    
+
+    //verify no logs in transaction history
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    //store timestamp of withdraw
+    LocalDateTime timeWhenBillPaySent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+
+    controller.billPaySend(CUSTOMER1, CUSTOMER2, BILL_PAY_AMOUNT);
+    
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    //verify two customers in data table
+    assertEquals(2, customersTableData.size());
+    Map<String, Object> customer1Data  = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+    Map<String, Object> customer2Data  = customersTableData.get(1);
+    assertEquals(CUSTOMER2_ID, (String)customer2Data.get("CustomerID"));
+
+    // verify customer1 balance was decreased by $300
+
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE - BILL_PAY_AMOUNT;
+    int CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("balance"));
+    // verify customer2 balance was increased by $300
+    double CUSTOMER2_EXPECTED_FINAL_BALANCE = CUSTOMER2_BALANCE + BILL_PAY_AMOUNT;
+    int CUSTOMER2_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER2_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer2Data.get("balance"));
+
+    //verify the billpay send and recieve are the only two logs in the transactionhistory table
+    assertEquals(2, transactionHistoryTableData.size());
+    Map<String,Object>customer1TransactionLog = transactionHistoryTableData.get(0);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenBillPaySent, CUSTOMER1_ID, MvcController.BILLPAY_SEND, BILL_PAY_AMOUNT_IN_PENNIES);
+    
+    Map<String,Object>customer2TransactionLog = transactionHistoryTableData.get(1);
+    MvcControllerIntegTestHelpers.checkTransactionLog(customer2TransactionLog, timeWhenBillPaySent, CUSTOMER2_ID, MvcController.BILLPAY_RECIEVED, BILL_PAY_AMOUNT_IN_PENNIES);
+
+  }
+  /**
+   * The customer will attempt a bill pay send while in overdraft. 
+   * this test should prevent the customer making the payment.
+   * @throws ScriptException 
+   */
+  @Test
+  public void testSimpleBillPaySendWhileInOverdraft() throws ScriptException{
+    //initialize customer1 with a balance of $0 and overdraft balance of $200
+    int CUSTOMER1_BALANCE_IN_PENNIES = 0;
+    int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = 200;
+    int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,  CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+
+    //initialize customer2 with a balance of $200
+    double CUSTOMER2_BALANCE = 100;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    //amount to billpay
+    double BILL_PAY_AMOUNT = 50;
+    //int BILL_PAY_AMOUNT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(BILL_PAY_AMOUNT);
+
+    //initialize users for bill pay
+    User CUSTOMER1 = new User(), CUSTOMER2 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+    CUSTOMER2.setUsername(CUSTOMER2_ID);
+    CUSTOMER2.setPassword(CUSTOMER2_PASSWORD);
+
+    CUSTOMER1.setAmountToWithdraw(BILL_PAY_AMOUNT);
+    CUSTOMER2.setAmountToDeposit(BILL_PAY_AMOUNT);
+
+
+    controller.billPaySend(CUSTOMER1, CUSTOMER2, BILL_PAY_AMOUNT);
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    
+    //verify customer1's balance is still 0 and customer2's balance hasn't changed
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(0, (int)customer1Data.get("Balance"));
+    Map<String, Object> customer2Data = customersTableData.get(1);
+    assertEquals(CUSTOMER1_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+    assertEquals(CUSTOMER2_BALANCE_IN_PENNIES, (int)customer2Data.get("Balance"));
+
+    //verify customer1's overdraft amount is the same
+    assertEquals(CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, (int)customer1Data.get("OverdraftBalance"));
+    //verify that transaction table hasn't changed
+    assertEquals(0, transactionHistoryTableData.size())
+;  }
+@Test
+/**
+ * Customer BillPay Sends safely. Then, they
+withdraw enough from main account that they go into overdra". Then, the
+customer recieves money via BillPay recieve. Ensure that the BillPay Recieve first
+pays off the Overdraft" Balance, and any excess goes into main account balance.
+ * @throws ScriptException
+ */
+public void testBillPaySendToOverdraftToExcess() throws ScriptException{
+  //initialize customer 1 with balance of $500 
+  double CUSTOMER1_BALANCE = 500;
+  int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+  
+  double BILL_PAY_AMOUNT = 400;
+  
+  //initialize customer2 with a balance of $100
+  double CUSTOMER2_BALANCE = 100;
+  int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+  //initialize users for billpay
+  User CUSTOMER1 = new User(), CUSTOMER2 = new User();
+  CUSTOMER1.setUsername(CUSTOMER1_ID);
+  CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+  CUSTOMER1.setAmountToWithdraw(BILL_PAY_AMOUNT);
+
+  CUSTOMER2.setUsername(CUSTOMER2_ID);
+  CUSTOMER2.setPassword(CUSTOMER2_PASSWORD);
+  CUSTOMER2.setAmountToDeposit(BILL_PAY_AMOUNT);
+
+  assertEquals(CUSTOMER1_BALANCE - BILL_PAY_AMOUNT, CUSTOMER1.getBalance());
+  assertEquals(CUSTOMER2_BALANCE + BILL_PAY_AMOUNT, CUSTOMER2.getBalance());
+
+  //send request to handler in controller  
+  controller.billPaySend(CUSTOMER1, CUSTOMER2, BILL_PAY_AMOUNT);
+  
+  //withdraw funds from CUSTOMER1 and go into overdraft
+  int WITHDRAW_AMOUNT = 200;
+  CUSTOMER1.setAmountToWithdraw(WITHDRAW_AMOUNT);
+  controller.submitWithdraw(CUSTOMER1);
+
+  int BILL_PAY_AMOUNT2 = 200;
+  CUSTOMER2.setAmountToWithdraw(BILL_PAY_AMOUNT2);
+  CUSTOMER1.setAmountToDeposit(BILL_PAY_AMOUNT2);
+  controller.billPaySend(CUSTOMER1, CUSTOMER2, BILL_PAY_AMOUNT2);
+
+  assertEquals(0 ,CUSTOMER1.getOverDraftBalance());
+  assertEquals( 100,CUSTOMER1.getBalance());
+
+  
+
+
+  
+}
 
   /**
    * Enum for {@link CryptoTransactionTester}
