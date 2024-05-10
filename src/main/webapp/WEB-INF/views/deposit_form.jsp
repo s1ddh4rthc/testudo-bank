@@ -44,6 +44,16 @@
 
       <form:label path="amountToDeposit">Amount to Deposit ($):</form:label>
 			<form:input path="amountToDeposit"/><br/>	
+
+
+      <label path="isRecurring" for="isRecurring">Transaction Frequency:</label>
+
+      <select path="isRecurring" name="isRecurring" id="isRecurring">
+        <option value="One Time" selected>One Time</option>
+        <option value="Daily">Daily</option>
+        <option value="Weekly">Weekly</option>
+        <option value="Monthly">Monthly</option>
+      </select><br/>
 				
 			<form:button>Deposit</form:button>
 		</form:form>
