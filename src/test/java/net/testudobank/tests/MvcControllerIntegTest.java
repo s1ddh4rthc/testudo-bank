@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.MySQLContainer;
@@ -73,14 +76,21 @@ public class MvcControllerIntegTest {
   private static SavingsService savingsService = Mockito.mock(SavingsService.class);
   private static SavingsRepository savingsRepository;
   private JdbcTemplate mockJdbcTemplate;
+  private SavingsAccount accountFrom;
+  private SavingsAccount accountTo;
 
   @BeforeEach
   public void setUp() {
-      // Initialize mock JdbcTemplate
       mockJdbcTemplate = mock(JdbcTemplate.class);
 
-      // Initialize SavingsRepository with mock JdbcTemplate
-      savingsRepository = new SavingsRepository(mockJdbcTemplate);
+      savingsRepository = Mockito.mock(SavingsRepository.class);
+      savingsService = new SavingsService(savingsRepository);
+
+      accountFrom = new SavingsAccount("Acc001", "Cust001", 1000.00, 0.01);  // Account with $1000 balance
+      accountTo = new SavingsAccount("Acc002", "Cust002", 500.00, 0.01);    // Another account with $500 balance
+
+      when(savingsRepository.findSavingsAccountById("Acc001")).thenReturn(accountFrom);
+      when(savingsRepository.findSavingsAccountById("Acc002")).thenReturn(accountTo);
   }
 
   
@@ -163,7 +173,39 @@ public class MvcControllerIntegTest {
     assertEquals(10000.0, retrievedCurrentAmount, 0.001, "Current amount should match the updated value");
   }
 
+  @Test
+  public void testScheduledTransferWithoutOverdraft() {
+      // Arrange
+      double transferAmount = 200.00;
+      when(savingsRepository.findSavingsAccountById("Acc001")).thenReturn(accountFrom);
+      when(savingsRepository.findSavingsAccountById("Acc002")).thenReturn(accountTo);
   
+      // Act
+      savingsService.transferBetweenAccounts(accountFrom.getAccountID(), accountTo.getAccountID(), transferAmount);
+  
+      // Assert
+      verify(savingsRepository).save(accountFrom);
+      verify(savingsRepository).save(accountTo);
+  
+      assertEquals(800.00, accountFrom.getBalance(), "Account from should have $800 after transfer");
+      assertEquals(700.00, accountTo.getBalance(), "Account to should have $700 after transfer");
+  }
+  
+  @Test
+  public void testCreateSavingsGoalWithPastDeadline() {
+      // Create a savings goal with a deadline that is in the past
+      LocalDateTime pastDeadline = LocalDateTime.now().minusDays(1); // 1 day in the past
+      SavingsGoal pastGoal = new SavingsGoal("goalId", "accountId", "Emergency Fund", 5000, 0, pastDeadline);
+
+      // Attempt to create the savings goal and expect an IllegalArgumentException
+      Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+          savingsService.createSavingsGoal(pastGoal);
+      });
+
+      // Verify the message of the exception
+      assertEquals("Deadline cannot be in the past", exception.getMessage());
+  }
+
   /**
    * Verifies the simplest deposit case.
    * The customer's Balance in the Customers table should be increased,

@@ -1,7 +1,9 @@
 package net.testudobank;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SavingsService {
@@ -28,6 +30,21 @@ public class SavingsService {
         SavingsGoal goal = savingsRepository.findSavingsGoalById(goalID);
         goal.contribute(amount);
         savingsRepository.updateSavingsGoal(goal);
+    }
+
+    @Transactional
+    public void transferBetweenAccounts(String fromAccountId, String toAccountId, double amount) {
+        SavingsAccount fromAccount = savingsRepository.findSavingsAccountById(fromAccountId);
+        SavingsAccount toAccount = savingsRepository.findSavingsAccountById(toAccountId);
+
+        if (fromAccount.getBalance() >= amount) {
+            fromAccount.deductFunds(amount);
+            toAccount.addFunds(amount);
+            savingsRepository.save(fromAccount);
+            savingsRepository.save(toAccount);
+        } else {
+            throw new IllegalArgumentException("Insufficient funds to complete the transfer");
+        }
     }
 
     public List<SavingsAccount> getAllSavingsAccountsForCustomer(String customerID) {
