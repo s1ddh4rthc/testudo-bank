@@ -168,6 +168,27 @@ public class TestudoBankRepository {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
   }
+
+  public static void logSuccessfulReversal(JdbcTemplate jdbcTemplate, String userID, String transactionID) {
+    String sql = "INSERT INTO TransactionHistory (UserID, TransactionID, Action) VALUES (?, ?, 'Reversal')";
+    jdbcTemplate.update(sql, userID, transactionID);
+  }
+
+  public static void logDisputeForManualReview(JdbcTemplate jdbcTemplate, String customerID, String transactionID) {
+    String sql = "INSERT INTO DisputeLogs (CustomerID, TransactionID, Status) VALUES (?, ?, 'Pending Review')";
+    jdbcTemplate.update(sql, customerID, transactionID);
+  }
+
+  public static boolean reverseTransaction(JdbcTemplate jdbcTemplate, String transactionID) {
+    String sql = "UPDATE TransactionHistory SET Status = 'Reversed' WHERE TransactionID = ?";
+    int rowsAffected = jdbcTemplate.update(sql, transactionID);
+    return rowsAffected > 0;
+  }
+
+  public static void updateAccountBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
+    String sql = "UPDATE Customers SET Balance = ? WHERE CustomerID = ?";
+    jdbcTemplate.update(sql, newBalanceInPennies, customerID);
+  }
   
   public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 
     String getCustomerIDSql =  String.format("SELECT CustomerID FROM Customers WHERE CustomerID='%s';", customerID);

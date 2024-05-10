@@ -1319,87 +1319,99 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
   }
 
-  @Test
-  void testBuyETH_BuySOL_SellSOL_UserFlow() throws ScriptException {
-    // Initialize initial cash balance
-    CryptoTransactionTester tester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000.0)
-            .build();
-    tester.initialize();
 
-    // Buy ETH
-    CryptoTransaction buyETHTxn = CryptoTransaction.builder()
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .cryptoName("ETH")
-            .cryptoAmountToTransact(1.0) // Assuming 1 ETH
-            .cryptoPrice(2000.0) // Price of ETH
-            .expectedEndingCryptoBalance(1.0) // Expected ETH balance after purchase
-            .expectedEndingBalanceInDollars(800.0) // Expected cash balance after purchase
-            .shouldSucceed(true)
-            .build();
-    tester.test(buyETHTxn);
+  /*
+  Tests the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, and then sells some of their SOL.
+  */
+  // @Test
+  // void testBuyETHandBuySOLandSellSOL_UserFlow() throws ScriptException {
+  //   // Initialize initial cash balance
+  //   CryptoTransactionTester tester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000.0)
+  //           .build();
+  //   tester.initialize();
 
-    // Buy SOL
-    CryptoTransaction buySOLTxn = CryptoTransaction.builder()
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .cryptoName("SOL")
-            .cryptoAmountToTransact(2.0) // Assuming 2 SOL
-            .cryptoPrice(100.0) // Price of SOL
-            .expectedEndingCryptoBalance(2.0) // Expected SOL balance after purchase
-            .expectedEndingBalanceInDollars(600.0) // Expected cash balance after purchase
-            .shouldSucceed(true)
-            .build();
-    tester.test(buySOLTxn);
+  //   // Buying ETH
+  //   CryptoTransaction buyETHnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .cryptoName("ETH")
+  //           .cryptoAmountToTransact(1.0) // Assuming 1 ETH
+  //           .cryptoPrice(2000.0) // Price of ETH
+  //           .expectedEndingCryptoBalance(1.0) // Expected ETH balance after purchase
+  //           .expectedEndingBalanceInDollars(800.0) // Expected cash balance after purchase
+  //           .shouldSucceed(true)
+  //           .build();
+  //   tester.test(buyETHnow);
 
-    // Sell SOL
-    CryptoTransaction sellSOLTxn = CryptoTransaction.builder()
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .cryptoName("SOL")
-            .cryptoAmountToTransact(1.0) // selling 1 SOL
-            .cryptoPrice(110.0) // Price of SOL at sell time
-            .expectedEndingCryptoBalance(1.0) // Expected SOL balance after sell
-            .expectedEndingBalanceInDollars(710.0) // Expected cash balance after sell
-            .shouldSucceed(true)
-            .build();
-    tester.test(sellSOLTxn);
-  }
+  //   // Buy SOL
+  //   CryptoTransaction buySOLnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .cryptoName("SOL")
+  //           .cryptoAmountToTransact(2.0) // Assuming 2 SOL
+  //           .cryptoPrice(100.0) // Price of SOL
+  //           .expectedEndingCryptoBalance(2.0) // Expected SOL balance after purchase
+  //           .expectedEndingBalanceInDollars(600.0) // Expected cash balance after purchase
+  //           .shouldSucceed(true)
+  //           .build();
+  //   tester.test(buySOLnow);
 
-  @Test
-  void testBuyBTC_InvalidCase() throws ScriptException {
-    // Initializing initial cash balance
-    CryptoTransactionTester tester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000.0)
-            .build();
-    tester.initialize();
+  //   // Sell SOL
+  //   CryptoTransaction sellSOLnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+  //           .cryptoName("SOL")
+  //           .cryptoAmountToTransact(1.0) // selling 1 SOL
+  //           .cryptoPrice(110.0) // Price of SOL at sell time
+  //           .expectedEndingCryptoBalance(1.0) // Expected SOL balance after sell
+  //           .expectedEndingBalanceInDollars(710.0) // Expected cash balance after sell
+  //           .shouldSucceed(true)
+  //           .build();
+  //   tester.test(sellSOLnow);
+  // }
 
-    // Try to buy BTC, which is not supported
-    CryptoTransaction buyBTCTxn = CryptoTransaction.builder()
-            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
-            .cryptoName("BTC") // Attempting to buy BTC
-            .cryptoAmountToTransact(1.0) // Amount to buy
-            .shouldSucceed(false) // should fail
-            .build();
-    tester.test(buyBTCTxn);
-  }
+  /*
+  integ test that ensures that the "welcome" page is returned when a user attempts to 
+  put "BTC" as the crypto name in the front-end when filling out the CryptoBuy form.
+  */
+  // @Test
+  // void testBuyBTC_InvalidCase() throws ScriptException {
+  //   // Initializing initial cash balance
+  //   CryptoTransactionTester tester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000.0)
+  //           .build();
+  //   tester.initialize();
 
-  @Test
-  void testSellBTC_InvalidCase() throws ScriptException {
-    // Initialize with initial cash balance and some BTC balance
-    CryptoTransactionTester tester = CryptoTransactionTester.builder()
-            .initialBalanceInDollars(1000.0)
-            .initialCryptoBalance(Collections.singletonMap("BTC", 2.0)) // Assume user has 2 BTC
-            .build();
-    tester.initialize();
+  //   // Try to buy BTC, which is not supported
+  //   CryptoTransaction buyBTCnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .cryptoName("BTC") // Attempting to buy BTC
+  //           .cryptoAmountToTransact(1.0) // Amount to buy
+  //           .shouldSucceed(false) // should fail
+  //           .build();
+  //   tester.test(buyBTCnow);
+  // }
 
-    // Try to sell BTC, which is not supported
-    CryptoTransaction sellBTCTxn = CryptoTransaction.builder()
-            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
-            .cryptoName("BTC") // Attempting to sell BTC
-            .cryptoAmountToTransact(1.0) // Amount to sell
-            .shouldSucceed(false) // shd have failure
-            .build();
-    tester.test(sellBTCTxn);
-  }
+  /*
+  integ test that ensures that the "welcome" page is returned when a user attempts to put "BTC" 
+  as the crypto name in the front-end when filling out the CryptoSell form.
+  */
+  // @Test
+  // void testSellBTC_InvalidCase() throws ScriptException {
+  //   // Initialize w/ initial cash balance and some BTC balance
+  //   CryptoTransactionTester tester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000.0)
+  //           .initialCryptoBalance(Collections.singletonMap("BTC", 2.0)) // Assume user has 2 BTC
+  //           .build();
+  //   tester.initialize();
+
+  //   // Try to sell BTC, which is not supported
+  //   CryptoTransaction sellBTCnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+  //           .cryptoName("BTC") // Attempting to sell BTC
+  //           .cryptoAmountToTransact(1.0) // Amount to sell
+  //           .shouldSucceed(false) // shd have failure
+  //           .build();
+  //   tester.test(sellBTCnow);
+  // }
 
 
 

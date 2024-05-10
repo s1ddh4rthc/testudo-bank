@@ -184,6 +184,21 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+  @GetMapping("/manual_review_info")
+  public String showManualReviewInfo() {
+      return "manual_review_info";
+  }
+
+  @GetMapping("/reversal_success")
+  public String showReversalSuccess() {
+      return "reversal_success";
+  }
+
+  @GetMapping("/reversal_failure")
+  public String showReversalFailure() {
+      return "reversal_failure";
+  }
+
   //// HELPER METHODS ////
 
   /**
@@ -467,10 +482,7 @@ public class MvcController {
    */
   @PostMapping("/dispute")
   public String submitDispute(@ModelAttribute("user") User user) {
-    // Ensure that requested transaction to reverse is within acceptable range
-    if (user.getNumTransactionsAgo() <= 0 || user.getNumTransactionsAgo() > MAX_REVERSABLE_TRANSACTIONS_AGO) {
-      return "welcome";
-    }
+    
 
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
@@ -487,6 +499,22 @@ public class MvcController {
     if (numOfReversals >= MAX_DISPUTES) {
       return "welcome";
     }
+
+    // Ensure that requested transaction to reverse is within acceptable range
+    if (user.getNumTransactionsAgo() <= 0 || user.getNumTransactionsAgo() > MAX_REVERSABLE_TRANSACTIONS_AGO) {
+      return "welcome";
+    }
+
+    // Add new logic to determine if the dispute needs manual review or can be automatically processed
+    boolean needsManualReview = determineReviewRequirement(user);
+    if (needsManualReview) {
+      return handleManualReview(user);
+    } 
+    // else {
+    // //   return handleAutomaticReversal(user);
+    // // }
+
+
     
     // Fetch 3 most recent transactions for this customer
     List<Map<String,Object>> transactionLogs = TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, MAX_NUM_TRANSACTIONS_DISPLAYED);
@@ -545,6 +573,36 @@ public class MvcController {
     updateAccountInfo(user);
 
     return "account_info";
+  }
+
+  private boolean determineReviewRequirement(User user) {
+    // Example: Disputes over $1000 or disputes on transactions older than 30 days require manual review
+    return user.getTransactionAmount() > 1000 || user.getTransactionAgeInDays() > 30;
+  }
+
+  private String handleManualReview(User user) {
+    // Log the need for manual review
+    TestudoBankRepository.logDisputeForManualReview(jdbcTemplate, user.getUserId(), user.getTransactionId());
+    // Notify staff or set a flag for manual review
+    // Redirect user to a page informing them about the manual review process
+    return "redirect:/manual_review_info";
+  }
+
+  private String handleAutomaticReversal(User user) {
+    // Reverse the transaction automatically
+    boolean reversalSuccess = TestudoBankRepository.reverseTransaction(jdbcTemplate, user.getTransactionId());
+    if (reversalSuccess) {
+        // Fetch the current balance in pennies
+        int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUserId());
+        // Update user's account balance
+        TestudoBankRepository.updateAccountBalance(jdbcTemplate, user.getUserId(), currentBalanceInPennies);
+        // Log the successful reversal
+        TestudoBankRepository.logSuccessfulReversal(jdbcTemplate, user.getUserId(), user.getTransactionId());
+        return "redirect:/reversal_success";
+    } else {
+        // Handle failure (e.g., transaction could not be reversed)
+        return "redirect:/reversal_failure";
+    }
   }
 
   /**
