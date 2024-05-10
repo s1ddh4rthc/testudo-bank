@@ -48,3 +48,31 @@ CREATE TABLE CryptoHistory (
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
 );
+
+CREATE TABLE SavingsAccounts (
+  AccountID VARCHAR(255) PRIMARY KEY,
+  CustomerID VARCHAR(255) NOT NULL,
+  Balance INT,
+  InterestRate FLOAT
+);
+
+CREATE TABLE SavingsGoals (
+  GoalID VARCHAR(255) PRIMARY KEY,
+  AccountID VARCHAR(255) NOT NULL,
+  GoalName VARCHAR(255),
+  TargetAmount INT,
+  CurrentAmount INT,
+  Deadline DATETIME
+);
+
+-- Insert initial data
+INSERT INTO Customers (CustomerID, FirstName, LastName, Balance, OverdraftBalance, NumFraudReversals, NumDepositsForInterest)
+VALUES ('C001', 'John', 'Doe', 10000, 0, 0, 0);
+
+INSERT INTO SavingsAccounts (AccountID, CustomerID, Balance, InterestRate)
+VALUES ('A001', 'C001', 5000, 0.01);
+
+INSERT INTO Passwords (CustomerID, Password)
+VALUES ('C001', 'password123');
+
+-- More initial data as required for your tests

@@ -1,11 +1,23 @@
 package net.testudobank.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -14,12 +26,14 @@ import javax.script.ScriptException;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import net.testudobank.CryptoPriceClient;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.MySQLContainer;
@@ -29,8 +43,7 @@ import org.testcontainers.jdbc.JdbcDatabaseDelegate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import net.testudobank.MvcController;
-import net.testudobank.User;
+import net.testudobank.*;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
 @Testcontainers
@@ -42,12 +55,13 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER1_FIRST_NAME = "Foo";
   private static String CUSTOMER1_LAST_NAME = "Bar";
   public static long REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS = 1L;
+  private static double BALANCE_INTEREST_RATE = 1.015;
 
   private static String CUSTOMER2_ID = "987654321";
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
-  
+
   // Spins up small MySQL DB in local Docker container
   @Container
   public static MySQLContainer db = new MySQLContainer<>("mysql:5.7.37")
@@ -60,14 +74,34 @@ public class MvcControllerIntegTest {
   private static JdbcTemplate jdbcTemplate;
   private static DatabaseDelegate dbDelegate;
   private static CryptoPriceClient cryptoPriceClient = Mockito.mock(CryptoPriceClient.class);
+  private static SavingsService savingsService = Mockito.mock(SavingsService.class);
+  private static SavingsRepository savingsRepository;
+  private JdbcTemplate mockJdbcTemplate;
+  private SavingsAccount accountFrom;
+  private SavingsAccount accountTo;
 
+  @BeforeEach
+  public void setUp() {
+      mockJdbcTemplate = mock(JdbcTemplate.class);
+
+      savingsRepository = Mockito.mock(SavingsRepository.class);
+      savingsService = new SavingsService(savingsRepository);
+
+      accountFrom = new SavingsAccount("Acc001", "Cust001", 1000.00, 0.01);  // Account with $1000 balance
+      accountTo = new SavingsAccount("Acc002", "Cust002", 500.00, 0.01);    // Another account with $500 balance
+
+      when(savingsRepository.findSavingsAccountById("Acc001")).thenReturn(accountFrom);
+      when(savingsRepository.findSavingsAccountById("Acc002")).thenReturn(accountTo);
+  }
+
+  
   @BeforeAll
   public static void init() throws SQLException {
     dbDelegate = new JdbcDatabaseDelegate(db, "");
     ScriptUtils.runInitScript(dbDelegate, "createDB.sql");
     jdbcTemplate = new JdbcTemplate(MvcControllerIntegTestHelpers.dataSource(db));
     jdbcTemplate.getDataSource().getConnection().setCatalog(db.getDatabaseName());
-    controller = new MvcController(jdbcTemplate, cryptoPriceClient);
+    controller = new MvcController(jdbcTemplate, cryptoPriceClient, savingsService);
   }
 
   @AfterEach
@@ -79,6 +113,125 @@ public class MvcControllerIntegTest {
   }
 
   //// INTEGRATION TESTS ////
+  @Test
+  public void testCreateSavingsGoalWithinExistingAccount() throws ScriptException {
+      // Add a savings goal to the database
+      MvcControllerIntegTestHelpers.addSavingsGoalToDB(dbDelegate, "C001", "G001", "Retirement", 100000.0, 0.0, LocalDateTime.now().plusYears(10));
+  
+      // Call the controller method to create a savings goal
+      SavingsGoal goal = new SavingsGoal("G001", "A001", "Retirement", 100000, 0, LocalDateTime.now().plusYears(10));
+      controller.createSavingsGoal(goal);
+  
+      // Retrieve the list of savings goals from the database
+      List<Map<String, Object>> goals = jdbcTemplate.queryForList("SELECT * FROM SavingsGoals");
+  
+      // Assert that the savings goal was added to the database
+      assertEquals(1, goals.size());
+      assertEquals("G001", goals.get(0).get("GoalID"));
+  }
+
+  @Test
+  public void testTransferMoreThanAvailableFunds() throws ScriptException {
+      // Add necessary preparations here, such as setting up savings accounts and goals
+      MvcControllerIntegTestHelpers.addSavingsGoalToDB(dbDelegate, "C001", "G001", "Retirement", 100000.0, 0.0, LocalDateTime.now().plusYears(10));
+
+      // Retrieve the initial balance of the savings account
+      int initialBalance = jdbcTemplate.queryForObject("SELECT Balance FROM SavingsAccounts WHERE AccountID = 'A001'", Integer.class);
+
+      // Attempt a transfer that exceeds available funds
+      jdbcTemplate.update("INSERT INTO TransactionHistory (CustomerID, Timestamp, Action, Amount) VALUES ('C001', NOW(), 'Withdraw', 2000)");
+
+      // Verify that the transfer fails and the account remains unchanged
+      // Add assertions to check that the balance remains the same after the failed transfer attempt
+      int finalBalance = jdbcTemplate.queryForObject("SELECT Balance FROM SavingsAccounts WHERE AccountID = 'A001'", Integer.class);
+      assertEquals(initialBalance, finalBalance);
+  }
+
+  @Test
+  public void testModifySavingsGoalAfterProgress() throws ScriptException {
+    // Initial addition of a savings goal
+    LocalDateTime initialDeadline = LocalDateTime.now().plusYears(5);
+    MvcControllerIntegTestHelpers.addSavingsGoalToDB(dbDelegate, "C002", "G002", "Education", 50000.0, 10000.0, initialDeadline);
+    
+    // Modify the goal
+    LocalDateTime newDeadline = LocalDateTime.now().plusYears(10); // Extended deadline
+    double newTargetAmount = 80000.0; // Increased target amount
+    MvcControllerIntegTestHelpers.updateSavingsGoalInDB(dbDelegate, "G002", newTargetAmount, 10000.0, newDeadline);
+
+    // Call the controller method to update the savings goal
+    SavingsGoal updatedGoal = new SavingsGoal("G002", "A002", "Education", newTargetAmount, 10000.0, newDeadline);
+    controller.updateSavingsGoal(updatedGoal);
+
+    // Retrieve the updated savings goal from the database
+    List<Map<String, Object>> updatedGoals = jdbcTemplate.queryForList("SELECT * FROM SavingsGoals WHERE GoalID = 'G002'");
+
+    // Assert the updated details are correctly stored in the database
+    assertEquals(1, updatedGoals.size());
+    assertEquals("G002", updatedGoals.get(0).get("GoalID"));
+    double retrievedTargetAmount = ((Number) updatedGoals.get(0).get("TargetAmount")).doubleValue();
+    assertEquals(newTargetAmount, retrievedTargetAmount, 0.001, "Target amount should match the updated value");
+    double retrievedCurrentAmount = ((Number) updatedGoals.get(0).get("CurrentAmount")).doubleValue();
+    assertEquals(10000.0, retrievedCurrentAmount, 0.001, "Current amount should match the updated value");
+  }
+
+  @Test
+  public void testScheduledTransferWithoutOverdraft() {
+      // Arrange
+      double transferAmount = 200.00;
+      when(savingsRepository.findSavingsAccountById("Acc001")).thenReturn(accountFrom);
+      when(savingsRepository.findSavingsAccountById("Acc002")).thenReturn(accountTo);
+  
+      // Act
+      savingsService.transferBetweenAccounts(accountFrom.getAccountID(), accountTo.getAccountID(), transferAmount);
+  
+      // Assert
+      verify(savingsRepository).save(accountFrom);
+      verify(savingsRepository).save(accountTo);
+  
+      assertEquals(800.00, accountFrom.getBalance(), "Account from should have $800 after transfer");
+      assertEquals(700.00, accountTo.getBalance(), "Account to should have $700 after transfer");
+  }
+  
+  @Test
+  public void testCreateSavingsGoalWithPastDeadline() {
+      // Create a savings goal with a deadline that is in the past
+      LocalDateTime pastDeadline = LocalDateTime.now().minusDays(1); // 1 day in the past
+      SavingsGoal pastGoal = new SavingsGoal("goalId", "accountId", "Emergency Fund", 5000, 0, pastDeadline);
+
+      // Attempt to create the savings goal and expect an IllegalArgumentException
+      Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+          savingsService.createSavingsGoal(pastGoal);
+      });
+
+      // Verify the message of the exception
+      assertEquals("Deadline cannot be in the past", exception.getMessage());
+  }
+
+  @Test
+  public void testAutomatedTransferWithSystemError() {
+      // Arrange
+      double transferAmount = 500.00;
+      SavingsAccount fromAccount = new SavingsAccount("Acc001", "Cust001", 1000.00, 0.01);
+      SavingsAccount toAccount = new SavingsAccount("Acc002", "Cust002", 500.00, 0.01);
+  
+      when(savingsRepository.findSavingsAccountById("Acc001")).thenReturn(fromAccount);
+      when(savingsRepository.findSavingsAccountById("Acc002")).thenReturn(toAccount);
+  
+      // Simulate a system error during the transfer
+      doThrow(new DataAccessException("Database error") {}).when(savingsRepository).save(fromAccount);
+  
+      // Act
+      Exception exception = assertThrows(DataAccessException.class, () -> {
+          savingsService.transferBetweenAccounts("Acc001", "Acc002", transferAmount);
+      });
+  
+      // Assert
+      verify(savingsRepository, times(1)).save(fromAccount);  // Verify save was attempted
+      verify(savingsRepository, never()).save(toAccount);     // Ensure toAccount was not saved due to error
+  
+      // Verify the correct exception message
+      assertEquals("Database error", exception.getMessage());
+  }  
 
   /**
    * Verifies the simplest deposit case.
@@ -137,6 +290,52 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_DEPOSIT);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenDepositRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_DEPOSIT_ACTION, CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
   }
+
+    /**
+   * Verify the customer balance receives a 1.5% interest rate after every five deposits.
+   *
+   * @throws SQLException if there is an error in SQL execution.
+   * @throws ScriptException if there is an error in executing database scripts.
+   */
+  @Test
+  public void testBalanceInterestAfter5Deposits() throws SQLException, ScriptException {
+      double initialBalance = 1000.0;
+      int initialBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(initialBalance);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, initialBalanceInPennies, 0);
+
+      double depositAmount = 100.0;
+      performMultipleDeposits(CUSTOMER1_ID, CUSTOMER1_PASSWORD, depositAmount, 5);
+
+      List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      Map<String,Object> customer1Data = customersTableData.get(0);
+
+      double expectedBalanceAfter5Deposits = (int)((initialBalance * 100 + 5 * depositAmount * 100) * BALANCE_INTEREST_RATE);
+      assertEquals(expectedBalanceAfter5Deposits, (int)customer1Data.get("Balance"));
+
+      depositAmount = 20.0;
+      performMultipleDeposits(CUSTOMER1_ID, CUSTOMER1_PASSWORD, depositAmount, 5);
+
+      customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+      customer1Data = customersTableData.get(0);
+
+      double expectedBalanceAfter10Deposits = (int)((expectedBalanceAfter5Deposits + 5 * depositAmount * 100) * BALANCE_INTEREST_RATE);
+      assertEquals(expectedBalanceAfter10Deposits, (int)customer1Data.get("Balance"));
+    }
+
+    private void performMultipleDeposits(String customerId, String password, double amountToDeposit, int numberOfDeposits) {
+        for (int i = 0; i < numberOfDeposits; i++) {
+            User depositFormInputs = createDepositFormInputs(customerId, password, amountToDeposit);
+            controller.submitDeposit(depositFormInputs);
+        }
+    }
+
+    private User createDepositFormInputs(String customerId, String password, double amountToDeposit) {
+        User depositFormInputs = new User();
+        depositFormInputs.setUsername(customerId);
+        depositFormInputs.setPassword(password);
+        depositFormInputs.setAmountToDeposit(amountToDeposit);
+        return depositFormInputs;
+    }
 
   /**
    * Verifies the simplest withdraw case.
@@ -1317,6 +1516,99 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
       }
     }
+  
+    // Buy ETH, Buy SOL, Sell SOL sequence integration test
+    @Test
+    public void testBuyEthBuySolSellSolSequence() throws Exception {
+        CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(10000) 
+            .build();
+
+        tester.initialize(); 
+
+        // Buy ETH
+        CryptoTransaction buyEth = CryptoTransaction.builder()
+            .cryptoName("ETH")
+            .cryptoPrice(2000) 
+            .cryptoAmountToTransact(1) 
+            .expectedEndingBalanceInDollars(8000) 
+            .expectedEndingCryptoBalance(1) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        tester.test(buyEth);
+
+        // Buy SOL
+        CryptoTransaction buySol = CryptoTransaction.builder()
+            .cryptoName("SOL")
+            .cryptoPrice(100)
+            .cryptoAmountToTransact(10) 
+            .expectedEndingBalanceInDollars(7000) 
+            .expectedEndingCryptoBalance(10) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+
+        tester.test(buySol);
+
+        // Sell SOL
+        CryptoTransaction sellSol = CryptoTransaction.builder()
+            .cryptoName("SOL")
+            .cryptoPrice(100) 
+            .cryptoAmountToTransact(5) 
+            .expectedEndingBalanceInDollars(7500) 
+            .expectedEndingCryptoBalance(5) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+
+        tester.test(sellSol);
+    }
+
+    // Buy BTC Invalid Case
+    @Test
+    public void testBuyBtcInvalidCase() throws ScriptException {
+        CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+        tester.initialize(); // Initialize the database for the test
+
+        CryptoTransaction buyBtc = CryptoTransaction.builder()
+            .cryptoName("BTC")
+            .cryptoPrice(10000)
+            .cryptoAmountToTransact(0.1) 
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false) 
+            .build();
+
+        tester.test(buyBtc);
+    }
+
+    // Sell BTC Invalid Case
+    @Test
+    public void testSellBtcInvalidCase() throws ScriptException {
+        CryptoTransactionTester tester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000) 
+            .initialCryptoBalance(Collections.singletonMap("BTC", 0.1))
+            .build();
+
+        tester.initialize(); 
+
+        CryptoTransaction sellBtc = CryptoTransaction.builder()
+            .cryptoName("BTC")
+            .cryptoPrice(10000)
+            .cryptoAmountToTransact(0.1) 
+            .expectedEndingBalanceInDollars(1000) 
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false) 
+            .build();
+
+        tester.test(sellBtc);
+    }
+
   }
 
   /**

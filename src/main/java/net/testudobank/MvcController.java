@@ -5,6 +5,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.util.Map;
@@ -19,10 +21,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 
 @Controller
 public class MvcController {
-  
   // A simplified JDBC client that is injected with the login credentials
   // specified in /src/main/resources/application.properties
   private JdbcTemplate jdbcTemplate;
@@ -51,13 +53,40 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  
+  @Autowired
+  private final SavingsService savingsService;
 
-  public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
+  public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient, @Autowired SavingsService savingsService) {
     this.jdbcTemplate = jdbcTemplate;
     this.cryptoPriceClient = cryptoPriceClient;
+    this.savingsService = savingsService;    
   }
 
   //// HTML GET HANDLERS ////
+
+    /**
+   * Endpoint to create a new Savings Account
+   * @param savingsAccount The savings account details from the request
+   * @return Redirects to a specific view
+   */
+  @PostMapping("/createSavingsAccount")
+  public String createSavingsAccount(@RequestBody SavingsAccount savingsAccount) {
+      savingsService.createSavingsAccount(savingsAccount);
+      return "redirect:/accountCreated";  // Redirect to a confirmation page or back to form
+  }
+
+
+  @GetMapping("/savings")
+  public ResponseEntity<List<SavingsAccount>> showSavingsDashboard(@RequestParam String customerID) {
+      return ResponseEntity.ok(savingsService.getAllSavingsAccountsForCustomer(customerID));
+  }
+
+  @PostMapping("/savings/goals")
+  public ResponseEntity<String> createSavingsGoal(@RequestBody SavingsGoal goal) {
+      savingsService.createSavingsGoal(goal);
+      return ResponseEntity.ok("Goal created successfully");
+  }
 
   /**
    * HTML GET request handler that serves the "welcome" page to the user.
@@ -181,6 +210,28 @@ public class MvcController {
 	}
 
   //// HELPER METHODS ////
+  public void addSavingsGoal(SavingsGoal goal) {
+    savingsService.createSavingsGoal(goal);
+  }
+  
+  public void updateSavingsGoal(SavingsGoal updatedGoal) {
+    // Check if the updatedGoal is valid
+    if (updatedGoal == null || updatedGoal.getGoalID() == null) {
+        throw new IllegalArgumentException("Invalid savings goal or goal ID");
+    }
+
+    // Validate the goal details (you might want to check if the deadline hasn't already passed, etc.)
+    if (updatedGoal.getDeadline().isBefore(LocalDateTime.now())) {
+        throw new IllegalArgumentException("Deadline cannot be in the past");
+    }
+
+    // Assuming SavingsService has a method to handle the update
+    savingsService.updateSavingsGoal(updatedGoal);
+  }
+
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
+  }
 
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
@@ -410,7 +461,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -799,15 +850,33 @@ public class MvcController {
   }
 
   /**
-   * 
+   * This function applies interest on the account balance if the user has a positive account balance
+   * and no overdraft balance, and if the transaction number is a multiple of 5 with no more than 5
+   * interest applications total. TransactionsHistory table is updated.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
+    int oldNumDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername());
+    if (user.getAmountToDeposit() >= 20) {
+      if (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername()) > 0 && 
+      TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, user.getUsername()) == 0) {
+        if (((oldNumDepositsForInterest + 1) % 5) == 0 && (oldNumDepositsForInterest + 1) != 0) {
+            TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, 
+              user.getUsername(), (oldNumDepositsForInterest + 1));
+            int oldBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+            int newBalance = (int)(oldBalance * BALANCE_INTEREST_RATE);
+            TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalance);
+            String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+            int userDepositAmtInPennies = (newBalance - oldBalance);
+            TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
+            return "account_info";
+        } 
+      }
+    }
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, 
+    user.getUsername(), (oldNumDepositsForInterest + 1));
     return "welcome";
-
   }
-
 }
