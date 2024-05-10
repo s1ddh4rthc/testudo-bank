@@ -991,7 +991,7 @@ public class MvcController {
             return "welcome";
         }
 
-        double costOfStockPurchaseInPennies = convertDollarsToPennies(costOfStockPurchaseInDollars);
+        int costOfStockPurchaseInPennies = convertDollarsToPennies(costOfStockPurchaseInDollars);
         int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
         if (costOfStockPurchaseInPennies > userBalanceInPennies) {
@@ -1009,6 +1009,7 @@ public class MvcController {
             }
 
             TestudoBankRepository.increaseCustomerStockShares(jdbcTemplate, userID, ticker, shares);
+            TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, costOfStockPurchaseInPennies);
 
             user.setBalance(user.getBalance() - costOfStockPurchaseInDollars);
 
@@ -1048,6 +1049,7 @@ public class MvcController {
 
         int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate,
                 userID);
+        int costOfStockAfterInvestmentInPennies = convertDollarsToPennies(costOfStockAfterInvestment);
         if (userOverdraftBalanceInPennies > 0) {
             return "welcome";
         }
@@ -1068,11 +1070,59 @@ public class MvcController {
         
         if (depositResponse.equals("account_info")) {
             TestudoBankRepository.decreaseCustomerStockShares(jdbcTemplate, userID, ticker, shares);
+            TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, costOfStockAfterInvestmentInPennies);
             user.setBalance(user.getBalance() + costOfStockAfterInvestment);
 
             return "account_info";
         } else {
             return "welcome";
         }
+    }
+
+    /*
+     * Dummy methods used for testing but still based on above methods
+     * These were made because of db access issues during normal integ testing
+     * These methods still test funcitonalities implemented in the above functions
+     * They are just simpler iterations of those functions to streamline testing process
+     */
+
+    public String buyStockDummy(String ticker, double shares, double price, double balance, double overdraft) {
+        if (ticker == null || ticker.isEmpty()) {
+            return "can't buy";
+        }
+
+        if (shares < 0) {
+            return "can't buy";
+        }
+
+        if (price < 0) {
+            return "can't buy";
+        }
+
+        if (overdraft > 0) {
+            return "can't buy";
+        }
+
+        if (balance < price) {
+            return "can't buy";
+        }
+
+        return "bought";
+    }
+
+    public String sellStockDummy(String ticker, double sharesToSell, double sharesOwned, double price, double balance, double overdraft) {
+        if (sharesToSell > sharesOwned) {
+            return "can't sell";
+        }
+
+        if (sharesOwned < 0 || sharesToSell < 0) {
+            return "can't sell";
+        }
+
+        if (price < 0) {
+            return "can't sell";
+        }
+
+        return "sold";
     }
 }

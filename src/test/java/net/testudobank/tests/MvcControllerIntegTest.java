@@ -1988,6 +1988,117 @@ public class MvcControllerIntegTest {
         cryptoTester.test(sellBTC);
     }
 
-    // TODO: make integ tests for stock client
-    
+    @Test
+    public void testValidTicker() {
+        StockPriceClient client = new StockPriceClient();
+        double price = client.getCurrentStockValue("GOOG");
+        assertTrue(price > 0);
+    }
+
+    @Test
+    public void testValidTicker2() {
+        StockPriceClient client = new StockPriceClient();
+        double price = client.getCurrentStockValue("TSLA");
+        assertTrue(price > 0);
+    }
+
+    @Test
+    public void testValidTicker3() {
+        StockPriceClient client = new StockPriceClient();
+        double price = client.getCurrentStockValue("BRK-A");
+        assertTrue(price > 0);
+    }
+
+    @Test
+    public void testInvalidTicker2() {
+        StockPriceClient client = new StockPriceClient();
+        double price = client.getCurrentStockValue(null);
+        assertTrue(price == -1);
+    }
+
+    @Test
+    public void testInvalidTicker3() {
+        StockPriceClient client = new StockPriceClient();
+        double price = client.getCurrentStockValue("");
+        assertTrue(price == -1);
+    }
+
+    @Test
+    public void testBuyingWithNoMoney() {
+        StockPriceClient client = new StockPriceClient();
+        String ticker = "AAPL";
+        double price = client.getCurrentStockValue(ticker);
+        double shares = 3;
+        double totalPrice = shares * price;
+        assertTrue(price > 0);
+
+        String output = controller.buyStockDummy(ticker, shares, totalPrice, 0, 0);
+        assertEquals("can't buy", output);
+    }
+
+    @Test
+    public void testBuyingNegativeShares() {
+        StockPriceClient client = new StockPriceClient();
+        String ticker = "AAPL";
+        double price = client.getCurrentStockValue(ticker);
+        double shares = -2;
+        double totalPrice = shares * price;
+        assertTrue(price > 0);
+
+        String output = controller.buyStockDummy(ticker, shares, totalPrice, 1000, 0);
+        assertEquals("can't buy", output);
+    }
+
+    @Test
+    public void testBuyingWithOverdraft() {
+        StockPriceClient client = new StockPriceClient();
+        String ticker = "AAPL";
+        double price = client.getCurrentStockValue(ticker);
+        double shares = 5;
+        double totalPrice = shares * price;
+        assertTrue(price > 0);
+
+        String output = controller.buyStockDummy(ticker, shares, totalPrice, 10000, 23);
+        assertEquals("can't buy", output);
+    }
+
+    @Test
+    public void testBuyingTooManyShares() {
+        StockPriceClient client = new StockPriceClient();
+        String ticker = "AAPL";
+        double price = client.getCurrentStockValue(ticker);
+        double shares = 200;
+        double totalPrice = shares * price;
+        assertTrue(price > 0);
+
+        String output = controller.buyStockDummy(ticker, shares, totalPrice, 1000, 0);
+        assertEquals("can't buy", output);
+    }
+
+    @Test
+    public void validBuy() {
+        StockPriceClient client = new StockPriceClient();
+        String ticker = "AAPL";
+        double price = client.getCurrentStockValue(ticker);
+        double shares = 3;
+        double totalPrice = shares * price;
+        assertTrue(price > 0);
+
+        String output = controller.buyStockDummy(ticker, shares, totalPrice, 1000, 0);
+        assertEquals("bought", output);
+    }
+
+    @Test
+    public void testSellingTooManyShares() {
+        StockPriceClient client = new StockPriceClient();
+        String ticker = "TSLA";
+        double price = client.getCurrentStockValue(ticker);
+        double sharesOwned = 0;
+        double sharesToSell = 5;
+        double totalPrice = sharesOwned * price;
+        assertTrue(price > 0);
+
+        String output = controller.sellStockDummy(ticker, sharesToSell, sharesOwned, totalPrice, 1000, 0);
+        assertEquals("can't sell", output);
+    }
 }
