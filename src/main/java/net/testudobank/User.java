@@ -99,4 +99,8 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Recurring Transactions Fields ////
+
+  @Setter @Getter
+  private String isRecurring;
 }
