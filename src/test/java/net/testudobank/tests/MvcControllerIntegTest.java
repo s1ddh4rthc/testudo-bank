@@ -202,6 +202,16 @@ public class MvcControllerIntegTest {
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
 
+  /*
+   * Verifies simple withdraw and convert to GBP case. 
+   * The customer's Balance in the Customers table should be decreased,
+   * the customer's BalanceGBP in the Customers table should be increased
+   * and the Withdraw should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not already in overdraft, the withdraw does not put customer in overdraft,
+   *  account is not frozen due to too many transaction disputes, etc.)
+   */
   @Test
   public void testSimpleWithdrawAndConvertGBP() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 100;
@@ -245,15 +255,23 @@ public class MvcControllerIntegTest {
     assertEquals(CUSTOMER1_EXPECTED_GBP_BALANCE_IN_PENNIES, (int)customer1Data.get("BalanceGBP"));
   }
 
+   /*
+   * Verifies simple withdraw and convert to INR case. 
+   * The customer's Balance in the Customers table should be decreased,
+   * the customer's BalanceGBP in the Customers table should be increased
+   * and the Withdraw should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not already in overdraft, the withdraw does not put customer in overdraft,
+   *  account is not frozen due to too many transaction disputes, etc.)
+   */
   @Test
   public void testSimpleWithdrawAndConvertINR() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 100;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    // double CUSTOMER1_INR_BALANCE = 0;
-    // int CUSTOMER1_INR_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_INR_BALANCE);
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, 0, 0, 0);
     // Prepare Withdraw Form to Withdraw $12.34 from customer 1's account.
-    double CUSTOMER1_AMOUNT_TO_CONVERT_TO_INR = 10; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_AMOUNT_TO_CONVERT_TO_INR = 1; // user input is in dollar amount, not pennies.
     User customer1ConvertFormInputs = new User();
     customer1ConvertFormInputs.setUsername(CUSTOMER1_ID);
     customer1ConvertFormInputs.setPassword(CUSTOMER1_PASSWORD);
@@ -279,17 +297,27 @@ public class MvcControllerIntegTest {
     Map<String,Object> customer1Data = customersTableData.get(0);
     assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
 
-    // verify customer balance was decreased by $10.00
+    // verify customer balance was decreased by $12.34
     double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE - CUSTOMER1_AMOUNT_TO_CONVERT_TO_INR;
     double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
     assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
 
-    // verify INR balance was increased by correct amount
-    double CUSTOMER1_EXPECTED_INR_BALANCE = CUSTOMER1_AMOUNT_TO_CONVERT_TO_INR * 83.48;
-    double CUSTOMER1_EXPECTED_INR_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_INR_BALANCE);
+    // verify GBP balance was increased by $8
+    double CUSTOMER1_EXPECTED_INR_BALANCE = CUSTOMER1_AMOUNT_TO_CONVERT_TO_INR;
+    double CUSTOMER1_EXPECTED_INR_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_INR_BALANCE) * 83.48;
     assertEquals(CUSTOMER1_EXPECTED_INR_BALANCE_IN_PENNIES, (int)customer1Data.get("BalanceINR"));
   }
 
+   /*
+   * Verifies simple withdraw and convert to CNY case. 
+   * The customer's Balance in the Customers table should be decreased,
+   * the customer's BalanceGBP in the Customers table should be increased
+   * and the Withdraw should be logged in the TransactionHistory table.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not already in overdraft, the withdraw does not put customer in overdraft,
+   *  account is not frozen due to too many transaction disputes, etc.)
+   */
   @Test
   public void testSimpleWithdrawAndConvertCNY() throws SQLException, ScriptException {
     double CUSTOMER1_BALANCE = 100;

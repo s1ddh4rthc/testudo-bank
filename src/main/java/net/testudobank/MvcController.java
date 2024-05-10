@@ -517,7 +517,7 @@ public class MvcController {
 
     //// Complete Convert Transaction ////
     String currencyToConvertTo = user.getCurrencyToConvertTo();
-    if (!currencyToConvertTo.equals("GBP") && !currencyToConvertTo.equals("CNY") && !currencyToConvertTo.equals("CNY")) {
+    if (!currencyToConvertTo.equals("GBP") && !currencyToConvertTo.equals("INR") && !currencyToConvertTo.equals("CNY")) {
       return "welcome";
     }
     else {
