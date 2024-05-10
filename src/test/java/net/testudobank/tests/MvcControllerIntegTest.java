@@ -363,6 +363,59 @@ public class MvcControllerIntegTest {
     assertEquals(CUSTOMER1_EXPECTED_CNY_BALANCE_IN_PENNIES, (int)customer1Data.get("BalanceCNY"));
   }
 
+  /*
+   * Verifies case where user inputs an invalid currency to convert to.
+   * In this case, the withdraw transaction should happen as planned, but the conversion should not happen.
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * (not already in overdraft, the withdraw does not put customer in overdraft,
+   *  account is not frozen due to too many transaction disputes, etc.)
+   */
+  @Test
+  public void testSimpleWithdrawAndConvertInvalid() throws SQLException, ScriptException {
+    double CUSTOMER1_BALANCE = 100;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    // double CUSTOMER1_INR_BALANCE = 0;
+    // int CUSTOMER1_INR_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_INR_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, 0, 0, 0);
+    // Prepare Withdraw Form to Withdraw $12.34 from customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_CONVERT_TO_AAA = 10; // user input is in dollar amount, not pennies.
+    User customer1ConvertFormInputs = new User();
+    customer1ConvertFormInputs.setUsername(CUSTOMER1_ID);
+    customer1ConvertFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1ConvertFormInputs.setAmountToConvert(CUSTOMER1_AMOUNT_TO_CONVERT_TO_AAA); // user input is in dollar amount, not pennies.
+    customer1ConvertFormInputs.setCurrencyToConvertTo("AAA");
+
+    // verify that there are no logs in TransactionHistory table before Withdraw
+    assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
+
+    // store timestamp of when Withdraw request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenWithdrawRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Withdraw Request is sent: " + timeWhenWithdrawRequestSent);
+
+    // send request to the Withdraw Form's POST handler in MvcController
+    controller.submitWithdrawAndConvert(customer1ConvertFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+  
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    // verify customer balance was decreased by $10.00
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_BALANCE - CUSTOMER1_AMOUNT_TO_CONVERT_TO_AAA;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+    // verify currency balances are still 0
+    assertEquals(0, (int)customer1Data.get("BalanceCNY"));
+    assertEquals(0, (int)customer1Data.get("BalanceGBP"));
+    assertEquals(0, (int)customer1Data.get("BalanceINR"));
+  }
+
   /**
    * Verifies the case where a customer withdraws more than their available balance.
    * The customer's main balance should be set to $0, and their Overdraft balance
