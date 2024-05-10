@@ -577,6 +577,7 @@ public class MvcController {
       } 
     } else { // Case when reversing a withdraw, deposit the money instead
       user.setAmountToDeposit(reversalAmount);
+      user.setIsRecurring("One Time");
       submitDeposit(user);
     }
 
@@ -662,6 +663,7 @@ public class MvcController {
     submitWithdraw(sender);
 
     recipient.setAmountToDeposit(transferAmount);
+    recipient.setIsRecurring("One Time");
     submitDeposit(recipient);
 
     // Inserting transfer into transfer history for both customers
@@ -826,6 +828,7 @@ public class MvcController {
     String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
 
     user.setAmountToDeposit(cryptoValueInDollars);
+    user.setIsRecurring("One Time");
     user.setCryptoTransaction(true);
 
     // TODO: I don't like how this is dependent on a string return value. Deposit logic should probably be extracted

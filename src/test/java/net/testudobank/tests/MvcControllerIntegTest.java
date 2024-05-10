@@ -487,6 +487,7 @@ public class MvcControllerIntegTest {
     // Prepare Reversal Form to reverse the Deposit
     User customer1ReversalFormInputs = customer1DepositFormInputs;
     customer1ReversalFormInputs.setNumTransactionsAgo(1); // reverse the most recent transaction
+    customer1DepositFormInputs.setIsRecurring("One Time");
 
     // store timestamp of when Reversal request is sent to verify timestamps in the TransactionHistory table later
     LocalDateTime timeWhenReversalRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
