@@ -238,7 +238,10 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setCreditScore(calculateCreditScore(user));
+
   }
+  
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
@@ -249,6 +252,20 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  // calculates total value of assets of crypto and account balance. Then calculates credit score using a factor of 0.0008
+
+  private double calculateCreditScore(User user){
+    double overdraftBalance = user.getOverDraftBalance();
+    if (overdraftBalance > 0){
+      return 0;
+    }
+    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+    double cryptoBalance = user.getCryptoBalanceUSD() * 100;
+    double totalBalance = balanceInPennies + cryptoBalance;
+    double creditScore = Math.min(800, (totalBalance * 0.0008));
+    return creditScore;
   }
 
   // HTML POST HANDLERS ////

@@ -34,6 +34,7 @@
 		<span>Balance: $</span><span>${user.balance}</span><br/>
     <span>Overdraft Balance: $</span><span>${user.overDraftBalance}</span><br/>
     <span>Crypto Balance in USD: $</span><span>${user.cryptoBalanceUSD}</span><br/>
+    <span>CreditScore (0-800): </span><span>${user.creditScore}</span>
     <span>Ethereum Coins Owned: </span><span>${user.ethBalance}</span><br/>
     <span>Solana Coins Owned: </span><span>${user.solBalance}</span><br/>
     <span>Current $ETH Price: </span><span>${user.ethPrice}</span><br/>

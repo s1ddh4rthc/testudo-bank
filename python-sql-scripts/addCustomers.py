@@ -92,6 +92,15 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty CreditScore table
+create_creditScore_table_sql = '''
+CREATE TABLE CreditScore (
+  CustomerID varchar(255),
+  CreditScore decimal(5,2)
+);
+'''
+cursor.execute(create_creditScore_table_sql)
+
 
 
 # The two sets created below are used to ensure that this
@@ -117,12 +126,17 @@ for i in range(num_customers_to_add):
   # don't add row if someone already has this ID (really unlikely)
   if (customer_id not in ids_in_db and customer_id not in ids_just_added):
 
-    # generate random name, balance, and password
+    # generate random name, balance, password, and credit score
     customer_first_name = names.get_first_name()
     customer_last_name = names.get_last_name()
     customer_balance = random.randint(100, 10000) * 100 # multiply by 100 to have a penny value of 0
     customer_password = ''.join(random.choices(string.ascii_lowercase + string.ascii_uppercase + string.digits, k = 9))
-    
+    customer_creditScore = customer_balance * 0.0008  # Each penny would add 0.0008 to the credit score
+
+    # a customer can have a maximum of 800 as their credit score
+
+    if (customer_creditScore > 800):
+      customer_creditScore = 800
     # add random customer ID, name, and balance to Customers table.
     # all customers start with Overdraft balance of 0
     # all customers start with a NumFraudReversals of 0
@@ -146,6 +160,15 @@ for i in range(num_customers_to_add):
     '''.format("'" + customer_id + "'",
                 "'" + customer_password + "'")
     cursor.execute(insert_password_sql)
+
+    # add customer ID and creditScore to CreditScore table
+
+    insert_creditScore_sql = '''
+    INSERT INTO CreditScore
+    VALUES  ({0},{1});
+    '''.format("'" + customer_id + "'",
+                customer_creditScore)
+    cursor.execute(insert_creditScore_sql)
     
     # add this customer's randomly-generated ID to the set
     # to ensure this ID is not re-used by accident.
