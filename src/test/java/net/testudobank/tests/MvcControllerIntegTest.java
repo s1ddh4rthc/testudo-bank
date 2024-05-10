@@ -1775,7 +1775,9 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     assertEquals(1, transactionHistoryTableData.size());
   }
 
-
+/**
+ * Tests to make sure interest is not applied after 5 transactions
+ */
 @Test
 public void testInterestNotAppliedAfter5Transactions() throws SQLException, ScriptException {
     // Initial balance and deposits
@@ -1801,6 +1803,144 @@ public void testInterestNotAppliedAfter5Transactions() throws SQLException, Scri
     List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
     assertEquals(6, transactionHistoryTableData.size()); // Expect 6 transactions
 }
+
+/**
+ * Checks case if there is a dispute on a transaction that is not there
+ */
+@Test
+public void testDisputeOnNonExistentTransaction() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+
+    // Attempt to dispute a non-existent transaction
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1); // Dispute the most recent (non-existent) transaction
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+    assertEquals("error", responsePage); // Expected to return an error page
+
+    // Verify customer data remains unchanged
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(INITIAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(0, (int) customer1Data.get("NumFraudReversals"));
+}
+
+/**
+ * Tests event handling on test case where there are multiple disputes on the same transaction
+ */
+@Test
+public void testMultipleDisputesOnSameTransaction() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account and perform a deposit
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+    double depositAmount = 50.0;
+    User depositFormInputs = new User();
+    depositFormInputs.setUsername(CUSTOMER1_ID);
+    depositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    depositFormInputs.setAmountToDeposit(depositAmount);
+    controller.submitDeposit(depositFormInputs);
+
+    // Dispute the deposit transaction twice
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1);
+
+    controller.submitDispute(disputeFormInputs); // First dispute
+    String responsePage = controller.submitDispute(disputeFormInputs); // Second dispute
+
+    // Verify expected behavior (e.g., second dispute ignored, manual review triggered, etc.)
+    assertEquals("manual_review", responsePage);
+
+    // Check customer data and transaction history as needed
+    // ...
+}
+
+/**
+ * Tests that you cannot cross over the set limit of disputes
+ */
+@Test
+public void testDisputeLimitReached() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account with maximum allowed disputes
+    int maxDisputes = MvcController.MAX_DISPUTES;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0, maxDisputes);
+
+    // Attempt to submit a new dispute
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1);
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+    assertEquals("dispute_limit_reached", responsePage); // Expected to return a specific page or message
+
+    // Verify customer data remains unchanged
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(INITIAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(maxDisputes, (int) customer1Data.get("NumFraudReversals"));
+}
+
+
+/**
+ * Ensures the automatic dispute reversal works as intended.
+ */
+@Test
+public void testAutomatedReversalCriteria() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account and perform a transaction
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+    double transactionAmount = 50.0;
+    User transactionFormInputs = new User();
+    transactionFormInputs.setUsername(CUSTOMER1_ID);
+    transactionFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    transactionFormInputs.setAmountToDeposit(transactionAmount); // Or setAmountToWithdraw()
+    controller.submitDeposit(transactionFormInputs); // Or submitWithdraw()
+
+    // Dispute the transaction
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1);
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+
+    // Verify the expected behavior based on the automated reversal criteria
+    if (transactionAmount <= AUTOMATED_REVERSAL_THRESHOLD) {
+        assertEquals("automated_reversal", responsePage);
+        // Check customer balance and transaction history for automatic reversal
+    } else {
+        assertEquals("manual_review", responsePage);
+        // Check customer data remains unchanged
+    }
+}
+
+/**
+ * Tests error handling when user makes an improper dispute
+ */
+@Test
+public void testIncorrectUserInput() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+
+    // Attempt to dispute with invalid input
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(-1); // Invalid transaction index
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+    assertEquals("input_error", responsePage); // Expected to return an input error page
+
+    // Verify customer data remains unchanged
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(INITIAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(0, (int) customer1Data.get("NumFraudReversals"));
+}
+
+
 
 
 }
