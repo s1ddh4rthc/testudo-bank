@@ -64,6 +64,20 @@ public class User {
   @Setter @Getter
   private String transferHist;
 
+  //// Request Fields ////
+
+  @Setter @Getter
+  private double amountToRequest;
+
+  @Setter @Getter
+  private String requestRecipientID;
+
+  @Setter @Getter
+  private String pendingRequests;
+
+  @Setter @Getter
+  private String requestHist;
+
   //// Crypto Fields ////
 
   @Setter @Getter

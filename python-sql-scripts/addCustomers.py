@@ -68,6 +68,18 @@ CREATE TABLE TransferHistory (
 '''
 cursor.execute(create_transferhistory_table_sql)
 
+print("\n\n\n\n\nCREATING REQUESTS TABLE\n\n\n\n\n")
+
+# Make empty Requests table
+create_requests_table_sql= '''
+CREATE TABLE RequestHist (
+  RequestFrom varchar(255),
+  RequestTo varchar(255),
+  Timestamp DATETIME,
+  Status varchar(255),
+  Amount int
+)'''
+cursor.execute(create_requests_table_sql)
 
 # Make empty CryptoHoldings table
 create_cryptoholdings_table_sql = '''

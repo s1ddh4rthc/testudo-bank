@@ -1117,6 +1117,128 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
   }
 
   /**
+   * This test verifies that a simple request of $100 from Customer1 to Customer2 will take place. Customer1's balance will be
+   * initialized to $1000, and Customer2's balance will be $500. 
+   * 
+   * After a successful request, neither balance should change.
+   * 
+   * @throws SQLException
+   */
+  @Test
+  public void testSimpleRequest() throws SQLException, ScriptException {
+    //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    //Initialize customer2 with a balance of $500. Balance will be represented as pennies in DB. 
+    double CUSTOMER2_BALANCE = 500;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    //Amount to transfer
+    double TRANSFER_AMOUNT = 100;
+    int TRANSFER_AMOUNT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(TRANSFER_AMOUNT);
+
+    //Initializing users for the transfer
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+    CUSTOMER1.setTransferRecipientID(CUSTOMER2_ID);
+    CUSTOMER1.setAmountToTransfer(TRANSFER_AMOUNT);
+
+    LocalDateTime requestTime = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    
+    //Send the transfer request.
+    String returnedPage = controller.submitRequest(CUSTOMER1);
+    
+    //Fetch customer1 & customer2's data from DB
+    List<Map<String, Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+    Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+    List<Map<String, Object>> customer2SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER2_ID));
+    Map<String, Object> customer2Data = customer2SqlResult.get(0);
+   
+    //Verify that customer1's balance did not decrease by $100. 
+    assertEquals((CUSTOMER1_BALANCE_IN_PENNIES), (int)customer1Data.get("Balance"));
+
+    //Verify that customer2's balance did not increase by $100.
+    assertEquals((CUSTOMER2_BALANCE_IN_PENNIES), (int)customer2Data.get("Balance"));
+
+    List<Map<String, Object>> pendingRequestsTableData = jdbcTemplate.queryForList("SELECT * FROM PendingRequests ORDER BY Timestamp DESC;");
+    Map<String, Object> customer1RequestLog = pendingRequestsTableData.get(0);
+
+    MvcControllerIntegTestHelpers.checkRequestLog(customer1RequestLog, requestTime, CUSTOMER1_ID, CUSTOMER2_ID, "pending", TRANSFER_AMOUNT_IN_PENNIES);
+
+    //Check that transfer request goes through.
+    assertEquals("account_info", returnedPage);
+  }
+
+  /**
+   * This test verifies that a request of $100 from Customer1 to Customer2 will take place. Customer1's balance will be
+   * initialized to $1000, and Customer2's balance will be $500. 
+   * 
+   * After a successful transfer fulfilling the request, Customer1's balance should reflect a $1100 balance, and 
+   * Customer2's balance should be $400. 
+   * 
+   * @throws SQLException
+   */
+  @Test
+  public void testCompleteRequest() throws SQLException, ScriptException {
+    //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    //Initialize customer2 with a balance of $500. Balance will be represented as pennies in DB. 
+    double CUSTOMER2_BALANCE = 500;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    //Amount to transfer
+    double TRANSFER_AMOUNT = 100;
+    int TRANSFER_AMOUNT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(TRANSFER_AMOUNT);
+
+    //Initializing users for the transfer
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+    CUSTOMER1.setTransferRecipientID(CUSTOMER2_ID);
+    CUSTOMER1.setAmountToTransfer(TRANSFER_AMOUNT);
+
+    LocalDateTime requestTime = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    
+    //Send the transfer request.
+    String returnedPage = controller.submitRequest(CUSTOMER1);
+    
+    //Fetch customer1 & customer2's data from DB
+    List<Map<String, Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+    Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+    List<Map<String, Object>> customer2SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER2_ID));
+    Map<String, Object> customer2Data = customer2SqlResult.get(0);
+   
+    //Verify that customer1's balance increased by $100. 
+    assertEquals((CUSTOMER1_BALANCE_IN_PENNIES) + 100, (int)customer1Data.get("Balance"));
+
+    //Verify that customer2's balance decreased by $100.
+    assertEquals((CUSTOMER2_BALANCE_IN_PENNIES) - 100, (int)customer2Data.get("Balance"));
+
+    //Verify that the request is no longer viewed as pending
+    List<Map<String, Object>> pendingRequestsTableData = jdbcTemplate.queryForList("SELECT * FROM RequestHist WHERE Status='pending' ORDER BY Timestamp DESC;");
+    assertEquals(pendingRequestsTableData.size(), 0);
+
+    List<Map<String, Object>> requestHistData = jdbcTemplate.queryForList("SELECT * FROM RequestHist WHERE Status='completed' ORDER BY Timestamp DESC;");
+    Map<String, Object> requestLog = requestHistData.get(0);
+    assertEquals(requestLog.get("RequestFrom").toString(), customer1Data.get("CustomerID").toString());
+    assertEquals(requestLog.get("RequestTo").toString(), customer2Data.get("CustomerID").toString());
+    assertEquals(requestLog.get("Status"), "completed");
+    
+    //Check that transfer request goes through.
+    assertEquals("account_info", returnedPage);
+  }
+
+  /**
    * Enum for {@link CryptoTransactionTester}
    */
   @AllArgsConstructor
@@ -1576,6 +1698,104 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .cryptoPrice(-1)
             .cryptoAmountToTransact(0.1)
             .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+
+  /**
+   * Test that the user can buy ETH and SOL and sell SOL in valid transactions
+   *
+   * @throws ScriptException
+   */
+  @Test
+  public void testValidCryptoBuyETHandSOLSellSOL() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .numTransactions(0)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransactionETHBuy = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionETHBuy);
+
+    CryptoTransaction cryptoTransactionSOLBuy = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(700)
+            .expectedEndingCryptoBalance(0.1)
+            .cryptoPrice(2000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester.test(cryptoTransactionSOLBuy);
+
+    CryptoTransaction cryptoTransactionSOLSell = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(900)
+            .expectedEndingCryptoBalance(0)
+            .cryptoPrice(2000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+
+    cryptoTransactionTester.test(cryptoTransactionSOLSell);
+  }
+
+  /**
+   * Test that the user cannot buy BTC, an unsupported cryptocurrency
+   *
+   * @throws ScriptException
+   */
+  @Test
+  public void testInvalidCryptoBuyBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoAmountToTransact(10)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Test that the user cannot sell BTC, an unsupported cryptocurrency
+   *
+   * @throws ScriptException
+   */
+  @Test
+  public void testInvalidCryptoSellBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoAmountToTransact(10)
+            .cryptoName("BTC")
             .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
             .shouldSucceed(false)
             .build();
