@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -205,6 +206,32 @@ public class MvcControllerIntegTest {
       // Verify the message of the exception
       assertEquals("Deadline cannot be in the past", exception.getMessage());
   }
+
+  @Test
+  public void testAutomatedTransferWithSystemError() {
+      // Arrange
+      double transferAmount = 500.00;
+      SavingsAccount fromAccount = new SavingsAccount("Acc001", "Cust001", 1000.00, 0.01);
+      SavingsAccount toAccount = new SavingsAccount("Acc002", "Cust002", 500.00, 0.01);
+  
+      when(savingsRepository.findSavingsAccountById("Acc001")).thenReturn(fromAccount);
+      when(savingsRepository.findSavingsAccountById("Acc002")).thenReturn(toAccount);
+  
+      // Simulate a system error during the transfer
+      doThrow(new DataAccessException("Database error") {}).when(savingsRepository).save(fromAccount);
+  
+      // Act
+      Exception exception = assertThrows(DataAccessException.class, () -> {
+          savingsService.transferBetweenAccounts("Acc001", "Acc002", transferAmount);
+      });
+  
+      // Assert
+      verify(savingsRepository, times(1)).save(fromAccount);  // Verify save was attempted
+      verify(savingsRepository, never()).save(toAccount);     // Ensure toAccount was not saved due to error
+  
+      // Verify the correct exception message
+      assertEquals("Database error", exception.getMessage());
+  }  
 
   /**
    * Verifies the simplest deposit case.
