@@ -5,10 +5,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import yahoofinance.YahooFinance;
-
-import java.io.IOException;
-
 @Component
 public class CryptoPriceClient {
     /**
@@ -82,7 +78,6 @@ public class CryptoPriceClient {
       //       return -1;
       //   }
     }
-
 
     /**
      * Clear the cached price of ethereum.

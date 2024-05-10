@@ -92,7 +92,14 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
-
+create_stockholdings_table_sql = '''
+CREATE TABLE StockHoldings (
+    CustomerID varchar(255),
+    Ticker varchar(255)
+    Shares decimal(10, 2)
+);
+'''
+cursor.execute(create_stockholdings_table_sql)
 
 # The two sets created below are used to ensure that this
 # automated, randomized process does not accidentally 
