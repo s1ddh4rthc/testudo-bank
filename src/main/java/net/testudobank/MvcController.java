@@ -41,6 +41,9 @@ public class MvcController {
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
+
+  public static  String BILLPAY_SEND = "BillPaySent";
+  public static  String BILLPAY_RECIEVED = "BillPayRecieved";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
@@ -832,6 +835,57 @@ public class MvcController {
     }
     return "account_info";
 
+  }
+  /**
+   * Handles login attempts from login page.
+   * If the login information correct, and the
+   * purchase amount is a positive value, that amount is subtracted from the sender's balance and added to the payee's balance. 
+   * <br>
+   * If the amount the sender is sends exceeds their balance, the difference will go into their overdraft with interested applied.
+   * @param sender
+   * @param payee
+   * @param amount
+   * @return "account_info" if bill is sent successfully from sender to payee. Otherwises, redirects to "welcome".
+   */
+  public String billPaySend(@ModelAttribute("user") User sender,@ModelAttribute("user") User payee, double amount ){
+    String senderUserID = sender.getUsername(), payeeUserID = payee.getUsername();
+    String senderPasswordAttempt = sender.getPassword();
+    String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
+    int senderOverdraftAmountInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, senderUserID);
+  
+    /*Incorrect password */
+    if(!senderPasswordAttempt.equals(senderPassword)){
+      return "welcome";
+    }
+    int amountInPennies = convertDollarsToPennies(amount);
+    
+    /*negative amounts and 0 amounts are not allowed  */
+    if(amountInPennies<=0){
+      return "welcome";
+    }
+    /*Case where sender tries to pay themselves */
+    if(senderUserID.equals(payeeUserID)){
+      return "welcome";
+    }
+    /*Case where sender tries to pay while in overdraft*/
+    if(senderOverdraftAmountInPennies>0){
+      return "welcome";
+    }
+    
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    
+    //widthdraw bill pay amount from sender
+    sender.setAmountToWithdraw(amountInPennies);
+    submitWithdraw(sender);
+
+    //deposit bill pay amount to payee
+    payee.setAmountToDeposit(amountInPennies);
+    submitDeposit(payee);
+    
+    
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, senderUserID, BILLPAY_SEND, currentTime, amountInPennies);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, payeeUserID, BILLPAY_RECIEVED, currentTime, amountInPennies);
+    return "account_info";
   }
 
 }
