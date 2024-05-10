@@ -46,11 +46,17 @@
       <form:input path="numTransactionsAgo"/><br/>  
         
       <form:button>Reverse</form:button> -->
-			<form:label path="transactionId">Transaction ID:</form:label>
+      <label for="timestamp">Transaction Date and Time:</label>
+      <input type="datetime-local" id="timestamp" name="timestamp" required><br>
+      <label for="amount">Transaction Amount:</label>
+      <input type="number" id="amount" name="amount" step="0.01" required><br>
+      <button type="submit">Submit Dispute</button>
+
+			<!-- <form:label path="transactionId">Transaction ID:</form:label>
 			<form:input path="transactionId"/><br/>
 			<form:label path="disputeReason">Reason for Dispute:</form:label>
 			<form:input path="disputeReason"/><br/>
-			<button type="submit">Submit Dispute</button>
+			<button type="submit">Submit Dispute</button> -->
 		</form:form>
     <a href='/'>Home</a>
 	</div>

@@ -510,9 +510,9 @@ public class MvcController {
     if (needsManualReview) {
       return handleManualReview(user);
     } 
-    // else {
-    // //   return handleAutomaticReversal(user);
-    // // }
+    else {
+      return handleAutomaticReversal(user);
+    }
 
 
     
@@ -591,13 +591,16 @@ public class MvcController {
   private String handleAutomaticReversal(User user) {
     // Reverse the transaction automatically
     boolean reversalSuccess = TestudoBankRepository.reverseTransaction(jdbcTemplate, user.getTransactionId());
+    // if (reversalSuccess) {
+    //     // Fetch the current balance in pennies
+    //     int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUserId());
+    //     // Update user's account balance
+    //     TestudoBankRepository.updateAccountBalance(jdbcTemplate, user.getUserId(), currentBalanceInPennies);
+    //     // Log the successful reversal
+    //     TestudoBankRepository.logSuccessfulReversal(jdbcTemplate, user.getUserId(), user.getTransactionId());
     if (reversalSuccess) {
-        // Fetch the current balance in pennies
-        int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUserId());
         // Update user's account balance
-        TestudoBankRepository.updateAccountBalance(jdbcTemplate, user.getUserId(), currentBalanceInPennies);
-        // Log the successful reversal
-        TestudoBankRepository.logSuccessfulReversal(jdbcTemplate, user.getUserId(), user.getTransactionId());
+        TestudoBankRepository.updateAccountBalance(jdbcTemplate, user.getUsername(), -user.getTransactionAmount());    
         return "redirect:/reversal_success";
     } else {
         // Handle failure (e.g., transaction could not be reversed)

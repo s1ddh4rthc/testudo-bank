@@ -179,9 +179,9 @@ public class TestudoBankRepository {
     jdbcTemplate.update(sql, customerID, transactionID);
   }
 
-  public static boolean reverseTransaction(JdbcTemplate jdbcTemplate, String transactionID) {
-    String sql = "UPDATE TransactionHistory SET Status = 'Reversed' WHERE TransactionID = ?";
-    int rowsAffected = jdbcTemplate.update(sql, transactionID);
+  public static boolean reverseTransactionByDetails(JdbcTemplate jdbcTemplate, String username, LocalDateTime timestamp, double amount) {
+    String sql = "UPDATE TransactionHistory SET isReversed = TRUE WHERE Username = ? AND Timestamp = ? AND Amount = ? AND isReversed = FALSE";
+    int rowsAffected = jdbcTemplate.update(sql, username, timestamp, amount);
     return rowsAffected > 0;
   }
 
