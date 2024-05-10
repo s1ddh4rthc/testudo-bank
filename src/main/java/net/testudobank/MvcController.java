@@ -40,6 +40,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES = 10000;
+  private final static int DAYS_TO_REPAY_LOAN = 30;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_INTEREST_APPLIED = "InterestApplied";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
@@ -131,6 +133,32 @@ public class MvcController {
 		model.addAttribute("user", user);
 		return "dispute_form";
 	}
+
+    /**
+   * HTML GET request handler that serves the "request_loan" page to the user.
+   * 
+   * @param model
+   * @return "request_loan" page
+   */
+  @GetMapping("/requestLoan")
+  public String showRequestLoanForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "requestloan_form";
+  }
+
+  /**
+   * HTML GET request handler that serves the "payloan_form" page to the user.
+   * 
+   * @param model
+   * @return "payloan_form" page
+   */
+  @GetMapping("/payLoan")
+  public String showPayLoanForm(Model model) {
+    User user = new User();
+    model.addAttribute("user", user);
+    return "payloan_form";
+  }
 
   /**
    * HTML GET request handler that serves the "transfer_form" page to the user.
@@ -367,6 +395,9 @@ public class MvcController {
     updateAccountInfo(user);
     return "account_info";
   }
+
+
+  
 	
   /**
    * HTML POST request handler for the Withdraw Form page.
@@ -452,6 +483,103 @@ public class MvcController {
     return "account_info";
 
   }
+
+/**
+ * Calculates the loan amount due including a 2% interest rate.
+ * 
+ * @param requestedAmount The amount of loan requested in pennies.
+ * @return The total loan amount due including interest, in pennies.
+ */
+
+public static double calculateLoanAmount(double requestedAmount) {
+  double interestRate = 1.02; // 2% interest rate
+  return Math.ceil(requestedAmount * interestRate);
+}
+
+/**
+ * HTML POST request handler for the Loan Request page.
+ * 
+ * Checks if the user has an existing loan and if the user's balance meets the minimum required balance for a new loan.
+ * If the user has no existing loans and meets balance requirements, a loan is granted with a calculated due date and amount.
+ * 
+ * If the conditions are not met, the user is redirected to the "loan_denied" page.
+ * 
+ * @param user the User model attribute containing loan request details.
+ * @return "account_info" page if loan is granted. Otherwise, redirect to "loan_denied" page.
+ */
+
+  @PostMapping("/requestLoan")
+  public String requestLoan(@ModelAttribute("user") User user) {
+      String userID = user.getUsername();
+      double userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+      System.out.println("Checking if customer has existing loan...");
+      System.out.println("Customer loan status: " + TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID));
+      System.out.println("Customer balance: " + userBalanceInPennies);
+      System.out.println("Minimum balance required: " + MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES);
+
+      if (!TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID) && userBalanceInPennies >= MINIMUM_BALANCE_FOR_LOAN_IN_PENNIES) {
+          double loanAmount = calculateLoanAmount(user.getLoanRequestAmount()); // Define this method based on your business logic
+
+          System.out.println("Requested Loan Amount: " + user.getLoanRequestAmount());
+
+          LocalDateTime loanRequestTime = LocalDateTime.now();
+          LocalDateTime loanDueTime = loanRequestTime.plusDays(DAYS_TO_REPAY_LOAN);
+          String loanDueDate = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(loanDueTime));
+
+          TestudoBankRepository.updateLoanBalance(jdbcTemplate, userID, loanAmount, loanDueDate);
+          user.setLoanDueDate(loanDueDate);
+          System.out.println("Requested Loan Amount + Interest: " + loanAmount);
+          user.setLoanAmount(loanAmount);
+          updateAccountInfo(user);
+          return "account_info";
+      }
+
+      return "loan_denied";
+  }
+
+  /**
+ * HTML POST request handler for the Loan Payment page.
+ * 
+ * Uses the same authentication method as the login page.
+ * 
+ * If the customer does not have an active loan, the user is redirected to an error page.
+ * If the payment amount is equal to or greater than the loan amount, the loan is considered fully repaid, and balances are updated accordingly.
+ * For partial repayments, the new loan balance and due date are recalculated and updated.
+ * 
+ * @param user the User model attribute containing loan repayment details.
+ * @return "account_info" page if the operation is successful. Otherwise, redirect to "payloan_error" page.
+ */
+
+  @PostMapping("/payLoan")
+  public String payLoan(@ModelAttribute("user") User user) {
+      String userID = user.getUsername();
+      double loanAmount = convertDollarsToPennies(user.getLoanAmount());
+      int paymentAmount = convertDollarsToPennies(user.getLoanRepayAmount()); // User specifies how much they want to pay
+
+      if (!TestudoBankRepository.doesCustomerHaveLoan(jdbcTemplate, userID)) {
+        return "payloan_error";
+      }
+
+      double newBalance = loanAmount - paymentAmount;
+      System.out.println("Amount Owed: " + newBalance);
+
+      if (paymentAmount >= loanAmount) {
+          // Full repayment
+          TestudoBankRepository.updateLoanBalance(jdbcTemplate, userID, 0, null); // Reset the loan amount and due date
+      } else {
+          // Partial repayment
+              // Add loan to account
+          LocalDateTime loanRequestTime = LocalDateTime.now();
+          LocalDateTime loanDueTime = loanRequestTime.plusDays(DAYS_TO_REPAY_LOAN);
+          String loanDueDate = SQL_DATETIME_FORMATTER.format(convertLocalDateTimeToDate(loanDueTime));
+          user.setLoanDueDate(loanDueDate);
+          TestudoBankRepository.updateLoanBalance(jdbcTemplate, userID, newBalance, loanDueDate); // Deduct the payment amount from the loan
+      }
+      updateAccountInfo(user);
+      return "account_info";
+  }
+
 
   /**
    * HTML POST request handler for the Dispute Form page.

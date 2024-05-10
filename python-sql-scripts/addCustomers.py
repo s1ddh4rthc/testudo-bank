@@ -20,7 +20,9 @@ create_customer_table_sql = '''
     Balance int,
     OverdraftBalance int,
     NumFraudReversals int,
-    NumDepositsForInterest int
+    NumDepositsForInterest int,
+    LoanAmount int,
+    LoanDueDate DATETIME
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -33,6 +35,16 @@ CREATE TABLE Passwords (
 );
 '''
 cursor.execute(create_password_table_sql)
+
+# Make empty Loans table
+create_loans_table_sql = '''
+CREATE TABLE Loans (
+  CustomerID varchar(255) NOT NULL,
+  LoanAmount int NOT NULL,
+  LoanDueDate DATETIME NOT NULL
+);
+'''
+cursor.execute(create_loans_table_sql)
 
 # Make empty OverdraftLogs table
 create_overdraftlogs_table_sql = '''
@@ -127,18 +139,13 @@ for i in range(num_customers_to_add):
     # all customers start with Overdraft balance of 0
     # all customers start with a NumFraudReversals of 0
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
-    insert_customer_sql = '''
-    INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
-    '''.format("'" + customer_id + "'",
-                "'" + customer_first_name + "'",
-                "'" + customer_last_name + "'",
-                customer_balance,
-                0,
-                0,
-                0)
-    cursor.execute(insert_customer_sql)
-    
+    # Insert customer into Customers table
+    insert_customer_sql = """
+        INSERT INTO Customers (CustomerID, FirstName, LastName, Balance, OverdraftBalance, NumFraudReversals, NumDepositsForInterest, LoanAmount, LoanDueDate)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+    """
+    cursor.execute(insert_customer_sql, (customer_id, customer_first_name, customer_last_name, customer_balance, 0, 0, 0, 0, None))
+
     # add customer ID and password to Passwords table
     insert_password_sql = '''
     INSERT INTO Passwords

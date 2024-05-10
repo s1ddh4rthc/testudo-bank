@@ -80,6 +80,20 @@ public class TestudoBankRepository {
     return numberOfDepositsForInterest;
   }
 
+    // Retrieves the due date for the current loan
+  public static String getLoanDueDate(JdbcTemplate jdbcTemplate, String customerID) {
+    String sql = "SELECT LoanDueDate FROM Customers WHERE CustomerID=?";
+    String loanDueDate = jdbcTemplate.queryForObject(sql,  String.class);
+    return loanDueDate != null ? loanDueDate : "No open loans";
+  }
+
+  // Retrieves the amount of the current loan in pennies
+  public static int getLoanAmountDueInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String sql = "SELECT LoanAmount FROM Customers WHERE CustomerID=?";
+    Integer loanAmount = jdbcTemplate.queryForObject(sql, new Object[]{customerID}, Integer.class);
+    return loanAmount != null ? loanAmount : 0;
+  }
+
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
     String customerInterestDepositsSql = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", numDepositsForInterest, customerID);
     jdbcTemplate.update(customerInterestDepositsSql);
@@ -145,6 +159,11 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceDecreaseSql);
   }
 
+  public static void decreaseRemainingLoanAmount(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
+    String loanAmountDecreaseSql = String.format("UPDATE Loans SET LoanAmount = LoanAmount - %d WHERE CustomerID='%s';", decreaseAmtInPennies, customerID);
+    jdbcTemplate.update(loanAmountDecreaseSql);
+  }
+
   public static void decreaseCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName, double decreaseAmt) {
     String balanceDecreaseSql = "UPDATE CryptoHoldings SET CryptoAmount = CryptoAmount - ? WHERE CustomerID= ? AND CryptoName= ?";
     jdbcTemplate.update(balanceDecreaseSql, decreaseAmt, customerID, cryptoName);
@@ -153,6 +172,11 @@ public class TestudoBankRepository {
   public static void deleteRowFromOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp) {
     String deleteRowFromOverdraftLogsSql = String.format("DELETE from OverdraftLogs where CustomerID='%s' AND Timestamp='%s';", customerID, timestamp);
     jdbcTemplate.update(deleteRowFromOverdraftLogsSql);
+  }
+
+  public static void deleteRowFromLoansTable(JdbcTemplate jdbcTemplate, String customerID) {
+    String deleteRowFromLoansTableSql = String.format("DELETE from Loans where CustomerID='%s';", customerID);
+    jdbcTemplate.update(deleteRowFromLoansTableSql);
   }
 
   public static void insertRowToTransferLogsTable(JdbcTemplate jdbcTemplate, String customerID, String recipientID, String timestamp, int transferAmount) {
@@ -168,13 +192,21 @@ public class TestudoBankRepository {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
   }
-  
-  public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 
-    String getCustomerIDSql =  String.format("SELECT CustomerID FROM Customers WHERE CustomerID='%s';", customerID);
-    if (jdbcTemplate.queryForObject(getCustomerIDSql, String.class) != null) {
-     return true;
-    } else {
-      return false;
-    }
+
+  public static void insertRowToLoansTable(JdbcTemplate jdbcTemplate, String customerID, int loanAmount, String loanDueDate) {
+    String insertLoanSql = "INSERT INTO Loans (CustomerID, LoanAmount, LoanDueDate) VALUES (?, ?, ?)";
+    jdbcTemplate.update(insertLoanSql, customerID, loanAmount, loanDueDate);
+  }
+
+  public static boolean doesCustomerHaveLoan(JdbcTemplate jdbcTemplate, String customerID) {
+    String sql = "SELECT LoanAmount FROM Customers WHERE CustomerID = ?";
+    Integer loanAmount = jdbcTemplate.queryForObject(sql, new Object[]{customerID}, Integer.class);
+    return loanAmount != 0 && loanAmount > 0;
+  }
+
+  // Updates or sets a new loan for the customer
+  public static void updateLoanBalance(JdbcTemplate jdbcTemplate, String customerID, double newLoanAmount, String newLoanDueDate) {
+    String sql = "UPDATE Customers SET LoanAmount=?, LoanDueDate=? WHERE CustomerID=?";
+    jdbcTemplate.update(sql, newLoanAmount, newLoanDueDate, customerID);
   }
 }
