@@ -5,7 +5,9 @@ CREATE TABLE Customers (
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
-  NumDepositsForInterest int
+  NumDepositsForInterest int,
+  SavingsBalance int,
+  SpendingBalance int
 );
 
 CREATE TABLE Passwords (

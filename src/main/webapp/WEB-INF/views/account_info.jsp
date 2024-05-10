@@ -42,7 +42,14 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <h2>Savings/spending breakdown</h2>
+    <div class="piechart"></div>
+    <span>Savings: </span><span>${user.savingsBalance} dollars </span>
+    <br />
+    <span>Spending: </span><span>${user.spendingBalance} dollars </span>
     <br/>
+    <span>Savings to spending ratio: </span><span>${user.savingsBalance} to </span>
+    <span>${user.spendingBalance}</span><br />
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>

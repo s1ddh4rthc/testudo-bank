@@ -40,6 +40,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MAX_SAVINGS_GRAPHIC_TRANSACTIONS = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -214,7 +215,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest, SavingsBalance, SpendingBalance FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -239,6 +240,8 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setSavingsBalance((int) userData.get("SavingsBalance")/100.0);
+    user.setSpendingBalance((int) userData.get("SpendingBalance")/100);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -365,6 +368,26 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+    List<Map<String,Object>> recentDeposits = TestudoBankRepository.getRecentDeposits(jdbcTemplate, userID, MAX_SAVINGS_GRAPHIC_TRANSACTIONS);
+    int aggregateSavings = 0;
+
+    // Adds up last 5 deposits as savings
+    for (Map<String, Object> depositInfo : recentDeposits) {
+      if (depositInfo.containsKey("Amount")) {
+        aggregateSavings += (Integer) depositInfo.get("Amount");
+      }
+    }
+
+    System.out.println(aggregateSavings);
+
+    // Saves aggregate savings from last 5 deposits as savings in database
+    TestudoBankRepository.setSavingsBalance(jdbcTemplate, userID, aggregateSavings);
+
+    // System.out.println(aggregateSavings);
+    // if (recentDeposits.size() > 0) {
+    //   System.out.println(recentDeposits.get(0));
+    // }
+
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
     updateAccountInfo(user);
@@ -449,11 +472,24 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
     }
 
+    List<Map<String,Object>> recentDeposits = TestudoBankRepository.getRecentWithdrawals(jdbcTemplate, userID, MAX_SAVINGS_GRAPHIC_TRANSACTIONS);
+    int aggregateWithdrawals = 0;
+
+    // Gets latest 5 withdrawals and adds them up
+    for (Map<String, Object> withdrawInfo : recentDeposits) {
+      if (withdrawInfo.containsKey("Amount")) {
+        aggregateWithdrawals += (Integer) withdrawInfo.get("Amount");
+      }
+    }
+
+    System.out.println(aggregateWithdrawals);
+
+    // Saves last 5 withdrawal sum as spending in database
+    TestudoBankRepository.setSpendingBalance(jdbcTemplate, userID, aggregateWithdrawals);
   
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
-
   }
 
   /**

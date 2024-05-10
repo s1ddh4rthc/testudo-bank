@@ -184,7 +184,6 @@ public class MvcControllerIntegTest {
     customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
     customer1WithdrawFormInputs.setAmountToWithdraw(CUSTOMER1_AMOUNT_TO_WITHDRAW); // user input is in dollar amount,
                                                                                    // not pennies.
-
     // verify that there are no logs in TransactionHistory table before Withdraw
     assertEquals(0, jdbcTemplate.queryForObject("SELECT COUNT(*) FROM TransactionHistory;", Integer.class));
 
@@ -224,6 +223,331 @@ public class MvcControllerIntegTest {
         .convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent,
         CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
+  }
+
+    /**
+   * Verifies the spending data.
+   * The spending data should only include the last 5 withdrawals
+   * and the savings data should only include the last 5 deposits.
+   * 
+   * This test also ensures that accounts with no transactions
+   * have no spending or saving data.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSpendingBalance() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for
+    // non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Tests that no transactions = no savings or spending
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    Map<String, Object> customer1Data = customersTableData.get(0);
+
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    // Prepare Withdraw Form to Withdraw $12.34 from customer 1's account.
+    User customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(12.34); // user input is in dollar amount,             
+    // not pennies.
+
+    User newFormInputs = new User();
+    newFormInputs.setUsername(CUSTOMER1_ID);
+    newFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    newFormInputs.setAmountToWithdraw(10); // user input is in dollar amount,             
+
+    // send request to the Withdraw Form's POST handler in MvcController
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+
+    // verify that customer1's data is still the only data populated in Customers
+    // table
+    assertEquals(1, customersTableData.size());
+    
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+    assertEquals(CUSTOMER1_ID, (String) customer1Data.get("CustomerID"));
+
+    // verify customer spending data increased by $12.34 and savings remains untouched
+    assertEquals(12.34 * 100, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(12.34);
+
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer spending data increased by 2 * $12.34 and savings remains untouched
+    assertEquals(12.34 * 200, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(12.34);
+
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // // verify customer spending data increased by 3 * $12.34 and savings remains untouched
+    assertEquals(12.34 * 300, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(12.34);
+
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer spending data increased by 4 * $12.34 and savings remains untouched
+    assertEquals(12.34 * 400, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(12.34);
+
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer spending data increased by 5 * $12.34 and savings remains untouched
+    assertEquals(12.34 * 500, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    controller.submitWithdraw(newFormInputs);
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer spending data increased only includes last 5 transactions and savings remains untouched
+    assertEquals(12.34 * 400 + 10 * 100, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+  }
+
+  /**
+   * Verifies the savings data.
+   * The spending data should only include the last 5 withdrawals
+   * and the savings data should only include the last 5 deposits.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSavingsBalance() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for
+    // non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Withdraw Form to Withdraw $12.34 from customer 1's account.
+    User depositForm = new User();
+    depositForm.setUsername(CUSTOMER1_ID);
+    depositForm.setPassword(CUSTOMER1_PASSWORD);
+    depositForm.setAmountToDeposit(12.34); // user input is in dollar amount,             
+    // not pennies.
+
+    User newFormInputs = new User();
+    newFormInputs.setUsername(CUSTOMER1_ID);
+    newFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    newFormInputs.setAmountToDeposit(10); // user input is in dollar amount,             
+
+    // send request to the Withdraw Form's POST handler in MvcController
+    controller.submitDeposit(depositForm);
+
+    // fetch updated data from the DB
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    // verify that customer1's data is still the only data populated in Customers
+    // table
+    assertEquals(1, customersTableData.size());
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String) customer1Data.get("CustomerID"));
+
+    // verify customer savings data increased by $12.34 and spending remains untouched
+    assertEquals(12.34 * 100, (int) customer1Data.get("SavingsBalance"));
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+
+    depositForm.setUsername(CUSTOMER1_ID);
+    depositForm.setPassword(CUSTOMER1_PASSWORD);
+    depositForm.setAmountToDeposit(12.34);
+    controller.submitDeposit(depositForm);
+
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer savings data increased by 2 * $12.34 and spending remains untouched
+    assertEquals(12.34 * 200, (int) customer1Data.get("SavingsBalance"));
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+
+    depositForm.setUsername(CUSTOMER1_ID);
+    depositForm.setPassword(CUSTOMER1_PASSWORD);
+    depositForm.setAmountToDeposit(12.34);
+    controller.submitDeposit(depositForm);
+
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+     // verify customer savings data increased by 3 * $12.34 and spending remains untouched
+    assertEquals(12.34 * 300, (int) customer1Data.get("SavingsBalance"));
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+
+    depositForm.setUsername(CUSTOMER1_ID);
+    depositForm.setPassword(CUSTOMER1_PASSWORD);
+    depositForm.setAmountToDeposit(12.34);
+    controller.submitDeposit(depositForm);
+
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer savings data increased by 4 * $12.34 and spending remains untouched
+    assertEquals(12.34 * 400, (int) customer1Data.get("SavingsBalance"));
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+
+    depositForm.setUsername(CUSTOMER1_ID);
+    depositForm.setPassword(CUSTOMER1_PASSWORD);
+    depositForm.setAmountToDeposit(12.34);
+    controller.submitDeposit(depositForm);
+
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer savings data increased by 5 * $12.34 and spending remains untouched
+    assertEquals(12.34 * 500, (int) customer1Data.get("SavingsBalance"));
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+
+    controller.submitDeposit(newFormInputs);
+    customer1Data = jdbcTemplate.queryForList("SELECT * FROM Customers;").get(0);
+
+    // verify customer savings data increased only includes last 5 transactions and spending remains untouched
+    assertEquals(12.34 * 400 + 10 * 100, (int) customer1Data.get("SavingsBalance"));
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+  }
+
+  /**
+   * Verifies the spending & savings data for an overdraft balance.
+   * The spending & savings data should not be affected by overdraft
+   * balances.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testOverdraftSpendingSavings() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for
+    // non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Withdraw Form to Withdraw $12.34 from customer 1's account.
+    User customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(200); // user input is in dollar amount,             
+    // not pennies.
+
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+
+    User newFormInputs = new User();
+    newFormInputs.setUsername(CUSTOMER1_ID);
+    newFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    newFormInputs.setAmountToDeposit(10); // user input is in dollar amount,             
+
+    // send request to the Withdraw Form's POST handler in MvcController
+    controller.submitDeposit(newFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+
+    // verify that customer1's data is still the only data populated in Customers
+    // table
+    assertEquals(1, customersTableData.size());
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String) customer1Data.get("CustomerID"));
+
+    // verify customer spending and savings data are correct & intact
+    assertEquals(200 * 100, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(210 * 100, (int) customer1Data.get("SavingsBalance"));
+  }
+
+  /**
+   * Tests that transfers are appropriately accounted for in the spending and savings
+   * balances.
+   * 
+   * After a successful transfer, Customer1's outgoing transaction
+   * should be NOT logged as a spending transaction but Customer2's incoming
+   * transaction should be logged a savings transaction.
+   * 
+   * @throws SQLException
+   */
+  @Test
+  public void testTransferSpendingSavings() throws SQLException, ScriptException {
+
+    // Initialize customer1 with a balance of $1000. Balance will be represented as
+    // pennies in DB.
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
+        CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Initialize customer2 with a balance of $500. Balance will be represented as
+    // pennies in DB.
+    double CUSTOMER2_BALANCE = 500;
+    int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME,
+        CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+
+    // Amount to transfer
+    double TRANSFER_AMOUNT = 100;
+    int TRANSFER_AMOUNT_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(TRANSFER_AMOUNT);
+
+    // Initializing users for the transfer
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+    CUSTOMER1.setTransferRecipientID(CUSTOMER2_ID);
+    CUSTOMER1.setAmountToTransfer(TRANSFER_AMOUNT);
+
+    // Send the transfer request.
+    String returnedPage = controller.submitTransfer(CUSTOMER1);
+
+    // Fetch customer1 & customer2's data from DB
+    List<Map<String, Object>> customer1SqlResult = jdbcTemplate
+        .queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+    Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+    List<Map<String, Object>> customer2SqlResult = jdbcTemplate
+        .queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER2_ID));
+    Map<String, Object> customer2Data = customer2SqlResult.get(0);
+
+    System.out.println("_____SPENDING AND SAVINGS FOR 1");
+    System.out.println((int) customer1Data.get("SpendingBalance"));
+    System.out.println((int) customer1Data.get("SavingsBalance"));
+
+    System.out.println("_____SPENDING AND SAVINGS FOR 2");
+    System.out.println((int) customer2Data.get("SpendingBalance"));
+    System.out.println((int) customer2Data.get("SavingsBalance"));
+
+    // Verify that the outgoing transfer is NOT logged as a spending
+    assertEquals(0, (int) customer1Data.get("SpendingBalance"));
+    assertEquals(0, (int) customer1Data.get("SavingsBalance"));
+
+    // Verify that the incoming transfer logged as a saving
+    assertEquals(0, (int) customer2Data.get("SpendingBalance"));
+    assertEquals(TRANSFER_AMOUNT_IN_PENNIES, (int) customer2Data.get("SavingsBalance"));
+
+    // Check that transfer request goes through.
+    assertEquals("account_info", returnedPage);
   }
 
   /**
