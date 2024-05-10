@@ -1307,6 +1307,20 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
   }
+  /**
+   * Verifies the simplest billpay case.
+   * The customer1's Balance in the Customers table should be decreased,
+   * and the BillPaySend should be logged in the TransactionHistory table.
+   * 
+   * The customer2's Balance in the Customers table should be increased,
+   * and the BillPayRecieved should be logged in the TransactionHistory table.
+   * 
+   * Assumes that both customers' account are in the simplest states
+   * (not in overdraft, account is not frozen due to too many transaction disputes, etc.)
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
   @Test
   public void testSimpleBillPaySend() throws ScriptException{
     //initialize customer1 with a balance of $1000
