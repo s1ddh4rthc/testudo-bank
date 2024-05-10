@@ -33,6 +33,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import net.testudobank.CryptoPriceClient;
+import net.testudobank.StockPriceClient;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
@@ -63,6 +64,7 @@ public class MvcControllerIntegTest {
     private static JdbcTemplate jdbcTemplate;
     private static DatabaseDelegate dbDelegate;
     private static CryptoPriceClient cryptoPriceClient = Mockito.mock(CryptoPriceClient.class);
+    private static StockPriceClient stockPriceClient = Mockito.mock(StockPriceClient.class);
 
     @BeforeAll
     public static void init() throws SQLException {
@@ -70,7 +72,7 @@ public class MvcControllerIntegTest {
         ScriptUtils.runInitScript(dbDelegate, "createDB.sql");
         jdbcTemplate = new JdbcTemplate(MvcControllerIntegTestHelpers.dataSource(db));
         jdbcTemplate.getDataSource().getConnection().setCatalog(db.getDatabaseName());
-        controller = new MvcController(jdbcTemplate, cryptoPriceClient);
+        controller = new MvcController(jdbcTemplate, cryptoPriceClient, stockPriceClient);
     }
 
     @AfterEach
@@ -1985,4 +1987,7 @@ public class MvcControllerIntegTest {
 
         cryptoTester.test(sellBTC);
     }
+
+    // TODO: make integ tests for stock client
+    
 }

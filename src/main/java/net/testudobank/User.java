@@ -99,7 +99,7 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
-  @Setter @Getter @ToString.Include
+  @Setter @Getter
   private String whichStockToInvest;
 
   @Setter @Getter @Positive

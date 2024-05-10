@@ -4,6 +4,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
+import org.springframework.stereotype.Component;
+
 /*
  * Decided to switch to web scraping as API verification and token generation were haeavily convoluted
  * This makes obtaining stock prices easier and simplifies the development process
@@ -11,6 +13,7 @@ import org.jsoup.nodes.Element;
  * Ticker would be the user input of what stock they want to invest in 
  */
 
+@Component
 public class StockPriceClient {
 
     String baseUrl = "http://finance.yahoo.com/q?s=";

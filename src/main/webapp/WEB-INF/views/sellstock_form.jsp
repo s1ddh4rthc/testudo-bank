@@ -41,7 +41,7 @@
 
         <body>
             <div align="center">
-                <form:form action="sell" method="post" modelAttribute="user">
+                <form:form action="sellstock" method="post" modelAttribute="user">
                     <form:label path="username">Username:</form:label>
                     <form:input path="username" /><br />
 

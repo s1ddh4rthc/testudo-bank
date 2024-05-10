@@ -177,4 +177,30 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static void initCustomerStockBalance(JdbcTemplate jdbcTemplate, String customerID, String ticker) {
+      String initStockBalanceSql = "INSERT INTO StockHoldings (CustomerID, Ticker, Shares) VALUES (?, ?, 0) ON DUPLICATE KEY UPDATE Shares = Shares;";
+      jdbcTemplate.update(initStockBalanceSql, customerID, ticker);
+  }
+
+  public static void increaseCustomerStockShares(JdbcTemplate jdbcTemplate, String customerID, String ticker,
+          double shares) {
+      String increaseStockSharesSql = "UPDATE StockHoldings SET Shares = Shares + ? WHERE CustomerID = ? AND Ticker = ?";
+      jdbcTemplate.update(increaseStockSharesSql, shares, customerID, ticker);
+  }
+
+  public static void decreaseCustomerStockShares(JdbcTemplate jdbcTemplate, String customerID, String ticker,
+          double shares) {
+      String decreaseStockSharesSql = "UPDATE StockHoldings SET Shares = Shares - ? WHERE CustomerID = ? AND Ticker = ? AND Shares >= ?";
+      jdbcTemplate.update(decreaseStockSharesSql, shares, customerID, ticker, shares);
+  }
+
+  public static Optional<Integer> getCustomerStockShares(JdbcTemplate jdbcTemplate, String customerID, String ticker) {
+      String getStockSharesSql = "SELECT Shares FROM StockHoldings WHERE CustomerID = ? AND Ticker = ?";
+      try {
+          return Optional.ofNullable(jdbcTemplate.queryForObject(getStockSharesSql, Integer.class, customerID, ticker));
+      } catch (EmptyResultDataAccessException e) {
+          return Optional.empty();
+      }
+  }
 }
