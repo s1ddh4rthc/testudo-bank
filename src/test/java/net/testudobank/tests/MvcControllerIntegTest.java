@@ -1,5 +1,6 @@
 package net.testudobank.tests;
 
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 import javax.script.ScriptException;
 
@@ -30,6 +32,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import net.testudobank.MvcController;
+import net.testudobank.TestudoBankRepository;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
@@ -47,6 +50,11 @@ public class MvcControllerIntegTest {
   private static String CUSTOMER2_PASSWORD = "password";
   private static String CUSTOMER2_FIRST_NAME = "Foo1";
   private static String CUSTOMER2_LAST_NAME = "Bar1";
+
+  private static String CUSTOMER_SECURITY_ANSWER = "n/a";
+  private static String CUSTOMER_NEW_PASSWORD_FOR_RESET = "n/a new password";
+  private static int CUSTOMER_RESET_PASSWORD_DAY = 30;
+  private static int PASSWORD_ATTEMPTS = 0;
   
   // Spins up small MySQL DB in local Docker container
   @Container
@@ -96,7 +104,7 @@ public class MvcControllerIntegTest {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit $12.34 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 12.34; // user input is in dollar amount, not pennies.
@@ -155,7 +163,7 @@ public class MvcControllerIntegTest {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Withdraw Form to Withdraw $12.34 from customer 1's account.
     double CUSTOMER1_AMOUNT_TO_WITHDRAW = 12.34; // user input is in dollar amount, not pennies.
@@ -198,6 +206,275 @@ public class MvcControllerIntegTest {
   }
 
   /**
+   * Verifies that user successfully resets password.
+   * The customer's Password in the Password table should be reset.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSuccessfulPasswordReset() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    String CUSTOMER1_PASSWORD = "old_password_123";
+    String new_customer_password = "new_password_123";
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+
+    // User inputs for password reset
+    User passwordResetFormInputs = new User();
+    passwordResetFormInputs.setUsername(CUSTOMER1_ID);
+    passwordResetFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    passwordResetFormInputs.setNewPasswordForReset(new_customer_password); 
+
+    // send request to the Reset Password Form's POST handler in MvcController
+    controller.submitResetPasswordForm(passwordResetFormInputs);
+
+    // fetch updated data from the DB;
+    String actualNewPassword = jdbcTemplate.queryForObject("SELECT Password FROM Passwords WHERE CustomerID=?", String.class, CUSTOMER1_ID);
+  
+    // verify that the new password is updated in Passwords table
+    assertEquals(new_customer_password, actualNewPassword);
+  }
+
+  /**
+   * Verifies that user successfully sets security questions.
+   * The customer's SecurityAnswer1, SecurityAnswer2, and SecurityAnswer3 in the Password table should be set.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSetSecurityQuestions() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+
+    // User inputs for password reset
+    String securityAnswer1actual = "Toyota";
+    String securityAnswer2actual = "Rover";
+    String securityAnswer3actual = "Mary";
+    User securityQuestionFormInputs = new User();
+    securityQuestionFormInputs.setUsername(CUSTOMER1_ID);
+    securityQuestionFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    securityQuestionFormInputs.setSecurityAnswer1(securityAnswer1actual);
+    securityQuestionFormInputs.setSecurityAnswer2(securityAnswer2actual); 
+    securityQuestionFormInputs.setSecurityAnswer3(securityAnswer3actual); 
+
+    // send request to the Reset Password Form's POST handler in MvcController
+    controller.submitSecurityQuestionsForm(securityQuestionFormInputs);
+
+    // fetch updated data from the DB;
+    List<Map<String, Object>> actualSecurityAnswers = jdbcTemplate.queryForList("SELECT SecurityAnswer1, SecurityAnswer2, SecurityAnswer3 FROM Passwords WHERE CustomerID=?", CUSTOMER1_ID);
+  
+    // verify that the new password is updated in Passwords table
+    Map<String, Object> answers = actualSecurityAnswers.get(0);
+    assertEquals(securityAnswer1actual, answers.get("SecurityAnswer1"));
+    assertEquals(securityAnswer2actual, answers.get("SecurityAnswer2"));
+    assertEquals(securityAnswer3actual, answers.get("SecurityAnswer3"));
+  }
+
+  /**
+   * Verifies that user successfully resets password with security questions.
+   * The customer's Password in the Password table should be reset.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testPasswordResetWithSecurityQuestions() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    String CUSTOMER1_PASSWORD = "old_password_123";
+    String new_customer_password = "new_password_123";
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+    String securityAnswer1actual = "Toyota";
+    String securityAnswer2actual = "Rover";
+    String securityAnswer3actual = "Mary";
+    TestudoBankRepository.setSecurityAnswer1(jdbcTemplate, securityAnswer1actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer2(jdbcTemplate, securityAnswer2actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer3(jdbcTemplate, securityAnswer3actual, CUSTOMER1_ID);
+
+    // User inputs for password reset
+    User passwordResetSQFormInputs = new User();
+    passwordResetSQFormInputs.setUsername(CUSTOMER1_ID);
+    passwordResetSQFormInputs.setPassword("some_password");
+    passwordResetSQFormInputs.setSecurityAnswer1(securityAnswer1actual);
+    passwordResetSQFormInputs.setSecurityAnswer2(securityAnswer2actual); 
+    passwordResetSQFormInputs.setSecurityAnswer3(securityAnswer3actual); 
+    passwordResetSQFormInputs.setNewPasswordForReset(new_customer_password); 
+
+    // send request to the Reset Password Form's POST handler in MvcController
+    controller.submitResetPasswordForm(passwordResetSQFormInputs);
+
+    // fetch updated data from the DB;
+    String actualNewPassword = jdbcTemplate.queryForObject("SELECT Password FROM Passwords WHERE CustomerID=?", String.class, CUSTOMER1_ID);
+  
+    // verify that the new password is updated in Passwords table
+    assertEquals(new_customer_password, actualNewPassword);
+  }
+
+  /**
+   * Verifies that user cannot reset password with incorrect security question answers.
+   * The customer's Password in the Password table should not be reset.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testPasswordResetWithIncorrectSecurityQuestions() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    String CUSTOMER1_PASSWORD = "old_password_123";
+    String new_customer_password = "new_password_123";
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+    String securityAnswer1actual = "Toyota";
+    String securityAnswer2actual = "Rover";
+    String securityAnswer3actual = "Mary";
+    TestudoBankRepository.setSecurityAnswer1(jdbcTemplate, securityAnswer1actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer2(jdbcTemplate, securityAnswer2actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer3(jdbcTemplate, securityAnswer3actual, CUSTOMER1_ID);
+
+    // User inputs for password reset
+    User passwordResetSQFormInputs = new User();
+    passwordResetSQFormInputs.setUsername(CUSTOMER1_ID);
+    passwordResetSQFormInputs.setPassword("some_password");
+    passwordResetSQFormInputs.setSecurityAnswer1(securityAnswer1actual);
+    passwordResetSQFormInputs.setSecurityAnswer2(securityAnswer2actual); 
+    passwordResetSQFormInputs.setSecurityAnswer3("wrong"); 
+    passwordResetSQFormInputs.setNewPasswordForReset(new_customer_password); 
+
+    // send request to the Reset Password Form's POST handler in MvcController
+    String response = controller.submitResetPasswordForm(passwordResetSQFormInputs);
+    assertEquals("welcome", response);
+
+    // fetch updated data from the DB;
+    String samePassword = jdbcTemplate.queryForObject("SELECT Password FROM Passwords WHERE CustomerID=?", String.class, CUSTOMER1_ID);
+  
+    // verify that the new password is updated in Passwords table
+    assertEquals(CUSTOMER1_PASSWORD, samePassword);
+  }
+
+  /**
+   * Verifies that user is asked for security questions after 3 failed attempts for login
+   * password input.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSecurityQuestionsAfterFailedLogins() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    String CUSTOMER1_PASSWORD = "old_password_123";
+    String wrongPassword = "a_wrong_password";
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+    String securityAnswer1actual = "Toyota";
+    String securityAnswer2actual = "Rover";
+    String securityAnswer3actual = "Mary";
+    TestudoBankRepository.setSecurityAnswer1(jdbcTemplate, securityAnswer1actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer2(jdbcTemplate, securityAnswer2actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer3(jdbcTemplate, securityAnswer3actual, CUSTOMER1_ID);
+
+    // User inputs for password reset
+    User passwordResetSQFormInputs = new User();
+    passwordResetSQFormInputs.setUsername(CUSTOMER1_ID);
+    passwordResetSQFormInputs.setPassword(wrongPassword);
+    passwordResetSQFormInputs.setSecurityAnswer1(securityAnswer1actual);
+    passwordResetSQFormInputs.setSecurityAnswer2(securityAnswer2actual); 
+    passwordResetSQFormInputs.setSecurityAnswer3(securityAnswer3actual);
+
+    System.out.println("here:" + passwordResetSQFormInputs);
+
+    // send 3 requests to the Login Form's POST handler in MvcController
+    String responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
+    assertEquals("login", responsePage);
+    responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
+    assertEquals("login", responsePage);
+    responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
+    assertEquals("login_with_securityquestions", responsePage);
+
+    // send 1 request to the Login with SQ Form's POST handler in MvcController
+    System.out.println("here:" + passwordResetSQFormInputs);
+    responsePage = controller.submitLoginSQForm(passwordResetSQFormInputs);
+    assertEquals("account_info", responsePage);
+  }
+
+  /**
+   * Verifies that user is redirected to welcome page after inputting wrong security
+   * question answers after 3 failed attempts for login password input.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testIncorrectSecurityQuestionsAfterFailedLogins() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    String CUSTOMER1_PASSWORD = "old_password_123";
+    String wrongPassword = "a_wrong_password";
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+    String securityAnswer1actual = "Toyota";
+    String securityAnswer2actual = "Rover";
+    String securityAnswer3actual = "Mary";
+    TestudoBankRepository.setSecurityAnswer1(jdbcTemplate, securityAnswer1actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer2(jdbcTemplate, securityAnswer2actual, CUSTOMER1_ID);
+    TestudoBankRepository.setSecurityAnswer3(jdbcTemplate, securityAnswer3actual, CUSTOMER1_ID);
+
+    // User inputs for password reset
+    User passwordResetSQFormInputs = new User();
+    passwordResetSQFormInputs.setUsername(CUSTOMER1_ID);
+    passwordResetSQFormInputs.setPassword(wrongPassword);
+    passwordResetSQFormInputs.setSecurityAnswer1(securityAnswer1actual);
+    passwordResetSQFormInputs.setSecurityAnswer2(securityAnswer2actual); 
+    passwordResetSQFormInputs.setSecurityAnswer3("wrong");
+
+    System.out.println("here:" + passwordResetSQFormInputs);
+
+    // send 3 requests to the Login Form's POST handler in MvcController
+    String responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
+    assertEquals("login", responsePage);
+    responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
+    assertEquals("login", responsePage);
+    responsePage = controller.submitLoginForm(passwordResetSQFormInputs);
+    assertEquals("login_with_securityquestions", responsePage);
+
+    // send 1 request to the Login with SQ Form's POST handler in MvcController
+    System.out.println("here:" + passwordResetSQFormInputs);
+    responsePage = controller.submitLoginSQForm(passwordResetSQFormInputs);
+    assertEquals("welcome", responsePage);
+  }
+
+  /**
+   * Verifies that user is directed to Reset Password form if days left to reset password is 0.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testRedirectResetPasswordIfScheduled() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    int CUSTOMER_RESET_PASSWORD_DAY_0 = 0;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY_0, CUSTOMER_NEW_PASSWORD_FOR_RESET);
+
+    // User inputs for redirect to password reset
+    User redirectResetPasswordFormInputs = new User();
+    redirectResetPasswordFormInputs.setUsername(CUSTOMER1_ID);
+    redirectResetPasswordFormInputs.setPassword(CUSTOMER1_PASSWORD);
+
+    // send request to the Login Form's POST handler in MvcController
+    String response = controller.submitLoginForm(redirectResetPasswordFormInputs);
+    assertEquals("resetpassword_form", response);
+  }
+
+  /**
    * Verifies that interest is applied after every 5th deposit transaction of at least $20
    * 
    * The deposits and interest should be recorded in the TransactionHistory table.
@@ -216,7 +493,7 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_OVERDRAFT_BALANCE = 0;
     int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
     int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit several amounts to customer 1's account.
     double[] CUSTOMER1_AMOUNTS_TO_DEPOSIT = {21.34, 90, 20.00, 20.01, 109.8, 21, 53.5, 21.35, 80}; // user input is in dollar amount, not pennies.
@@ -278,7 +555,7 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_OVERDRAFT_BALANCE = 0;
     int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
     int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit several amounts to customer 1's account.
     double[] CUSTOMER1_AMOUNTS_TO_DEPOSIT = {21.34, 90, 20.01, 43.02, 19.9}; // user input is in dollar amount, not pennies.
@@ -337,7 +614,7 @@ public class MvcControllerIntegTest {
     // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
     double CUSTOMER1_BALANCE = 123.45;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Withdraw Form to Withdraw $150 from customer 1's account.
     double CUSTOMER1_AMOUNT_TO_WITHDRAW = 150; // user input is in dollar amount, not pennies.
@@ -392,7 +669,7 @@ public class MvcControllerIntegTest {
     //initialize customer1 with a balance of $100. this will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 100;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     //Prepare Withdraw Form to withdraw $1099 from this customer's account.
     double CUSTOMER1_AMOUNT_TO_WITHDRAW = 1099; 
@@ -448,7 +725,7 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_OVERDRAFT_BALANCE = 123.45;
     int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
     int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit $150 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 150; // user input is in dollar amount, not pennies.
@@ -511,7 +788,7 @@ public class MvcControllerIntegTest {
     double CUSTOMER1_OVERDRAFT_BALANCE = 123.45;
     int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_OVERDRAFT_BALANCE);
     int CUSTOMER1_NUM_FRAUD_REVERSALS = 0;
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER1_NUM_FRAUD_REVERSALS, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit $50 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 50; // user input is in dollar amount, not pennies.
@@ -576,7 +853,7 @@ public class MvcControllerIntegTest {
     // No overdraft or numFraudReversals.
     double CUSTOMER1_BALANCE = 123.45;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit $12.34 (to make sure this works for non-whole dollar amounts) to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 12.34; // user input is in dollar amount, not pennies.
@@ -663,7 +940,7 @@ public class MvcControllerIntegTest {
     // No overdraft or numFraudReversals.
     double CUSTOMER1_BALANCE = 123.45;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Withdraw Form to Withdraw $12.34 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_WITHDRAW = 12.34; // user input is in dollar amount, not pennies.
@@ -753,12 +1030,16 @@ public class MvcControllerIntegTest {
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, 
                                                   CUSTOMER1_ID, 
                                                   CUSTOMER1_PASSWORD, 
+                                                  PASSWORD_ATTEMPTS,
+                                                  CUSTOMER_SECURITY_ANSWER,
                                                   CUSTOMER1_FIRST_NAME, 
                                                   CUSTOMER1_LAST_NAME, 
                                                   CUSTOMER1_MAIN_BALANCE_IN_PENNIES, 
                                                   CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
                                                   CUSTOMER1_NUM_FRAUD_REVERSALS,
-                                                  CUSTOMER1_NUM_INTEREST_DEPOSITS);
+                                                  CUSTOMER1_NUM_INTEREST_DEPOSITS,
+                                                  CUSTOMER_RESET_PASSWORD_DAY,
+                                                  CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Deposit $50, and then immediately dispute/reverse that deposit.
     // this will bring the customer to the MAX_DISPUTES limit, and also have a few
@@ -861,7 +1142,7 @@ public class MvcControllerIntegTest {
     // No overdraft or numFraudReversals.
     double CUSTOMER1_BALANCE = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit $100 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100; // user input is in dollar amount, not pennies.
@@ -949,7 +1230,7 @@ public class MvcControllerIntegTest {
     // No overdraft or numFraudReversals.
     double CUSTOMER1_BALANCE = 0;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     // Prepare Deposit Form to Deposit $100 to customer 1's account.
     double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100; // user input is in dollar amount, not pennies.
@@ -1031,12 +1312,16 @@ public class MvcControllerIntegTest {
     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, 
                                                   CUSTOMER1_ID, 
                                                   CUSTOMER1_PASSWORD, 
+                                                  PASSWORD_ATTEMPTS,
+                                                  CUSTOMER_SECURITY_ANSWER,
                                                   CUSTOMER1_FIRST_NAME, 
                                                   CUSTOMER1_LAST_NAME, 
                                                   CUSTOMER1_BALANCE_IN_PENNIES, 
                                                   CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
                                                   CUSTOMER1_NUM_FRAUD_REVERSALS, 
-                                                  CUSTOMER1_NUM_INTEREST_DEPOSITS
+                                                  CUSTOMER1_NUM_INTEREST_DEPOSITS,
+                                                  CUSTOMER_RESET_PASSWORD_DAY,
+                                                  CUSTOMER_NEW_PASSWORD_FOR_RESET
                                                   );
     
     // Prepare Deposit Form to Deposit $100 to customer 1's account.
@@ -1082,12 +1367,12 @@ public class MvcControllerIntegTest {
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     //Initialize customer2 with a balance of $500. Balance will be represented as pennies in DB. 
     double CUSTOMER2_BALANCE = 500;
     int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     //Amount to transfer
     double TRANSFER_AMOUNT = 100;
@@ -1134,7 +1419,7 @@ public class MvcControllerIntegTest {
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     //Initialize customer2 with a balance of $0 and Overdraft balance of $101. Balance will be represented as pennies in DB. 
     double CUSTOMER2_BALANCE = 0;
@@ -1142,7 +1427,7 @@ public class MvcControllerIntegTest {
     double CUSTOMER2_OVERDRAFT_BALANCE = 101.0;
     int CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_OVERDRAFT_BALANCE);
     int CUSTOMER2_NUM_FRAUD_REVERSALS = 0;
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER2_NUM_FRAUD_REVERSALS, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER2_NUM_FRAUD_REVERSALS, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     //Amount to transfer
     double TRANSFER_AMOUNT = 100;
@@ -1193,14 +1478,14 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
     double CUSTOMER1_BALANCE = 1000;
     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     double CUSTOMER2_BALANCE = 0;
     int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
     double CUSTOMER2_OVERDRAFT_BALANCE = 100.0;
     int CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_OVERDRAFT_BALANCE);
     int CUSTOMER2_NUM_FRAUD_REVERSALS = 0;
-    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER2_NUM_FRAUD_REVERSALS, 0);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER2_FIRST_NAME, CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES, CUSTOMER2_NUM_FRAUD_REVERSALS, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
 
     //Transfer $150 from sender's account to recipient's account.
     double TRANSFER_AMOUNT = 150;
@@ -1342,8 +1627,8 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     void initialize() throws ScriptException {
       int balanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(initialBalanceInDollars);
-      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME,
-              CUSTOMER1_LAST_NAME, balanceInPennies, MvcControllerIntegTestHelpers.convertDollarsToPennies(initialOverdraftBalanceInDollars), 0, 0);
+      MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, PASSWORD_ATTEMPTS, CUSTOMER_SECURITY_ANSWER, CUSTOMER1_FIRST_NAME,
+              CUSTOMER1_LAST_NAME, balanceInPennies, MvcControllerIntegTestHelpers.convertDollarsToPennies(initialOverdraftBalanceInDollars), 0, 0, CUSTOMER_RESET_PASSWORD_DAY, CUSTOMER_NEW_PASSWORD_FOR_RESET);
       for (Map.Entry<String, Double> initialBalance : initialCryptoBalance.entrySet()) {
         MvcControllerIntegTestHelpers.setCryptoBalance(dbDelegate, CUSTOMER1_ID, initialBalance.getKey(), initialBalance.getValue());
       }
@@ -1728,6 +2013,13 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     cryptoTransactionTester.test(cryptoTransactionBuyETH);
 
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
+
+
     CryptoTransaction cryptoTransactionBuySOL = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(800)
             .expectedEndingCryptoBalance(0.1)
@@ -1740,6 +2032,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
 
     cryptoTransactionTester.test(cryptoTransactionBuySOL);
 
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
+
     CryptoTransaction cryptoTransactionSellSOL = CryptoTransaction.builder()
             .expectedEndingBalanceInDollars(900)
             .expectedEndingCryptoBalance(0.0)
@@ -1751,6 +2049,12 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
 
     cryptoTransactionTester.test(cryptoTransactionSellSOL);
+
+    try {
+      Thread.sleep(1000);
+    } catch (InterruptedException error) {
+      error.printStackTrace();
+    }
   }
 
   /**

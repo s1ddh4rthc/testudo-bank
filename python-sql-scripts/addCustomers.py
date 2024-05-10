@@ -20,7 +20,8 @@ create_customer_table_sql = '''
     Balance int,
     OverdraftBalance int,
     NumFraudReversals int,
-    NumDepositsForInterest int
+    NumDepositsForInterest int,
+    ResetPasswordDay int
   );
   '''
 cursor.execute(create_customer_table_sql)
@@ -29,7 +30,12 @@ cursor.execute(create_customer_table_sql)
 create_password_table_sql = '''
 CREATE TABLE Passwords (
   CustomerID varchar(255),
-  Password varchar(255)
+  Password varchar(255),
+  PasswordAttempts int,
+  SecurityAnswer1 varchar(255),
+  SecurityAnswer2 varchar(255),
+  SecurityAnswer3 varchar(255),
+  NewPasswordForReset varchar(255)
 );
 '''
 cursor.execute(create_password_table_sql)
@@ -129,22 +135,28 @@ for i in range(num_customers_to_add):
     # both the balance and overdraftbalance columns represent the total dollar amount as pennies instead of dollars.
     insert_customer_sql = '''
     INSERT INTO Customers
-    VALUES  ({0},{1},{2},{3},{4},{5}, {6});
+    VALUES  ({0},{1},{2},{3},{4},{5},{6},{7});
     '''.format("'" + customer_id + "'",
                 "'" + customer_first_name + "'",
                 "'" + customer_last_name + "'",
                 customer_balance,
                 0,
                 0,
-                0)
+                0,
+                30)
     cursor.execute(insert_customer_sql)
     
     # add customer ID and password to Passwords table
     insert_password_sql = '''
     INSERT INTO Passwords
-    VALUES  ({0},{1});
+    VALUES  ({0},{1},{2},{3},{4},{5},{6});
     '''.format("'" + customer_id + "'",
-                "'" + customer_password + "'")
+                "'" + customer_password + "'",
+                0,
+                "'n/a'",
+                "'n/a'",
+                "'n/a'",
+                "'n/a new password'")
     cursor.execute(insert_password_sql)
     
     # add this customer's randomly-generated ID to the set

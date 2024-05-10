@@ -88,6 +88,41 @@ public class MvcController {
 		return "login_form";
 	}
 
+
+    /**
+   * HTML GET request handler that serves the "securityquestions_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's login form input.
+   * 
+   * @param model
+   * @return "securityquestions_form" page
+   */
+  @GetMapping("/securityquestions")
+	public String showSecurityQuestionsForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
+
+		return "securityquestions_form";
+	}
+
+
+  /**
+   * HTML GET request handler that serves the "resetpassword_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's login form input.
+   * 
+   * @param model
+   * @return "resetpassword_form" page
+   */
+  @GetMapping("/resetpassword")
+	public String showResetPasswordForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
+
+		return "resetpassword_form";
+	}
+
+
   /**
    * HTML GET request handler that serves the "deposit_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
@@ -286,8 +321,118 @@ public class MvcController {
 
     // Retrieve correct password for this customer.
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    int resetPasswordDay = TestudoBankRepository.getResetPasswordDay(jdbcTemplate, userID);
+
+    if (resetPasswordDay <= 0) {
+      return "resetpassword_form";
+    } else if (userPasswordAttempt.equals(userPassword)) {
+      TestudoBankRepository.setPasswordAttempts(jdbcTemplate, 0, userID);
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else {
+      String securityAnswer1 = TestudoBankRepository.getSecurityAnswer1(jdbcTemplate, userID);
+      String securityAnswer2 = TestudoBankRepository.getSecurityAnswer2(jdbcTemplate, userID);
+      String securityAnswer3 = TestudoBankRepository.getSecurityAnswer3(jdbcTemplate, userID);
+      int passwordAttempts = TestudoBankRepository.getPasswordAttempts(jdbcTemplate, userID);
+      TestudoBankRepository.setPasswordAttempts(jdbcTemplate, passwordAttempts+1, userID);
+      int updatedpasswordAttempts = TestudoBankRepository.getPasswordAttempts(jdbcTemplate, userID);
+      if (!securityAnswer1.equals("n/a") && !securityAnswer2.equals("n/a") && !securityAnswer3.equals("n/a")){
+        if (updatedpasswordAttempts >= 3) {
+          return "login_with_securityquestions";
+        } else {
+          return "login";
+        }
+      } else {
+        if (updatedpasswordAttempts >= 3) {
+          return "resetpassword_form";
+        }
+      }
+      return "welcome";
+    }
+	}
+
+
+  /**
+   * HTML POST request handler that uses user input from Login Form page to determine 
+   * login success or failure.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct, the "account_info" page is served to the customer
+   * with all account details retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/login_with_securityquestions")
+	public String submitLoginSQForm(@ModelAttribute("user") User user) {
+    // Print user's existing fields for debugging
+		System.out.println(user);
+
+    String userID = user.getUsername();
+    String securityAnswer1Attempt = user.getSecurityAnswer1();
+    String securityAnswer2Attempt = user.getSecurityAnswer2();
+    String securityAnswer3Attempt = user.getSecurityAnswer3();
+
+    String securityAnswer1 = TestudoBankRepository.getSecurityAnswer1(jdbcTemplate, userID);
+    String securityAnswer2 = TestudoBankRepository.getSecurityAnswer2(jdbcTemplate, userID);
+    String securityAnswer3 = TestudoBankRepository.getSecurityAnswer3(jdbcTemplate, userID);
+    int resetPasswordDay = TestudoBankRepository.getResetPasswordDay(jdbcTemplate, userID);
+
+    if (resetPasswordDay <= 0) {
+      return "resetpassword_form";
+    } else if (securityAnswer1Attempt.equals(securityAnswer1)
+      && securityAnswer2Attempt.equals(securityAnswer2)
+      && securityAnswer3Attempt.equals(securityAnswer3)) {
+        TestudoBankRepository.setPasswordAttempts(jdbcTemplate, 0, userID);
+        updateAccountInfo(user);
+        return "account_info";
+    } else {
+      return "welcome";
+    }
+	}
+
+
+    /**
+   * HTML POST request handler that uses user input from Login Form page to determine 
+   * login success or failure.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct, the "account_info" page is served to the customer
+   * with all account details retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/securityquestions")
+	public String submitSecurityQuestionsForm(@ModelAttribute("user") User user) {
+    // Print user's existing fields for debugging
+		System.out.println(user);
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String securityAnswer1 = user.getSecurityAnswer1();
+    String securityAnswer2 = user.getSecurityAnswer2();
+    String securityAnswer3 = user.getSecurityAnswer3();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
     if (userPasswordAttempt.equals(userPassword)) {
+      TestudoBankRepository.setSecurityAnswer1(jdbcTemplate, securityAnswer1, userID);
+      TestudoBankRepository.setSecurityAnswer2(jdbcTemplate, securityAnswer2, userID);
+      TestudoBankRepository.setSecurityAnswer3(jdbcTemplate, securityAnswer3, userID);
+      TestudoBankRepository.setPasswordAttempts(jdbcTemplate, 0, userID);
       updateAccountInfo(user);
 
       return "account_info";
@@ -295,6 +440,64 @@ public class MvcController {
       return "welcome";
     }
 	}
+
+
+  /**
+   * HTML POST request handler that uses user input from Login Form page to determine 
+   * login success or failure.
+   * 
+   * Queries 'passwords' table in MySQL DB for the correct password associated with the
+   * username ID given by the user. Compares the user's password attempt with the correct
+   * password.
+   * 
+   * If the password attempt is correct, the "account_info" page is served to the customer
+   * with all account details retrieved from the MySQL DB.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/resetpassword")
+	public String submitResetPasswordForm(@ModelAttribute("user") User user) {
+    // Print user's existing fields for debugging
+		System.out.println(user);
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userNewPasswordReset = user.getNewPasswordForReset();
+    String securityAnswer1Attempt = user.getSecurityAnswer1();
+    String securityAnswer2Attempt = user.getSecurityAnswer2();
+    String securityAnswer3Attempt = user.getSecurityAnswer3();
+
+    // Retrieve correct password for this customer.
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    String securityAnswer1 = TestudoBankRepository.getSecurityAnswer1(jdbcTemplate, userID);
+    String securityAnswer2 = TestudoBankRepository.getSecurityAnswer2(jdbcTemplate, userID);
+    String securityAnswer3 = TestudoBankRepository.getSecurityAnswer3(jdbcTemplate, userID);
+
+    if (userPasswordAttempt.equals(userPassword)) {
+      TestudoBankRepository.setCustomerPassword(jdbcTemplate, userNewPasswordReset, userID);
+      TestudoBankRepository.setNewPasswordForReset(jdbcTemplate, "n/a new password", userID);
+      TestudoBankRepository.setPasswordAttempts(jdbcTemplate, 0, userID);
+      TestudoBankRepository.setResetPasswordDay(jdbcTemplate, 30, userID);
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else if (securityAnswer1Attempt.equals(securityAnswer1)
+                && securityAnswer2Attempt.equals(securityAnswer2)
+                && securityAnswer3Attempt.equals(securityAnswer3)) {
+                  TestudoBankRepository.setCustomerPassword(jdbcTemplate, userNewPasswordReset, userID);
+                  TestudoBankRepository.setNewPasswordForReset(jdbcTemplate, "n/a new password", userID);
+                  TestudoBankRepository.setPasswordAttempts(jdbcTemplate, 0, userID);
+                  TestudoBankRepository.setResetPasswordDay(jdbcTemplate, 30, userID);
+                  updateAccountInfo(user);
+                  return "account_info";
+    } else {
+      return "welcome";
+    }
+	}
+
 
   /**
    * HTML POST request handler for the Deposit Form page.

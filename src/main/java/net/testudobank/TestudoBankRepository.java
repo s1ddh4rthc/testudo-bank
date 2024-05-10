@@ -15,6 +15,11 @@ public class TestudoBankRepository {
     return customerPassword;
   }
 
+  public static void setCustomerPassword(JdbcTemplate jdbcTemplate, String customerPassword, String customerID) {
+    String customerPasswordUpdateSql = String.format("UPDATE Passwords SET Password='%s' WHERE CustomerID='%s';", customerPassword, customerID);
+    jdbcTemplate.update(customerPasswordUpdateSql);
+  }
+
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
     int numOfReversals = jdbcTemplate.queryForObject(getNumberOfReversalsSql, Integer.class);
@@ -78,6 +83,72 @@ public class TestudoBankRepository {
     String getCustomerNumberOfDepositsForInterestSql = String.format("SELECT NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", customerID);
     int numberOfDepositsForInterest = jdbcTemplate.queryForObject(getCustomerNumberOfDepositsForInterestSql, Integer.class);
     return numberOfDepositsForInterest;
+  }
+
+  public static String getSecurityAnswer1(JdbcTemplate jdbcTemplate, String customerID) {
+    String getSecurityAnswer1Sql = String.format("SELECT SecurityAnswer1 FROM Passwords WHERE CustomerID='%s';", customerID);
+    String securityAnswer1 = jdbcTemplate.queryForObject(getSecurityAnswer1Sql, String.class);
+    return securityAnswer1;
+  }
+
+  public static String getSecurityAnswer2(JdbcTemplate jdbcTemplate, String customerID) {
+    String getSecurityAnswer2Sql = String.format("SELECT SecurityAnswer2 FROM Passwords WHERE CustomerID='%s';", customerID);
+    String securityAnswer2 = jdbcTemplate.queryForObject(getSecurityAnswer2Sql, String.class);
+    return securityAnswer2;
+  }
+
+  public static String getSecurityAnswer3(JdbcTemplate jdbcTemplate, String customerID) {
+    String getSecurityAnswer3Sql = String.format("SELECT SecurityAnswer3 FROM Passwords WHERE CustomerID='%s';", customerID);
+    String securityAnswer3 = jdbcTemplate.queryForObject(getSecurityAnswer3Sql, String.class);
+    return securityAnswer3;
+  }
+
+  public static void setSecurityAnswer1(JdbcTemplate jdbcTemplate, String securityAnswer1, String customerID) {
+    String securityAnswer1UpdateSql = String.format("UPDATE Passwords SET SecurityAnswer1='%s' WHERE CustomerID='%s';", securityAnswer1, customerID);
+    jdbcTemplate.update(securityAnswer1UpdateSql);
+  }
+
+  public static void setSecurityAnswer2(JdbcTemplate jdbcTemplate, String securityAnswer2, String customerID) {
+    String securityAnswer2UpdateSql = String.format("UPDATE Passwords SET SecurityAnswer2='%s' WHERE CustomerID='%s';", securityAnswer2, customerID);
+    jdbcTemplate.update(securityAnswer2UpdateSql);
+  }
+
+  public static void setSecurityAnswer3(JdbcTemplate jdbcTemplate, String securityAnswer3, String customerID) {
+    String securityAnswer3UpdateSql = String.format("UPDATE Passwords SET SecurityAnswer3='%s' WHERE CustomerID='%s';", securityAnswer3, customerID);
+    jdbcTemplate.update(securityAnswer3UpdateSql);
+  }
+
+  public static int getResetPasswordDay(JdbcTemplate jdbcTemplate, String customerID) {
+    String getResetPasswordDaySql = String.format("SELECT ResetPasswordDay FROM Customers WHERE CustomerID='%s';", customerID);
+    int resetPasswordDay = jdbcTemplate.queryForObject(getResetPasswordDaySql, Integer.class);
+    return resetPasswordDay;
+  }
+
+  public static void setResetPasswordDay(JdbcTemplate jdbcTemplate, int resetPasswordDay, String customerID) {
+    String resetPasswordDayUpdateSql = String.format("UPDATE Customers SET ResetPasswordDay=%d WHERE CustomerID='%s';", resetPasswordDay, customerID);
+    jdbcTemplate.update(resetPasswordDayUpdateSql);
+  }
+
+  public static String getNewPasswordForReset(JdbcTemplate jdbcTemplate, String customerID) {
+    String getnewPasswordForResetSql = String.format("SELECT NewPasswordForReset FROM Passwords WHERE CustomerID='%s';", customerID);
+    String newPasswordForReset = jdbcTemplate.queryForObject(getnewPasswordForResetSql, String.class);
+    return newPasswordForReset;
+  }
+
+  public static void setNewPasswordForReset(JdbcTemplate jdbcTemplate, String newPasswordForReset, String customerID) {
+    String newPasswordForResetUpdateSql = String.format("UPDATE Passwords SET NewPasswordForReset='%s' WHERE CustomerID='%s';", newPasswordForReset, customerID);
+    jdbcTemplate.update(newPasswordForResetUpdateSql);
+  }
+
+  public static int getPasswordAttempts(JdbcTemplate jdbcTemplate, String customerID) {
+    String getPasswordAttemptsSql = String.format("SELECT PasswordAttempts FROM Passwords WHERE CustomerID='%s';", customerID);
+    int passwordAttempts = jdbcTemplate.queryForObject(getPasswordAttemptsSql, Integer.class);
+    return passwordAttempts;
+  }
+
+  public static void setPasswordAttempts(JdbcTemplate jdbcTemplate, int passwordAttempts, String customerID) {
+    String passwordAttemptsUpdateSql = String.format("UPDATE Passwords SET PasswordAttempts=%d WHERE CustomerID='%s';", passwordAttempts, customerID);
+    jdbcTemplate.update(passwordAttemptsUpdateSql);
   }
 
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
