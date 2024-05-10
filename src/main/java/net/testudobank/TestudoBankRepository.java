@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.support.JdbcBeanDefinitionReader;
 
 public class TestudoBankRepository {
   public static String getCustomerPassword(JdbcTemplate jdbcTemplate, String customerID) {
@@ -59,14 +60,14 @@ public class TestudoBankRepository {
 
   public static List<Map<String,Object>> getRequestLogs(JdbcTemplate jdbcTemplate, String customerID, int numRequestsToFetch) {
     System.out.println("in request logs");
-    String getRequestsSql = String.format("Select * from PendingRequests WHERE RequestFrom='%s' OR RequestTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numRequestsToFetch);
+    String getRequestsSql = String.format("Select * from RequestHist WHERE RequestFrom='%s' OR RequestTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numRequestsToFetch);
     System.out.println("sql written");
     List<Map<String,Object>> requestLogs = jdbcTemplate.queryForList(getRequestsSql);
     return requestLogs;
   }
 
   public static List<Map<String,Object>> getPendingRequestLogs(JdbcTemplate jdbcTemplate, String customerID, String status) {
-    String getPendingRequestsSql = String.format("Select * from PendingRequests WHERE RequestTo='%s AND Status='%s' ORDER BY Timestamp DESC LIMIT 10;", customerID, status);
+    String getPendingRequestsSql = String.format("Select * from RequestHist WHERE RequestTo='%s AND Status='%s' ORDER BY Timestamp DESC LIMIT 10;", customerID, status);
     List<Map<String,Object>> pendingRequests = jdbcTemplate.queryForList(getPendingRequestsSql);
     return pendingRequests;
   }
@@ -169,6 +170,11 @@ public class TestudoBankRepository {
     jdbcTemplate.update(deleteRowFromOverdraftLogsSql);
   }
 
+  public static void deleteRowFromPendingRequestsTable(JdbcTemplate jdbcTemplate, String requestFrom, String requestTo, String timeStamp, int amountRequested) {
+    String deleteRowFromPendingRequestsSql = String.format("DELETE from RequestHist where RequestFrom='%s' AND RequestTo='%s' AND Status='pending' AND Timestamp='%s' AND Amount='%d';", requestFrom, requestTo, timeStamp, amountRequested);
+    jdbcTemplate.update(deleteRowFromPendingRequestsSql);
+  }
+
   public static void insertRowToTransferLogsTable(JdbcTemplate jdbcTemplate, String customerID, String recipientID, String timestamp, int transferAmount) {
     String transferHistoryToSql = String.format("INSERT INTO TransferHistory VALUES ('%s', '%s', '%s', %d);",
                                                     customerID,
@@ -179,7 +185,7 @@ public class TestudoBankRepository {
   }
 
   public static void insertRowToRequestLogsTable(JdbcTemplate jdbcTemplate, String requesterID, String requestedID, String timestamp, String status, int requestAmount) {
-    String requestHistoryToSql = String.format("INSERT INTO PendingRequests VALUES ('%s', '%s', '%s', '%s', '%d');",
+    String requestHistoryToSql = String.format("INSERT INTO RequestHist VALUES ('%s', '%s', '%s', '%s', '%d');",
                                                   requesterID,
                                                   requestedID,
                                                   timestamp,
