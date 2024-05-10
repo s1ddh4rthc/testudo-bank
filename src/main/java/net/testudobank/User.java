@@ -30,7 +30,7 @@ public class User {
 	private double overDraftBalance;
 
   @Setter @Getter
-	private String logs;
+  private String logs;
 
   @Setter @Getter
   private String transactionHist;
@@ -99,4 +99,51 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  // Add these fields to the User class
+  private String userId;
+  private String transactionId;
+  private double transactionAmount;
+  private int transactionAgeInDays;
+  private String disputeReason;
+
+  // Add getters for the new fields
+  public String getUserId() {
+      return userId;
+  }
+
+  public void setUserId(String userId) {
+      this.userId = userId;
+  }
+
+  public String getTransactionId() {
+      return transactionId;
+  }
+
+  public void setTransactionId(String transactionId) {
+      this.transactionId = transactionId;
+  }
+
+  public double getTransactionAmount() {
+      return transactionAmount;
+  }
+
+  public void setTransactionAmount(double transactionAmount) {
+      this.transactionAmount = transactionAmount;
+  }
+
+  public int getTransactionAgeInDays() {
+      return transactionAgeInDays;
+  }
+
+  public void setTransactionAgeInDays(int transactionAgeInDays) {
+      this.transactionAgeInDays = transactionAgeInDays;
+  }
+
+  public String getDisputeReason() {
+    return disputeReason;
+  }
+
+  public void setDisputeReason(String disputeReason) {
+    this.disputeReason = disputeReason;
+  }
 }

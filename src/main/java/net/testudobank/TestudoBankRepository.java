@@ -168,6 +168,27 @@ public class TestudoBankRepository {
     String cryptoHistorySql = "INSERT INTO CryptoHistory (CustomerID, Timestamp, Action, CryptoName, CryptoAmount) VALUES (?, ?, ?, ?, ?)";
     jdbcTemplate.update(cryptoHistorySql, customerID, timestamp, action, cryptoName, cryptoAmount);
   }
+
+  public static void logSuccessfulReversal(JdbcTemplate jdbcTemplate, String userID, String transactionID) {
+    String sql = "INSERT INTO TransactionHistory (UserID, TransactionID, Action) VALUES (?, ?, 'Reversal')";
+    jdbcTemplate.update(sql, userID, transactionID);
+  }
+
+  public static void logDisputeForManualReview(JdbcTemplate jdbcTemplate, String customerID, String transactionID) {
+    String sql = "INSERT INTO DisputeLogs (CustomerID, TransactionID, Status) VALUES (?, ?, 'Pending Review')";
+    jdbcTemplate.update(sql, customerID, transactionID);
+  }
+
+  public static boolean reverseTransactionByDetails(JdbcTemplate jdbcTemplate, String username, LocalDateTime timestamp, double amount) {
+    String sql = "UPDATE TransactionHistory SET isReversed = TRUE WHERE Username = ? AND Timestamp = ? AND Amount = ? AND isReversed = FALSE";
+    int rowsAffected = jdbcTemplate.update(sql, username, timestamp, amount);
+    return rowsAffected > 0;
+  }
+
+  public static void updateAccountBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
+    String sql = "UPDATE Customers SET Balance = ? WHERE CustomerID = ?";
+    jdbcTemplate.update(sql, newBalanceInPennies, customerID);
+  }
   
   public static boolean doesCustomerExist(JdbcTemplate jdbcTemplate, String customerID) { 
     String getCustomerIDSql =  String.format("SELECT CustomerID FROM Customers WHERE CustomerID='%s';", customerID);

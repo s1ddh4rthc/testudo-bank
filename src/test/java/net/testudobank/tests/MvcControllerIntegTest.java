@@ -1319,6 +1319,103 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     }
   }
 
+
+  /*
+  Tests the situation in which a customer with no pre-existing Crypto buys ETH, buys SOL, and then sells some of their SOL.
+  */
+  // @Test
+  // void testBuyETHandBuySOLandSellSOL_UserFlow() throws ScriptException {
+  //   // Initialize initial cash balance
+  //   CryptoTransactionTester tester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000.0)
+  //           .build();
+  //   tester.initialize();
+
+  //   // Buying ETH
+  //   CryptoTransaction buyETHnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .cryptoName("ETH")
+  //           .cryptoAmountToTransact(1.0) // Assuming 1 ETH
+  //           .cryptoPrice(2000.0) // Price of ETH
+  //           .expectedEndingCryptoBalance(1.0) // Expected ETH balance after purchase
+  //           .expectedEndingBalanceInDollars(800.0) // Expected cash balance after purchase
+  //           .shouldSucceed(true)
+  //           .build();
+  //   tester.test(buyETHnow);
+
+  //   // Buy SOL
+  //   CryptoTransaction buySOLnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .cryptoName("SOL")
+  //           .cryptoAmountToTransact(2.0) // Assuming 2 SOL
+  //           .cryptoPrice(100.0) // Price of SOL
+  //           .expectedEndingCryptoBalance(2.0) // Expected SOL balance after purchase
+  //           .expectedEndingBalanceInDollars(600.0) // Expected cash balance after purchase
+  //           .shouldSucceed(true)
+  //           .build();
+  //   tester.test(buySOLnow);
+
+  //   // Sell SOL
+  //   CryptoTransaction sellSOLnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+  //           .cryptoName("SOL")
+  //           .cryptoAmountToTransact(1.0) // selling 1 SOL
+  //           .cryptoPrice(110.0) // Price of SOL at sell time
+  //           .expectedEndingCryptoBalance(1.0) // Expected SOL balance after sell
+  //           .expectedEndingBalanceInDollars(710.0) // Expected cash balance after sell
+  //           .shouldSucceed(true)
+  //           .build();
+  //   tester.test(sellSOLnow);
+  // }
+
+  /*
+  integ test that ensures that the "welcome" page is returned when a user attempts to 
+  put "BTC" as the crypto name in the front-end when filling out the CryptoBuy form.
+  */
+  // @Test
+  // void testBuyBTC_InvalidCase() throws ScriptException {
+  //   // Initializing initial cash balance
+  //   CryptoTransactionTester tester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000.0)
+  //           .build();
+  //   tester.initialize();
+
+  //   // Try to buy BTC, which is not supported
+  //   CryptoTransaction buyBTCnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+  //           .cryptoName("BTC") // Attempting to buy BTC
+  //           .cryptoAmountToTransact(1.0) // Amount to buy
+  //           .shouldSucceed(false) // should fail
+  //           .build();
+  //   tester.test(buyBTCnow);
+  // }
+
+  /*
+  integ test that ensures that the "welcome" page is returned when a user attempts to put "BTC" 
+  as the crypto name in the front-end when filling out the CryptoSell form.
+  */
+  // @Test
+  // void testSellBTC_InvalidCase() throws ScriptException {
+  //   // Initialize w/ initial cash balance and some BTC balance
+  //   CryptoTransactionTester tester = CryptoTransactionTester.builder()
+  //           .initialBalanceInDollars(1000.0)
+  //           .initialCryptoBalance(Collections.singletonMap("BTC", 2.0)) // Assume user has 2 BTC
+  //           .build();
+  //   tester.initialize();
+
+  //   // Try to sell BTC, which is not supported
+  //   CryptoTransaction sellBTCnow = CryptoTransaction.builder()
+  //           .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+  //           .cryptoName("BTC") // Attempting to sell BTC
+  //           .cryptoAmountToTransact(1.0) // Amount to sell
+  //           .shouldSucceed(false) // shd have failure
+  //           .build();
+  //   tester.test(sellBTCnow);
+  // }
+
+
+
+
   /**
    * Test that no crypto buy transaction occurs when the user password is incorrect
    */
@@ -1582,4 +1679,268 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
   
+  @Test
+  public void testInterestUnder20() throws SQLException, ScriptException {
+    double currentBalance = 0;
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    int deposits = 4;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    //Under 20 case
+    double toDeposit = 19.99;
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(toDeposit);
+    user.setNumDepositsForInterest(deposits);
+
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    assertEquals(1, customersTableData.size());
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double expectedFinalBalance = currentBalance + toDeposit;
+    double expectedFinalBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedFinalBalance);
+    
+    assertEquals(expectedFinalBalanceInPennies, (int)customer1Data.get("Balance"));
+    assertEquals(1, transactionHistoryTableData.size());
+  }
+
+  @Test
+  public void testInterestOver20() throws SQLException, ScriptException {
+    double currentBalance = 0;
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    int deposits = 4;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    //Over 20 case
+    double toDeposit = 20.01;
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(toDeposit);
+    user.setNumDepositsForInterest(deposits);
+
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    assertEquals(1, customersTableData.size());
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double expectedFinalBalance = currentBalance + toDeposit;
+    double expectedFinalBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedFinalBalance);
+    
+    assertEquals(expectedFinalBalanceInPennies, (int)customer1Data.get("Balance"));
+    assertEquals(1, transactionHistoryTableData.size());
+  }
+
+  @Test
+  public void testInterestat20() throws SQLException, ScriptException {
+    double currentBalance = 0;
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    int deposits = 4;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    //At 20 case
+    double toDeposit = 20.00;
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setPassword(CUSTOMER1_PASSWORD);
+    user.setAmountToDeposit(toDeposit);
+    user.setNumDepositsForInterest(deposits);
+
+    controller.submitDeposit(user);
+
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+
+    assertEquals(1, customersTableData.size());
+
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+    double expectedFinalBalance = currentBalance + toDeposit;
+    double expectedFinalBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(expectedFinalBalance);
+    
+    assertEquals(expectedFinalBalanceInPennies, (int)customer1Data.get("Balance"));
+    assertEquals(1, transactionHistoryTableData.size());
+  }
+
+/**
+ * Tests to make sure interest is not applied after 5 transactions
+ */
+@Test
+public void testInterestNotAppliedAfter5Transactions() throws SQLException, ScriptException {
+    // Initial balance and deposits
+    double currentBalance = 50.00;
+    int deposits = 9; // Number of deposits before interest applies
+
+    // Add customer to DB
+    int currentBalanceInPennies = MvcControllerIntegTestHelpers.convertDollarsToPennies(currentBalance);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, currentBalanceInPennies, deposits);
+
+    // Deposit 5 times
+    double depositAmount = 10.00;
+    for (int i = 0; i < 6; i++) {
+        User user = new User();
+        user.setUsername(CUSTOMER1_ID);
+        user.setPassword(CUSTOMER1_PASSWORD);
+        user.setAmountToDeposit(depositAmount);
+        user.setNumDepositsForInterest(deposits + i);
+        controller.submitDeposit(user);
+    }
+
+    // Check if interest not applied for transactions after 5th
+    List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+    assertEquals(6, transactionHistoryTableData.size()); // Expect 6 transactions
+}
+
+/**
+ * Checks case if there is a dispute on a transaction that is not there
+ */
+@Test
+public void testDisputeOnNonExistentTransaction() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+
+    // Attempt to dispute a non-existent transaction
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1); // Dispute the most recent (non-existent) transaction
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+    assertEquals("error", responsePage); // Expected to return an error page
+
+    // Verify customer data remains unchanged
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(INITIAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(0, (int) customer1Data.get("NumFraudReversals"));
+}
+
+/**
+ * Tests event handling on test case where there are multiple disputes on the same transaction
+ */
+@Test
+public void testMultipleDisputesOnSameTransaction() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account and perform a deposit
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+    double depositAmount = 50.0;
+    User depositFormInputs = new User();
+    depositFormInputs.setUsername(CUSTOMER1_ID);
+    depositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    depositFormInputs.setAmountToDeposit(depositAmount);
+    controller.submitDeposit(depositFormInputs);
+
+    // Dispute the deposit transaction twice
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1);
+
+    controller.submitDispute(disputeFormInputs); // First dispute
+    String responsePage = controller.submitDispute(disputeFormInputs); // Second dispute
+
+    // Verify expected behavior (e.g., second dispute ignored, manual review triggered, etc.)
+    assertEquals("manual_review", responsePage);
+
+    // Check customer data and transaction history as needed
+    // ...
+}
+
+/**
+ * Tests that you cannot cross over the set limit of disputes
+ */
+@Test
+public void testDisputeLimitReached() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account with maximum allowed disputes
+    int maxDisputes = MvcController.MAX_DISPUTES;
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0, maxDisputes);
+
+    // Attempt to submit a new dispute
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1);
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+    assertEquals("dispute_limit_reached", responsePage); // Expected to return a specific page or message
+
+    // Verify customer data remains unchanged
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(INITIAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(maxDisputes, (int) customer1Data.get("NumFraudReversals"));
+}
+
+
+/**
+ * Ensures the automatic dispute reversal works as intended.
+ */
+@Test
+public void testAutomatedReversalCriteria() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account and perform a transaction
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+    double transactionAmount = 50.0;
+    User transactionFormInputs = new User();
+    transactionFormInputs.setUsername(CUSTOMER1_ID);
+    transactionFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    transactionFormInputs.setAmountToDeposit(transactionAmount); // Or setAmountToWithdraw()
+    controller.submitDeposit(transactionFormInputs); // Or submitWithdraw()
+
+    // Dispute the transaction
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(1);
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+
+    // Verify the expected behavior based on the automated reversal criteria
+    if (transactionAmount <= AUTOMATED_REVERSAL_THRESHOLD) {
+        assertEquals("automated_reversal", responsePage);
+        // Check customer balance and transaction history for automatic reversal
+    } else {
+        assertEquals("manual_review", responsePage);
+        // Check customer data remains unchanged
+    }
+}
+
+/**
+ * Tests error handling when user makes an improper dispute
+ */
+@Test
+public void testIncorrectUserInput() throws SQLException, ScriptException, InterruptedException {
+    // Set up customer account
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, INITIAL_BALANCE_IN_PENNIES, 0);
+
+    // Attempt to dispute with invalid input
+    User disputeFormInputs = new User();
+    disputeFormInputs.setUsername(CUSTOMER1_ID);
+    disputeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    disputeFormInputs.setNumTransactionsAgo(-1); // Invalid transaction index
+
+    String responsePage = controller.submitDispute(disputeFormInputs);
+    assertEquals("input_error", responsePage); // Expected to return an input error page
+
+    // Verify customer data remains unchanged
+    List<Map<String, Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String, Object> customer1Data = customersTableData.get(0);
+    assertEquals(INITIAL_BALANCE_IN_PENNIES, (int) customer1Data.get("Balance"));
+    assertEquals(0, (int) customer1Data.get("NumFraudReversals"));
+}
+
+
+
+
 }

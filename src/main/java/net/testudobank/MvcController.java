@@ -57,6 +57,10 @@ public class MvcController {
     this.cryptoPriceClient = cryptoPriceClient;
   }
 
+  private int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int)(pennyAmount * INTEREST_RATE);
+  }
+
   //// HTML GET HANDLERS ////
 
   /**
@@ -179,6 +183,21 @@ public class MvcController {
 		model.addAttribute("user", user);
 		return "sellcrypto_form";
 	}
+
+  @GetMapping("/manual_review_info")
+  public String showManualReviewInfo() {
+      return "manual_review_info";
+  }
+
+  @GetMapping("/reversal_success")
+  public String showReversalSuccess() {
+      return "reversal_success";
+  }
+
+  @GetMapping("/reversal_failure")
+  public String showReversalFailure() {
+      return "reversal_failure";
+  }
 
   //// HELPER METHODS ////
 
@@ -410,7 +429,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -463,10 +482,7 @@ public class MvcController {
    */
   @PostMapping("/dispute")
   public String submitDispute(@ModelAttribute("user") User user) {
-    // Ensure that requested transaction to reverse is within acceptable range
-    if (user.getNumTransactionsAgo() <= 0 || user.getNumTransactionsAgo() > MAX_REVERSABLE_TRANSACTIONS_AGO) {
-      return "welcome";
-    }
+    
 
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
@@ -483,6 +499,22 @@ public class MvcController {
     if (numOfReversals >= MAX_DISPUTES) {
       return "welcome";
     }
+
+    // Ensure that requested transaction to reverse is within acceptable range
+    if (user.getNumTransactionsAgo() <= 0 || user.getNumTransactionsAgo() > MAX_REVERSABLE_TRANSACTIONS_AGO) {
+      return "welcome";
+    }
+
+    // Add new logic to determine if the dispute needs manual review or can be automatically processed
+    boolean needsManualReview = determineReviewRequirement(user);
+    if (needsManualReview) {
+      return handleManualReview(user);
+    } 
+    else {
+      return handleAutomaticReversal(user);
+    }
+
+
     
     // Fetch 3 most recent transactions for this customer
     List<Map<String,Object>> transactionLogs = TestudoBankRepository.getRecentTransactions(jdbcTemplate, userID, MAX_NUM_TRANSACTIONS_DISPLAYED);
@@ -541,6 +573,39 @@ public class MvcController {
     updateAccountInfo(user);
 
     return "account_info";
+  }
+
+  private boolean determineReviewRequirement(User user) {
+    // Example: Disputes over $1000 or disputes on transactions older than 30 days require manual review
+    return user.getTransactionAmount() > 1000 || user.getTransactionAgeInDays() > 30;
+  }
+
+  private String handleManualReview(User user) {
+    // Log the need for manual review
+    TestudoBankRepository.logDisputeForManualReview(jdbcTemplate, user.getUserId(), user.getTransactionId());
+    // Notify staff or set a flag for manual review
+    // Redirect user to a page informing them about the manual review process
+    return "redirect:/manual_review_info";
+  }
+
+  private String handleAutomaticReversal(User user) {
+    // Reverse the transaction automatically
+    boolean reversalSuccess = TestudoBankRepository.reverseTransaction(jdbcTemplate, user.getTransactionId());
+    // if (reversalSuccess) {
+    //     // Fetch the current balance in pennies
+    //     int currentBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUserId());
+    //     // Update user's account balance
+    //     TestudoBankRepository.updateAccountBalance(jdbcTemplate, user.getUserId(), currentBalanceInPennies);
+    //     // Log the successful reversal
+    //     TestudoBankRepository.logSuccessfulReversal(jdbcTemplate, user.getUserId(), user.getTransactionId());
+    if (reversalSuccess) {
+        // Update user's account balance
+        TestudoBankRepository.updateAccountBalance(jdbcTemplate, user.getUsername(), -user.getTransactionAmount());    
+        return "redirect:/reversal_success";
+    } else {
+        // Handle failure (e.g., transaction could not be reversed)
+        return "redirect:/reversal_failure";
+    }
   }
 
   /**
@@ -799,15 +864,52 @@ public class MvcController {
   }
 
   /**
-   * 
-   * 
-   * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
-   */
+ * Applies interest to users based on certain conditions when a user deposits money into their account.
+ * 
+ * @param user The user object containing deposit information.
+ * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+ */
   public String applyInterest(@ModelAttribute("user") User user) {
+    
+    double depositValue = user.getAmountToDeposit();
+    double overdraftBalance = user.getOverDraftBalance();
+    double userBalance = user.getBalance();
+    int numberOfDeposits = user.getNumDepositsForInterest();
 
-    return "welcome";
+    // Check conditions for applying interest
+    if (userBalance > 0 && overdraftBalance < 0 && depositValue >= 20) {
+        numberOfDeposits++;
+        user.setNumDepositsForInterest(numberOfDeposits);
 
-  }
+        // Check if it's the 5th deposit
+        int fifthDepositCheck = numberOfDeposits % 5;
+        if (fifthDepositCheck == 0) {
+            // Calculate interest
+            double newBalance = userBalance * BALANCE_INTEREST_RATE; // Applying 1.5% interest
+            int balanceInPennies = (int) (userBalance * 100);
+            int newBalancePennies = (int) (newBalance * 100);
+            
+            // Update user's balance
+            user.setBalance(newBalance);
+            TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalancePennies);
+            
+            // Log the application of interest
+            String date = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+            int interestAmount = newBalancePennies - balanceInPennies;
+            TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), date, "Interest Applied", interestAmount);
+            numberOfDeposits = 0;
+          } else{
+          numberOfDeposits++;
+        }
+
+        // Update the number of deposits for interest in the database
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numberOfDeposits % 5);
+
+        return "account_info";
+    } else {
+        return "welcome";
+    }
+}
+
 
 }
