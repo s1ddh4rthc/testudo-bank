@@ -63,6 +63,24 @@ public class TestudoBankRepository {
     return overdraftLogs;
   }
 
+  public static List<Map<String,Object>> getIncentiveDepositLogs(JdbcTemplate jdbcTemplate, String customerID, String timestamp) {
+    String getIncentiveDepositLogsSql = String.format("SELECT CustomerID, Timestamp, DepositAmount FROM IncentiveDepositLog WHERE CustomerID='%s' AND Timestamp='%s';", customerID, timestamp);
+    List<Map<String,Object>> incentiveDepositLogs = jdbcTemplate.queryForList(getIncentiveDepositLogsSql);
+    return incentiveDepositLogs;
+  }
+
+  public static List<Map<String,Object>> getAllIncentiveDepositLogs(JdbcTemplate jdbcTemplate) {
+    String getAllIncentiveDepositLogsSql = "SELECT CustomerID, Timestamp, DepositAmount FROM IncentiveDepositLog";
+    return jdbcTemplate.queryForList(getAllIncentiveDepositLogsSql);
+  }
+
+  public static List<Map<String, Object>> getTransactionHistoryWithinPeriod(JdbcTemplate jdbcTemplate, String userID, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+    String startTimestamp = startDateTime.format(SQL_DATETIME_FORMATTER);
+    String endTimestamp = endDateTime.format(SQL_DATETIME_FORMATTER);
+    String getTransactionHistorySql = String.format("SELECT * FROM TransactionHistory WHERE CustomerID='%s' AND Timestamp >= '%s' AND Timestamp <= '%s';", userID, startTimestamp, endTimestamp);
+    return jdbcTemplate.queryForList(getTransactionHistorySql);
+}
+
   public static List<Map<String,Object>> getOverdraftLogs(JdbcTemplate jdbcTemplate, String customerID, String timestamp){
     String getOverDraftLogsSql = String.format("SELECT * FROM OverdraftLogs WHERE CustomerID='%s' AND Timestamp='%s';", customerID, timestamp);
     List<Map<String,Object>> overdraftLogs = jdbcTemplate.queryForList(getOverDraftLogsSql);
@@ -104,6 +122,14 @@ public class TestudoBankRepository {
     jdbcTemplate.update(insertRowToOverdraftLogsSql);
   }
 
+public static void insertRowToIncentiveDepositLogTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, double depositAmount) {
+  String insertRowToIncentiveDepositLogSql = String.format("INSERT INTO IncentiveDepositLog (CustomerID, TimeStamp, DepositAmount) VALUES ('%s', '%s', %f)", 
+                                                            customerID, 
+                                                            timestamp,
+                                                            depositAmount
+                                                            );
+  jdbcTemplate.update(insertRowToIncentiveDepositLogSql);
+}
   public static void setCustomerNumFraudReversals(JdbcTemplate jdbcTemplate, String customerID, int newNumFraudReversals) {
     String numOfReversalsUpdateSql = String.format("UPDATE Customers SET NumFraudReversals = %d WHERE CustomerID='%s';", newNumFraudReversals, customerID);
     jdbcTemplate.update(numOfReversalsUpdateSql);

@@ -3,6 +3,7 @@ package net.testudobank.tests;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.beans.Transient;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -30,6 +31,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import net.testudobank.MvcController;
+import net.testudobank.TestudoBankRepository;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
 
@@ -139,6 +141,260 @@ public class MvcControllerIntegTest {
   }
 
   /**
+   * Verifies that on the fifth interest-qualifying deposit, the balance interest 
+   * rate is applied. The customer's balance should increase by the added deposit plus the 
+   * interest rate applied to the account balance after the deposit.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one had qualified,
+   * interest would have been added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAppliedAfterFiveDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $30.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 30.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $130 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = BALANCE_INTEREST_RATE * (CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+  /**
+   * Verifies the balance interest rate isn't applied continually after the fifth deposit.
+   * This checks to ensure the customer's balance only increases by the deposit amount added.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made five interest-qualifying deposits, so the next deposit shouldn't 
+   * cause interest to be applied to the balance.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestNotAppliedContinuallyAfterFifthDeposit() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 150.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 5;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $50.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 50.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify that the balance interest rate wasn't applied to customer 1's balance 
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+  /**
+   * Verifies the balance interest rate isn't applied if the deposit isn't over $20.
+   * In this test case, the deposit is $10, so the test checks to ensure the customer's balance 
+   * only increases by the deposit amount added.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one had qualified,
+   * interest would have been added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAppliedForDepositsOver20Dollars() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $10.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 10.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify that the balance interest rate wasn't applied to customer 1's balance 
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
+  /**
+   * Verifies the balance interest rate is applied if the deposit is $20.
+   * In this test case, the deposit is $20, so the test checks to ensure the customer's balance 
+   * increases by the deposit amount added plus the interest rate applied to that new balance.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one qualifies,
+   * interest is added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAppliedFor20DollarDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $20.00 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.00; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $120 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = BALANCE_INTEREST_RATE * (CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
+  /**
+   * Verifies the balance interest rate is not applied if the deposit is the edge case of $19.99.
+   * The test checks to ensure the customer's balance is only the deposit amount plus the 
+   * initial balance.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one had qualified,
+   * interest would have been added.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestNotAplliedForPennyUnder20DollarDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $19.99 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 19.99; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $119.99 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE;
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+
+    /**
+   * Verifies the balance interest rate is applied if the deposit is the edge case of $20.01.
+   * The test checks to ensure the customer's balance increases by the deposit amount added plus 
+   * the interest rate applied to that new balance.
+   * 
+   * Assumes the customer is not in overdraft. Starts with it set so that it is assumed the 
+   * customer has already made four interest-qualifying deposits, so if the fifth one qualifies,
+   * interest is applied.
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test 
+  public void testInterestAplliedForPennyOver20DollarDeposits() throws SQLException, ScriptException {
+    // set up customer deposit history so the next $20 or greater deposit will cause interest to be applied
+    double CUSTOMER1_BALANCE = 100.00;
+    double BALANCE_INTEREST_RATE = 1.015;
+    int numOfDepositsForInterest = 4;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, CUSTOMER1_ID, numOfDepositsForInterest);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, numOfDepositsForInterest);
+
+    // prepare Deposit Form to Deposit $20.01 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 20.01; 
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT); 
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(customer1DepositFormInputs);
+    
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    Map<String,Object> customer1Data = customersTableData.get(0);
+
+    // verify customer 1 had the 1.5% interest rate applied to their new balance of $120.01 after the deposit
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE = BALANCE_INTEREST_RATE * (CUSTOMER1_AMOUNT_TO_DEPOSIT + CUSTOMER1_BALANCE);
+    double CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_EXPECTED_FINAL_BALANCE);
+    assertEquals(CUSTOMER1_EXPECTED_FINAL_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+  }
+  /**
    * Verifies the simplest withdraw case.
    * The customer's Balance in the Customers table should be decreased,
    * and the Withdraw should be logged in the TransactionHistory table.
@@ -196,6 +452,8 @@ public class MvcControllerIntegTest {
     int CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_AMOUNT_TO_WITHDRAW);
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
+
+
 
   /**
    * Verifies the case where a customer withdraws more than their available balance.
@@ -1497,7 +1755,6 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .expectedEndingBalanceInDollars(1000)
             .expectedEndingOverdraftBalanceInDollars(100)
             .cryptoPrice(1000)
-            .cryptoAmountToTransact(0.1)
             .cryptoName("ETH")
             .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
             .overdraftTransaction(true)
@@ -1582,4 +1839,311 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     cryptoTransactionTester.test(cryptoTransaction);
   }
   
-}
+  /**
+   * Tests that buying ETH and SOL adds to their respective total crypto balances and updates the user's balance in dollars accordingly.
+   * It then tests that selling SOL updates the SOL crypto balance accordingly, and the correct amount of money is added to the user balance.
+   */
+  @Test 
+  public void testBuyingAndSellingCryptoUserFlow() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester1 = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+            .build();
+
+    cryptoTransactionTester1.initialize();
+
+    CryptoTransaction buyETH = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(800)
+            .expectedEndingCryptoBalance(0.2)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.2)
+            .cryptoName("ETH")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester1.test(buyETH);
+
+    CryptoTransactionTester cryptoTransactionTester2  = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(800)
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.0))
+            .build();
+
+    cryptoTransactionTester2.initialize();
+
+    CryptoTransaction buySOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(600)
+            .expectedEndingCryptoBalance(0.3)
+            .cryptoPrice(2000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester2.test(buySOL);
+
+    CryptoTransactionTester cryptoTransactionTester3 = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(600)
+            .initialCryptoBalance(Collections.singletonMap("SOL", 0.1))
+            .build();
+
+    cryptoTransactionTester3.initialize();
+
+    CryptoTransaction sellSOL = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(700)
+            .expectedEndingCryptoBalance(0.05)
+            .cryptoPrice(2000)
+            .cryptoAmountToTransact(0.05)
+            .cryptoName("SOL")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(true)
+            .build();
+    cryptoTransactionTester3.test(sellSOL);
+  }
+
+  /**
+   * Tests that trying to buy BTC doesn't work and instead directs you to the welcome page
+   */
+  @Test
+  public void testBuyingBTC() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Tests that trying to sell Bitcoin (BTC) doesn't work and instead directs you to the welcome page
+   */
+  @Test
+  public void testSellingBitCoin() throws ScriptException {
+    CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+            .initialBalanceInDollars(1000)
+            .build();
+
+    cryptoTransactionTester.initialize();
+
+    CryptoTransaction cryptoTransaction = CryptoTransaction.builder()
+            .expectedEndingBalanceInDollars(1000)
+            .cryptoPrice(1000)
+            .cryptoAmountToTransact(0.1)
+            .cryptoName("BTC")
+            .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+            .shouldSucceed(false)
+            .build();
+    cryptoTransactionTester.test(cryptoTransaction);
+  }
+
+  /**
+   * Tests that the deposit qualifies for the incentive because the deposit amount is $2000 or over, 
+   * which means you won't be redirected to the welcome page
+   */
+  @Test
+  public void testAmountQualifiesForIncentive() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(2500) 
+              .build();
+  
+      // Call the method and assert that it does not return to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertNotEquals("welcome", result);
+  }
+  
+   /**
+   * Tests that the deposit does not qualify for the incentive because the deposit amount is under $2000, 
+   * which means you will be redirected to the welcome page
+   */
+  @Test
+  public void testAmountDoesNotQualifyForIncentive() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(1500) 
+              .build();
+  
+      // Call the method and assert that it returns to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertEquals("welcome", result);
+  }
+   /**
+   * Tests that the deposit does not qualify for the incentive because they've been in overdraft before,
+   * which means you will be redirected to the welcome page
+   */
+  @Test
+  public void testUserOverdraft() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(2500) // Deposit amount that qualifies for incentive
+              .build();
+  
+      // Mock the repository to simulate overdraft logs having at least one entry
+      Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+              .thenReturn(Collections.singletonList(Map.of()));
+  
+      // Call the method and assert that it returns to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertEquals("welcome", result);
+  }
+  
+    /**
+   * Tests that the deposit does qualify for the incentive because they've never been in overdraft before,
+   * which means you won't be redirected to the welcome page.
+   */
+  @Test
+  public void testUserNoOverdraft() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(2500) // Deposit amount that qualifies for incentive
+              .build();
+  
+      // Mock the repository to simulate no overdraft logs
+      Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+              .thenReturn(Collections.emptyList());
+  
+      // Call the method and assert that it returns to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertEquals("welcome", result);
+  }
+
+   /**
+   * Tests that after 60 days a qualifying incentive results in the correct amount of ETH crypto being 
+   * added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountAfterIncentiveApplied() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(60);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is not returned
+    assertNotEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount has been updated correctly and now has 0.005 ETH
+    assertEquals(0.005, updatedUser.getCryptoBalance().get("ETH"));
+  }
+
+  /**
+   * Tests that after 59 days a qualifying incentive results in no ETH crypto being 
+   * added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountNotAppliedBefore60Days() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(59);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is not returned
+    assertNotEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount is still 0.0 
+    assertNotEquals(0.005, updatedUser.getCryptoBalance().get("ETH"));
+  }
+
+  /**
+   * Tests if the user goes into overdraft after getting a qualifying incentive deposit, that it results 
+   * in no ETH crypto being added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountAfterIncentiveNotAppliedDueToOverdrafts() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(60);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Mock the repository to simulate overdraft logs during the time frame
+    Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+            .thenReturn(Collections.singletonList(Map.of("timestamp", timestamp.toString())));
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is returned due to overdrafts
+    assertEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount remains 0.0 as the incentive was not applied due to overdrafts
+    assertEquals(0.0, updatedUser.getCryptoBalance().get("ETH"));
+  }
+
+  /**
+   * Tests if the user does not go into overdraft after getting a qualifying incentive deposit, but the 
+   * deposit amount drops to below the incentive deposit amount, that it results 
+   * in no ETH crypto being added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountAfterIncentiveNotAppliedDueToLowBalance() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(60);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Mock the repository to simulate no overdraft logs during the time frame
+    Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+            .thenReturn(Collections.emptyList());
+
+    // Reduce the user's balance below the incentive deposit amount
+    user.setAmountToDeposit(1500);
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is returned due to the balance dropping below the incentive deposit amount
+    assertEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount remains 0.0 as the incentive was not applied due to low balance
+    assertEquals(0.0, updatedUser.getCryptoBalance().get("ETH"));
+  }
+} 

@@ -42,6 +42,7 @@ public class MvcController {
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
+  public static String TRANSACTION_HISTORY_INTEREST_APPLIED_TO_BALANCE_ACTION = "InterestAppliedToBalance";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
@@ -282,7 +283,6 @@ public class MvcController {
 
     if (userPasswordAttempt.equals(userPassword)) {
       updateAccountInfo(user);
-
       return "account_info";
     } else {
       return "welcome";
@@ -357,9 +357,13 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
     updateAccountInfo(user);
+
+    //see if deposit qualifies for incentive
+    checkIfAmountQualifiesForIncentive(user);
     return "account_info";
   }
 	
@@ -445,7 +449,6 @@ public class MvcController {
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
-
   }
 
   /**
@@ -798,16 +801,172 @@ public class MvcController {
     }
   }
 
-  /**
+    /**
+   * HTML POST request handler that uses user input from Deposit Form page to determine 
+   * if interest should be applied to the user's balance.
    * 
+   * If the user's deposit amount is greater than or equal to $20, the number of deposits is incremented 
+   * and that count is checked to see if it is a multiple of 5.  If it is and the user doesn't 
+   * have an overdraft balance, then the balance interest rate is applied and the 
+   * customer balance and transaction history log are updated accordingly.  
+   * 
+   * If the interest rate is applied, then the user is redirected to the "account_info" page.
+   * 
+   * If the deposit is less than $20, the number of deposits isn't a multiple of 5 or the user
+   * has an overdraft balance, then the user is redirected to the "welcome" page.
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    double userDepositAmt = user.getAmountToDeposit();
+    String userID = user.getUsername();
+    int numberOfUserDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
 
-    return "welcome";
+    // checks if deposit amount qualifies to be added to the count of 5 desposits before interest is applied
+    if (userDepositAmt < 20) {
+      return "welcome";
+    }
 
+    numberOfUserDepositsForInterest++;
+
+    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfUserDepositsForInterest);
+
+    // checks if there have been 5 new deposits and interest can be applied
+    if (numberOfUserDepositsForInterest % 5 != 0) {
+      return "welcome";
+    }
+
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+
+    // checks to make sure the user doesn't have overdraft fees and qualifies for interest to be applied
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }  
+
+    // applies interest and updates user cash balance and transaction history log accordingly
+    int userCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int interestRateAppliedToUserCashBalanceInPennies = userCashBalanceInPennies * BALANCE_INTEREST_RATE;
+    int interestAmtInPennies = interestRateAppliedToUserCashBalanceInPennies - userCashBalanceInPennies;
+
+    TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestAmtInPennies);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_INTEREST_APPLIED_TO_BALANCE_ACTION,interestAmtInPennies);
+ 
+    return "account_info";
   }
 
+  /**
+  * Checks if the deposited amount qualifies for an incentive and logs the deposit if eligible.
+  *
+  * @param user The User object containing the deposit information.
+  * @return A String indicating the next page to redirect to.
+  */
+  public String checkIfAmountQualifiesForIncentive(@ModelAttribute("user") User user) {
+    String timestamp = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    double userDepositAmt = user.getAmountToDeposit();
+    String userID = user.getUsername();
+
+    // check if deposit amount qualifies for incentive
+    if (userDepositAmt < 2000) {
+      return "welcome";
+    }
+    
+    // check if customer has ever gone into overdraft
+    List<Map<String, Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogs(jdbcTemplate, userID);
+    if (!overdraftLogs.isEmpty()) {
+      return "welcome";
+    }
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, userID, timestamp, userDepositAmt);
+  }
+
+  /**
+  * Applies cryptocurrency incentives to eligible customers based on their deposit history.
+  * Calculates the incentive amount for each qualifying deposit and awards it to the customer.
+  */
+  public void applyIncentive() {
+    // Get all incentive deposit logs
+    List<Map<String, Object>> allIncentiveDepositLogs = TestudoBankRepository.getAllIncentiveDepositLogs(jdbcTemplate);
+
+    // Get the current time
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    // Iterate through each incentive deposit log
+    for (Map<String, Object> incentiveLog : allIncentiveDepositLogs) {
+        String userID = (String) incentiveLog.get("CustomerID");
+        String timestamp = (String) incentiveLog.get("Timestamp");
+        double depositAmount = (double) incentiveLog.get("DepositAmount");
+
+        // Calculate the timestamp 60 days ago
+        LocalDateTime sixtyDaysAgo = LocalDateTime.parse(timestamp, SQL_DATETIME_FORMATTER).minusDays(60);
+        String sixtyDaysAgoStr = sixtyDaysAgo.format(SQL_DATETIME_FORMATTER);
+
+        // Retrieve the transactions within the 60-day period
+        List<Map<String, Object>> transactions = TestudoBankRepository.getTransactionHistoryWithinPeriod(jdbcTemplate, userID, sixtyDaysAgoStr, currentTime);
+
+        // Check if the customer's balance dropped below the deposit amount during the period
+        int netChange = transactions.stream()
+                .mapToInt(transaction -> (int) transaction.get("Amount"))
+                .sum();
+
+        // Calculate the final balance after applying the net change
+        int finalBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) + netChange;
+
+        // Check if the final balance is greater than or equal to the original deposit amount
+        if (finalBalance >= depositAmount) {
+          // Calculate how many times $2000 fits into the deposit amount
+          int depositCount = (int) (depositAmount / 2000);
+      
+          // Calculate the incentive amount in ETH
+          double ethAmount = depositCount * 0.005;
+      
+          // Award the incentive to the customer
+          awardCryptoIncentive(userID, ethAmount, "ETH", currentTime);
+      }
+    }
+  }
+  /**
+  * Checks if the customer's account maintained the minimum balance after a deposit within a 60 day period.
+  *
+  * @param jdbcTemplate  The JdbcTemplate object for database access.
+  * @param userID        The ID of the customer.
+  * @param timestamp     The timestamp of the deposit.
+  * @param depositAmount The amount deposited by the customer.
+  * @return true if the account maintained the minimum balance, otherwise false.
+  */
+
+  private boolean hasMinimumBalance(JdbcTemplate jdbcTemplate, String userID, String timestamp, double depositAmount) {
+    // Calculate the timestamp 60 days ago
+    LocalDateTime sixtyDaysAgo = LocalDateTime.parse(timestamp, SQL_DATETIME_FORMATTER).minusDays(60);
+
+    // Retrieve the transactions within the 60-day period
+    List<Map<String, Object>> transactions = TestudoBankRepository.getTransactionHistoryWithinPeriod(jdbcTemplate, userID, sixtyDaysAgo, LocalDateTime.parse(timestamp, SQL_DATETIME_FORMATTER));
+
+    // Calculate the net change in balance during the period
+    int netChange = transactions.stream()
+            .mapToInt(transaction -> (int) transaction.get("Amount"))
+            .sum();
+
+    // Calculate the final balance after applying the net change
+    int finalBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) + netChange;
+
+    // Check if the final balance is greater than or equal to the original deposit amount
+    return finalBalance >= depositAmount;
+  }
+
+  /**
+  * Awards a cryptocurrency incentive to a customer.
+  *
+  * @param userID       The ID of the customer receiving the incentive.
+  * @param cryptoAmount The amount of cryptocurrency to award.
+  * @param cryptoName   The name of the cryptocurrency being awarded.
+  * @param timestamp    The timestamp of the incentive transaction.
+  */
+  public void awardCryptoIncentive(String userID, double cryptoAmount, String cryptoName, String timestamp) {
+    // Increase the customer's crypto balance
+    TestudoBankRepository.increaseCustomerCryptoBalance(jdbcTemplate, userID, cryptoName, cryptoAmount);
+
+    // Log the incentive transaction
+    TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, cryptoName, "Incentive", timestamp, cryptoAmount);
+  }
 }
