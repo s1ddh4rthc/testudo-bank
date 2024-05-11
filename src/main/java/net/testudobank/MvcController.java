@@ -238,7 +238,10 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setCreditScore(calculateAndApplyCreditScore(user));
+
   }
+  
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
@@ -250,6 +253,8 @@ public class MvcController {
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
   }
+
+
 
   // HTML POST HANDLERS ////
 
@@ -808,6 +813,48 @@ public class MvcController {
 
     return "welcome";
 
+  }
+
+  /**
+   * Credit Score calculation handler
+   * 
+   * The method calculates the credit score depenging on the customers cash value and crypto value in terms of pennies.
+   * Then calculates credit score by multiplying total penny value by 0.0008.
+   * 
+   * If customer is in overdraft the credit score is automatically set to 0.
+   * The maximum credit score possible is 800.
+   * 
+   * The method also updates the database with the new calculated credit score.
+   * 
+   * 
+   * 
+   * @param user
+   * @return "creditScore" returns the calculated credit score on a scale from 0 - 800
+   */
+
+  private double calculateAndApplyCreditScore(User user){
+
+    // if a user is in overdraft their credit score will be 0
+
+    double overdraftBalance = user.getOverDraftBalance();
+    if (overdraftBalance > 0){
+      return 0;
+    }
+
+    // retrieving customer balance and customer crypto wallet value in pennies
+
+    int balanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user.getUsername());
+    double cryptoBalance = user.getCryptoBalanceUSD() * 100;
+    double totalBalance = balanceInPennies + cryptoBalance;
+
+    // calculating credit score with a max of 800 score possible
+    double creditScore = Math.min(800, (totalBalance * 0.0008));
+    creditScore = Math.round(creditScore * 100.0) / 100.0;
+
+
+    // updating database with new Customer Credit Score
+    TestudoBankRepository.setCustomerCreditScore(jdbcTemplate, user.getUsername(), creditScore);
+    return creditScore;
   }
 
 }

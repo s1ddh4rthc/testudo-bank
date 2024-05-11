@@ -99,4 +99,8 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  //// Credit Score Fields ////
+  @Setter @Getter @PositiveOrZero
+  private double creditScore;
+
 }

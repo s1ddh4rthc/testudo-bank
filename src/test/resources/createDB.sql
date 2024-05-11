@@ -48,3 +48,9 @@ CREATE TABLE CryptoHistory (
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
 );
+
+CREATE TABLE CreditScores (
+  CustomerID varchar(255),
+  CreditScore decimal(5,2),
+  PRIMARY KEY (CustomerID)
+);

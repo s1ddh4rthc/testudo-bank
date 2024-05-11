@@ -113,4 +113,10 @@ public class MvcControllerIntegTestHelpers {
   public static LocalDateTime convertDateToLocalDateTime(Date dateToConvert) { 
     return dateToConvert.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
   }
+
+  public static void addInitialCreditScore(DatabaseDelegate dbDelegate, String ID, Double customerBalance) throws ScriptException{
+    double creditScore = Math.round((customerBalance * 0.0008) * 100.0) / 100.0;
+    String insertCustomerCreditScoreSql = String.format("INSERT INTO CreditScores VALUES ('%s', '%f')", ID, creditScore);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerCreditScoreSql);
+  }
 }

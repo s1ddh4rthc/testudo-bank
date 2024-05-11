@@ -1581,5 +1581,175 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+/*
+ * Test that checks if a basic deposit into account increase credit score by correct ratio.
+ */
+
+  @Test
+  public void testCreditScoreValueOnDeposit() throws ScriptException {
+
+    // inital customer balance in pennies
+    double CUSTOMER1_BALANCE = 600000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(6000);
+
+    // adding customer and initial credit score of customer to database
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addInitialCreditScore(dbDelegate, CUSTOMER1_ID, CUSTOMER1_BALANCE);
+
+    // making sure correct credit score is initially added
+    String sqlQuery = String.format("SELECT CreditScore FROM CreditScores WHERE CustomerID = '%s'", CUSTOMER1_ID);
+    double initalCreditScore = jdbcTemplate.queryForObject(sqlQuery,Double.class);
+
+    assertEquals(480, initalCreditScore);
+
+    // Prepare Deposit Form to Deposit $4000 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_DEPOSIT = 4000; // user input is in dollar amount, not pennies.
+    User customer1DepositFormInputs = new User();
+    customer1DepositFormInputs.setUsername(CUSTOMER1_ID);
+    customer1DepositFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1DepositFormInputs.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT);
+
+    // submitting deposit
+    
+    controller.submitDeposit(customer1DepositFormInputs);
+
+    // querying for new credit score
+
+    double newCreditScore = jdbcTemplate.queryForObject("SELECT CreditScore FROM CreditScores WHERE CustomerID = '" + CUSTOMER1_ID + "';",Double.class);
+
+    assertEquals(800, newCreditScore);
+
+  }
+
+  /*
+   * Test that checks if a basic withdrawl will decrease credit score by correct ratio
+   */
+
+  @Test
+  public void testCreditScoreValueOnWithdrawl() throws ScriptException {
+
+    // inital customer balance in pennies
+    double CUSTOMER1_BALANCE = 1000000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(10000);
+
+    // adding customer and initial credit score of customer to database
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addInitialCreditScore(dbDelegate, CUSTOMER1_ID, CUSTOMER1_BALANCE);
+
+    // making sure correct credit score is initially added
+    String sqlQuery = String.format("SELECT CreditScore FROM CreditScores WHERE CustomerID = '%s'", CUSTOMER1_ID);
+    double initalCreditScore = jdbcTemplate.queryForObject(sqlQuery,Double.class);
+
+    assertEquals(800, initalCreditScore);
+
+    // Prepare withdraw Form to withdraw $4000 to customer 1's account.
+    double CUSTOMER1_AMOUNT_TO_WITHDRAW = 4000; // user input is in dollar amount, not pennies.
+    User customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(CUSTOMER1_AMOUNT_TO_WITHDRAW);
+
+    // submitting withdrawl
+    
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+
+    // querying for new credit score
+
+    double newCreditScore = jdbcTemplate.queryForObject("SELECT CreditScore FROM CreditScores WHERE CustomerID = '" + CUSTOMER1_ID + "';",Double.class);
+
+    assertEquals(480, newCreditScore);
+
+  }
+
+  /*
+   * Test that checks if going in overdraft causes credit score to become 0 and not negative.
+   */
+
+  @Test
+  public void testCreditScoreValueInOverdraft() throws ScriptException {
+
+   
+    // inital customer balance in pennies
+    double CUSTOMER1_BALANCE = 50000.00;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(500);
+
+    // adding customer and initial credit score of customer to database
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    MvcControllerIntegTestHelpers.addInitialCreditScore(dbDelegate, CUSTOMER1_ID, CUSTOMER1_BALANCE);
+
+    // making sure correct credit score is initially added
+    String sqlQuery = String.format("SELECT CreditScore FROM CreditScores WHERE CustomerID = '%s'", CUSTOMER1_ID);
+    double initalCreditScore = jdbcTemplate.queryForObject(sqlQuery,Double.class);
+
+    assertEquals(40, initalCreditScore);
+
+    // Prepare withdraw Form to withdraw $500 to customer 1's account. This will put the customer with a balance 0f $0
+    double CUSTOMER1_AMOUNT_TO_WITHDRAW = 500; // user input is in dollar amount, not pennies.
+    double CUSTOMER1_OVERDRAFT_BALANCE = 15;  
+    User customer1WithdrawFormInputs = new User();
+    customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+    customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1WithdrawFormInputs.setAmountToWithdraw(CUSTOMER1_AMOUNT_TO_WITHDRAW);
+    customer1WithdrawFormInputs.setOverDraftBalance(CUSTOMER1_OVERDRAFT_BALANCE); // setting customer overdraft to $15
+
+    // submitting withdrawl
+    
+    controller.submitWithdraw(customer1WithdrawFormInputs);
+
+    
+
+    // querying for new credit score
+
+    double newCreditScore = jdbcTemplate.queryForObject("SELECT CreditScore FROM CreditScores WHERE CustomerID = '" + CUSTOMER1_ID + "';",Double.class);
+
+    assertEquals(0, newCreditScore);
+
+  }
+
+   /*
+   * Test that checks for an edge case. If customer is in overdraft by less then $1 then the CreditScore should still be 0
+   */
+
+   @Test
+   public void testCreditScoreValueInOverdraftEdgeCase() throws ScriptException {
+ 
+    
+     // inital customer balance in pennies
+     double CUSTOMER1_BALANCE = 50000.00;
+     int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(500);
+ 
+     // adding customer and initial credit score of customer to database
+     MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+     MvcControllerIntegTestHelpers.addInitialCreditScore(dbDelegate, CUSTOMER1_ID, CUSTOMER1_BALANCE);
+ 
+     // making sure correct credit score is initially added
+     String sqlQuery = String.format("SELECT CreditScore FROM CreditScores WHERE CustomerID = '%s'", CUSTOMER1_ID);
+     double initalCreditScore = jdbcTemplate.queryForObject(sqlQuery,Double.class);
+ 
+     assertEquals(40, initalCreditScore);
+ 
+     // Prepare withdraw Form to withdraw $500 to customer 1's account. This will put the customer with a balance 0f $0
+     double CUSTOMER1_AMOUNT_TO_WITHDRAW = 500; // user input is in dollar amount, not pennies.
+     double CUSTOMER1_OVERDRAFT_BALANCE = 0.5;  
+     User customer1WithdrawFormInputs = new User();
+     customer1WithdrawFormInputs.setUsername(CUSTOMER1_ID);
+     customer1WithdrawFormInputs.setPassword(CUSTOMER1_PASSWORD);
+     customer1WithdrawFormInputs.setAmountToWithdraw(CUSTOMER1_AMOUNT_TO_WITHDRAW);
+     customer1WithdrawFormInputs.setOverDraftBalance(CUSTOMER1_OVERDRAFT_BALANCE); // setting customer overdraft to $0.5
+ 
+     // submitting withdrawl
+     
+     controller.submitWithdraw(customer1WithdrawFormInputs);
+ 
+     
+ 
+     // querying for new credit score
+ 
+     double newCreditScore = jdbcTemplate.queryForObject("SELECT CreditScore FROM CreditScores WHERE CustomerID = '" + CUSTOMER1_ID + "';",Double.class);
+ 
+     assertEquals(0, newCreditScore);
+ 
+   }
   
 }
