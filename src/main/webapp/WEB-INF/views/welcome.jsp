@@ -45,6 +45,8 @@
     <a href='/transfer'>Transfer</a> <br/>
     <a href='/buycrypto'>Buy Cryptocurrency</a>
     <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
+    <a href='/buysp500'>Buy S&P 500 Index Fund</a>
+    <a href='/sellsp500'>Sell S&P 500 Index Fund</a> <br/>
 
 	</div>
 </body>

@@ -49,6 +49,10 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
+  public static String TRANSACTION_HISTORY_SP500_SELL_ACTION = "SP500Sell";
+  public static String TRANSACTION_HISTORY_SP500_BUY_ACTION = "SP500Buy";
+  public static String SP500_HISTORY_SELL_ACTION = "Sell";
+  public static String SP500_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
 
@@ -180,6 +184,38 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "buysp500_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for buying S&P500 index funds.
+   * 
+   * @param model
+   * @return "buysp500_form" page
+   */
+  @GetMapping("/buysp500")
+	public String showBuySP500Form(Model model) {
+    User user = new User();
+    user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
+		model.addAttribute("user", user);
+		return "buysp500_form";
+	}
+
+  /**
+   * HTML GET request handler that serves the "sellsp500_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for selling cS&P500 index funds.
+   * 
+   * @param model
+   * @return "sellsp500_form" page
+   */
+  @GetMapping("/sellsp500")
+	public String showSellSP500Form(Model model) {
+    User user = new User();
+    user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
+		model.addAttribute("user", user);
+		return "sellsp500_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -213,6 +249,12 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
+    List<Map<String, Object>> SP500Logs = TestudoBankRepository.getSP500Logs(jdbcTemplate, user.getUsername());
+    StringBuilder SP500HistoryOutput = new StringBuilder(HTML_LINE_BREAK);
+    for (Map<String, Object> SP500Log : SP500Logs) {
+      SP500HistoryOutput.append(SP500Log).append(HTML_LINE_BREAK);
+    }
+
     String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
@@ -222,6 +264,7 @@ public class MvcController {
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
+    
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -233,10 +276,14 @@ public class MvcController {
     user.setTransactionHist(transactionHistoryOutput);
     user.setTransferHist(transferHistoryOutput);
     user.setCryptoHist(cryptoHistoryOutput.toString());
+    user.setSP500Hist(SP500HistoryOutput.toString());
     user.setEthBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "ETH").orElse(0.0));
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
+    user.setSP500Balance(TestudoBankRepository.getCustomerSP500Balance(jdbcTemplate, user.getUsername()).orElse(0.0));
+    user.setSP500Price(cryptoPriceClient.getCurrentSP500Value());
+    
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
@@ -249,6 +296,11 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  // Converts dollar amounts in frontend to penny representation in backend MySQL DB
+  private static int applyInterestRateToPennyAmount(int pennyAmount, double interestRate) {
+    return (int) (pennyAmount * interestRate);
   }
 
   // HTML POST HANDLERS ////
@@ -339,11 +391,19 @@ public class MvcController {
       // add any excess deposit amount to main balance in Customers table
       if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
+        // if the balance increase is over $20, increment num deposits for use in calculating interest
+        if (mainBalanceIncreaseAmtInPennies > 2000) {
+          TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1));
+        }
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      // if the deposit amount is over $20, increment num deposits for use in calculating interest
+      if (userDepositAmtInPennies > 2000) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1));
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -352,13 +412,17 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
-    } else {
+    } else if (user.isSP500Transaction()) {
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SP500_SELL_ACTION, userDepositAmtInPennies);
+    }else {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()) == 5) {
+      applyInterest(user); 
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -410,7 +474,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies, INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -436,6 +500,8 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_SEND_ACTION, userWithdrawAmtInPennies);
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
+    } else if (user.isSP500Transaction()) {
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_SP500_BUY_ACTION, userWithdrawAmtInPennies);
     } else {
       // Adds withdraw to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
@@ -798,16 +864,141 @@ public class MvcController {
     }
   }
 
+  @PostMapping("/buysp500")
+public String buySP500(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+        return "welcome";
+    }
+
+    // must buy a positive amount
+    double sp500AmountToBuy = user.getAmountToBuySP500();
+    if (sp500AmountToBuy <= 0) {
+        return "welcome";
+    }
+
+    // cannot buy sp500 while in overdraft
+    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+    if (userOverdraftBalanceInPennies > 0) {
+      return "welcome";
+    }
+
+    double sp500PricePerUnit = cryptoPriceClient.getCurrentSP500Value();
+
+    double costOfSP500PurchaseInUSD = sp500PricePerUnit * sp500AmountToBuy;
+
+    int costOfSP500PurchaseInPennies = convertDollarsToPennies(costOfSP500PurchaseInUSD);
+
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+    // check if balance will cover purchase
+    if (costOfSP500PurchaseInPennies > userBalanceInPennies) {
+        return "welcome";
+    }
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, costOfSP500PurchaseInPennies);
+    TestudoBankRepository.increaseCustomerSP500Balance(jdbcTemplate, userID, costOfSP500PurchaseInUSD);
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, "BUY_SP500", costOfSP500PurchaseInPennies);
+    TestudoBankRepository.insertRowToSP500LogsTable(jdbcTemplate, userID, "BUY_SP500", currentTime, sp500AmountToBuy);
+    updateAccountInfo(user);
+
+    return "account_info";
+}
+
+/**
+   * HTML POST request handler for the Sell S&P500 Form page.
+   * <p>
+   * The same username+password handling from the login page is used.
+   * <p>
+   * If the password attempt is correct, and the purchase amount is a valid amount
+   * that does not exceed crypto balance, the cost of the index fund in cash will be
+   * added to the users cash balance, and index fund will be subtracted from the users account
+   * <p>
+   * If the password attempt is incorrect or the amount to purchase is invalid,
+   * the user is redirected to the "welcome" page.
+   * <p>
+   * Index fund purchase function is implemented by re-using deposit handler.
+   * Logic of deposit (applying to overdraft, adding to balance, etc.) is delegated to this handler.
+   *
+   * @param user
+   * @return "account_info" page if sell successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/sellsp500")
+  public String sellSP500(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (!userPasswordAttempt.equals(userPassword)) {
+      return "welcome";
+    }
+
+    // must sell a positive amount
+    double amountToSell = user.getAmountToSellSP500();
+    if (amountToSell <= 0) {
+      return "welcome";
+    }
+
+    // possible for user to not have any S&P500
+    Optional<Double> SP500Balance = TestudoBankRepository.getCustomerSP500Balance(jdbcTemplate, userID);
+    if (!SP500Balance.isPresent()) {
+      return "welcome";
+    }
+
+    // check if user has required SP500Balance
+    if (SP500Balance.get() < amountToSell) {
+      return "welcome";
+    }
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    user.setAmountToDeposit(amountToSell);
+    user.setSP500Transaction(true);
+    String depositResponse = submitDeposit(user);
+
+    if (depositResponse.equals("account_info")) {
+
+      TestudoBankRepository.decreaseCustomerSP500Balance(jdbcTemplate, userID, amountToSell);
+      TestudoBankRepository.insertRowToSP500LogsTable(jdbcTemplate, userID, SP500_HISTORY_SELL_ACTION, currentTime, amountToSell);
+
+      updateAccountInfo(user);
+
+      return "account_info";
+    } else {
+      return "welcome";
+    }
+  }
+
   /**
    * 
    * 
    * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
+   * @return "account_info" after applying interest.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
-
-    return "welcome";
-
+      String userID = user.getUsername();
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      // need to apply interest 
+      int customerBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, applyInterestRateToPennyAmount(customerBalanceInPennies, BALANCE_INTEREST_RATE));
+      int updatedBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestAmtInPennies = updatedBalance - customerBalanceInPennies;
+      // Adds deposit to transaction history
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmtInPennies);
+      // Reset num deposits back to 0 in database
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+      return "account_info";
   }
 
 }

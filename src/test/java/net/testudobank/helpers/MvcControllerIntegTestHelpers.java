@@ -53,6 +53,13 @@ public class MvcControllerIntegTestHelpers {
     String setBalanceSql = String.format("INSERT INTO CryptoHoldings (CryptoAmount,CustomerID,CryptoName) VALUES (%f, '%s' , '%s')", cryptoAmount, userID, cryptoName);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, setBalanceSql);
   }
+  // Set SP500 balance to specified amount
+  public static void setSP500Balance(DatabaseDelegate dbDelegate, String userID, double amount) throws ScriptException {
+    String removeOldBalanceSql = String.format("DELETE FROM SP500Holdings WHERE CustomerID='%s';", userID);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, removeOldBalanceSql);
+    String setBalanceSql = String.format("INSERT INTO SP500Holdings (Amount,CustomerID) VALUES (%f, '%s')", amount, userID);
+    ScriptUtils.executeDatabaseScript(dbDelegate, null, setBalanceSql);
+  }
 
   // Verifies that a single transaction log in the TransactionHistory table matches the expected customerID, timestamp, action, and amount
   public static void checkTransactionLog(Map<String,Object> transactionLog, LocalDateTime timeWhenRequestSent, String expectedCustomerID, String expectedAction, int expectedAmountInPennies) {
@@ -90,6 +97,18 @@ public class MvcControllerIntegTestHelpers {
     LocalDateTime transactionLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
     assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
     System.out.println("Timestamp stored in CryptoHistory table for the request: " + transactionLogTimestamp);
+  }
+
+  // Verifies that a single SP500 log in the SP500History table matches the expected customerID, timestamp, action, and amount
+  public static void checkSP500Log(Map<String,Object> SP500Log, LocalDateTime timeWhenRequestSent, String expectedCustomerID, String expectedAction, double expectedAmount) {
+    assertEquals(expectedCustomerID, SP500Log.get("CustomerID"));
+    assertEquals(expectedAction, SP500Log.get("Action"));
+    assertEquals(expectedAmount, ((BigDecimal) SP500Log.get("Amount")).doubleValue());
+    // verify that the timestamp for the Deposit is within a reasonable range from when the request was first sent
+    LocalDateTime transactionLogTimestamp = (LocalDateTime)SP500Log.get("Timestamp");
+    LocalDateTime transactionLogTimestampAllowedUpperBound = timeWhenRequestSent.plusSeconds(MvcControllerIntegTest.REASONABLE_TIMESTAMP_EPSILON_IN_SECONDS);
+    assertTrue(transactionLogTimestamp.compareTo(timeWhenRequestSent) >= 0 && transactionLogTimestamp.compareTo(transactionLogTimestampAllowedUpperBound) <= 0);
+    System.out.println("Timestamp stored in SP500History table for the request: " + transactionLogTimestamp);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB

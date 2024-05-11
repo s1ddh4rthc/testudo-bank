@@ -70,13 +70,25 @@ public class User {
   private boolean isCryptoTransaction;
 
   @Setter @Getter
+  private boolean isSP500Transaction;
+
+  @Setter @Getter
   private String cryptoHist;
+
+  @Setter @Getter
+  private String SP500Hist;
 
   @Setter @Getter @Positive
   private double amountToBuyCrypto;
 
   @Setter @Getter @Positive
+  private double amountToBuySP500;
+
+  @Setter @Getter @Positive
   private double amountToSellCrypto;
+
+  @Setter @Getter @Positive
+  private double amountToSellSP500;
 
   @Setter @Getter
   private String whichCryptoToBuy;
@@ -87,11 +99,17 @@ public class User {
   @Setter @Getter
   private double solPrice;
 
+  @Setter @Getter
+  private double SP500Price;
+
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double ethBalance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double solBalance;
+
+  @Setter  @Getter @PositiveOrZero @ToString.Include
+  private double SP500Balance;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
