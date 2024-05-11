@@ -96,7 +96,16 @@ public class User {
   @Setter  @Getter @PositiveOrZero @ToString.Include
   private double cryptoBalanceUSD;
 
+  //// Interest Fields ////
+
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private double interestRate;
+
+  //// Recurring Transactions Fields ////
+
+  @Setter @Getter
+  private String isRecurring;
 }
