@@ -283,8 +283,6 @@ public class MvcController {
 
     if (userPasswordAttempt.equals(userPassword)) {
       updateAccountInfo(user);
-      //everytime a customer succesfully logs in, the incentive is checked and appropriately applied
-      checkAndApplyPendingIncentives(user);
       return "account_info";
     } else {
       return "welcome";
