@@ -64,6 +64,17 @@ public class User {
   @Setter @Getter
   private String transferHist;
 
+  //// Update Fields ////
+
+  @Setter @Getter @ToString.Include
+	private String updatedPassword;
+
+  @Setter @Getter
+  private String updatedFirstName;
+
+  @Setter @Getter
+  private String updatedLastName;
+
   //// Crypto Fields ////
 
   @Setter @Getter

@@ -129,6 +129,21 @@ public class TestudoBankRepository {
     jdbcTemplate.update(balanceIncreaseSql);
   }
 
+  public static void setCustomerFirstName(JdbcTemplate jdbcTemplate, String customerID, String firstName) {
+    String firstNameUpdateSql = String.format("UPDATE Customers SET FirstName = ? WHERE CustomerID = ?;");
+    jdbcTemplate.update(firstNameUpdateSql, firstName, customerID);
+  }
+
+  public static void setCustomerLastName(JdbcTemplate jdbcTemplate, String customerID, String lastName) {
+    String lastNameUpdateSql = String.format("UPDATE Customers SET LastName = ? WHERE CustomerID = ?;");
+    jdbcTemplate.update(lastNameUpdateSql, lastName, customerID);
+  }
+
+  public static void setCustomerPassword(JdbcTemplate jdbcTemplate, String customerID, String password) {
+    String passwordUpdateSql = String.format("UPDATE Passwords SET Password = ? WHERE CustomerID = ?;");
+    jdbcTemplate.update(passwordUpdateSql, password, customerID);
+  }
+
   public static void initCustomerCryptoBalance(JdbcTemplate jdbcTemplate, String customerID, String cryptoName) {
     // TODO: this currently does not check if row with customerID and cryptoName already exists, and can create a duplicate row!
     String balanceInitSql = "INSERT INTO CryptoHoldings (CryptoAmount,CustomerID,CryptoName) VALUES (0, ? , ? )";
