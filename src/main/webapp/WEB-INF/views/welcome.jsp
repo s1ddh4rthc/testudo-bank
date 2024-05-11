@@ -40,6 +40,7 @@
         <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
 		<a href='/login'>View Account</a> <br/>
     <a href='/deposit'>Deposit</a> <br/>
+    <a href='/depositsavings'>Deposit into Savings</a> <br/>
     <a href='/withdraw'>Withdraw</a> <br/>
     <a href='/dispute'>Dispute</a> <br/>
     <a href='/transfer'>Transfer</a> <br/>
