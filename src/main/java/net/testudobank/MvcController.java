@@ -147,6 +147,21 @@ public class MvcController {
 	}
 
   /**
+   * HTML GET request handler that serves the "updateaccount_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's input for updated account.
+   * 
+   * @param model
+   * @return "updateaccount_form" page
+   */
+  @GetMapping("/update")
+	public String showUpdateForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "update_form";
+	}
+
+  /**
    * HTML GET request handler that serves the "buycrypto_form" page to the user.
    * An empty `User` object is also added to the Model as an Attribute to store
    * the user's input for buying cryptocurrency.
@@ -249,6 +264,11 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  // Applies the interest rate to the penny amount
+  private static int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int)(pennyAmount * INTEREST_RATE);
   }
 
   // HTML POST HANDLERS ////
@@ -410,7 +430,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -621,6 +641,59 @@ public class MvcController {
     // Inserting transfer into transfer history for both customers
     TestudoBankRepository.insertRowToTransferLogsTable(jdbcTemplate, senderUserID, recipientUserID, currentTime, transferAmountInPennies);
     updateAccountInfo(sender);
+
+    return "account_info";
+  }
+
+  /**
+   * HTML POST request handler for the Update Account Form page.
+   * 
+   * The same username+password handling from the login page is used.
+   * 
+   * If the password attempt is correct, the users update successfully goes through.
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * 
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/update")
+  public String submitUpdate(@ModelAttribute("user") User user) {
+
+    String senderUserID = user.getUsername();
+    String senderPasswordAttempt = user.getPassword();
+    String senderPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, senderUserID);
+
+    /// Invalid Input/State Handling ///
+
+    // unsuccessful login
+    if (senderPasswordAttempt.equals(senderPassword) == false) {
+      return "welcome";
+    }
+
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this update to account
+    
+    String updatedFirstName = user.getUpdatedFirstName();
+    String updatedLastName = user.getUpdatedLastName();
+    String updatedPassword = user.getUpdatedPassword();
+
+    // If user decides to change thier name,
+    // they must fill in first and last name fields
+    if (updatedFirstName != null && updatedLastName != null) {
+      user.setFirstName(updatedFirstName);
+      user.setLastName(updatedLastName);
+      TestudoBankRepository.setCustomerFirstName(jdbcTemplate, updatedPassword, updatedFirstName);
+      TestudoBankRepository.setCustomerLastName(jdbcTemplate, updatedPassword, updatedLastName);
+    }
+
+    // If user decides to change thier password,
+    // 'New Password' field must be filled in
+    if (updatedPassword != null) {
+      user.setPassword(updatedPassword);
+      TestudoBankRepository.setCustomerPassword(jdbcTemplate, updatedLastName, updatedPassword);
+    }
+
+    updateAccountInfo(user);
 
     return "account_info";
   }

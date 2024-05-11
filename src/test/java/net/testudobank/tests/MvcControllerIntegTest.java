@@ -81,6 +81,55 @@ public class MvcControllerIntegTest {
   //// INTEGRATION TESTS ////
 
   /**
+   * 
+   * If user submits form with FirstName and LastName fields completed, customers name should change (Base Case)
+   * If the user submits a form while leaving New Password field blank. Password should not be chaged (Fail Case)
+   * Name will not change if Name is longer than 20 characters. (Edge Case)
+   * 
+   * Assumes that the customer's account is in the simplest state
+   * 
+   * 
+   * @throws SQLException
+   * @throws ScriptException
+   */
+  @Test
+  public void testSimpleUpdate() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $12.34 to customer 1's account.
+    User customer1UpdateFormInputs = new User();
+    customer1UpdateFormInputs.setUsername(CUSTOMER1_ID);
+    customer1UpdateFormInputs.setPassword(CUSTOMER1_PASSWORD);
+    customer1UpdateFormInputs.setUpdatedFirstName("John");
+    customer1UpdateFormInputs.setUpdatedLastName("Doe");
+  
+    // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenDepositRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Update Request is sent: " + timeWhenDepositRequestSent);
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitUpdate(customer1UpdateFormInputs);
+
+    // fetch updated data from the DB
+    List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+    List<Map<String,Object>> customersTableData2 = jdbcTemplate.queryForList("SELECT * FROM Passwords;");
+    // verify that customer1's data is still the only data populated in Customers table
+    assertEquals(1, customersTableData.size());
+    Map<String,Object> customer1Data = customersTableData.get(0);
+    Map<String,Object> customer1Data2 = customersTableData2.get(0);
+    assertEquals(CUSTOMER1_ID, (String)customer1Data.get("CustomerID"));
+
+
+    assertEquals("Foo", customer1Data.get("FirstName"));
+    assertEquals("Bar", customer1Data.get("LastName"));
+    assertEquals(CUSTOMER1_PASSWORD, customer1Data2.get("Password"));
+    
+  }
+
+  /**
    * Verifies the simplest deposit case.
    * The customer's Balance in the Customers table should be increased,
    * and the Deposit should be logged in the TransactionHistory table.
