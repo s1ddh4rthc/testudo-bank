@@ -64,6 +64,20 @@ public class User {
   @Setter @Getter
   private String transferHist;
 
+  //// Budget Fields ////
+
+  @Setter @Getter
+  private double roundUpGroceries;
+
+  @Setter @Getter
+  private double roundUpBills;
+
+  @Setter @Getter
+  private double roundUpEntertainment;
+
+  @Setter @Getter
+  private double roundUpPersonalExpenses;
+
   //// Crypto Fields ////
 
   @Setter @Getter

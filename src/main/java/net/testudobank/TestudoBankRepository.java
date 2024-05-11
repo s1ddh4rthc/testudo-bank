@@ -177,4 +177,27 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static void insertRowToRoundUpBudgetsTable(JdbcTemplate jdbcTemplate, String customerID, int GroceriesAmount, int BillsAmount, int EntertainmentAmount, int PersonalExpensesAmount) {
+    String checkCustomerIDSql = String.format("SELECT COUNT(*) FROM RoundUpBudgets WHERE CustomerID = '%s';", customerID);
+    int numUsers = jdbcTemplate.queryForObject(checkCustomerIDSql, Integer.class);
+    if (numUsers > 0) {
+      String updateRoundUpRowSql = String.format("UPDATE RoundUpBudgets SET GroceriesAmount = %d, BillsAmount = %d, EntertainmentAmount = %d, PersonalExpensesAmount = %d WHERE CustomerID = '%s';",
+      GroceriesAmount, BillsAmount, EntertainmentAmount, PersonalExpensesAmount, customerID);
+      jdbcTemplate.update(updateRoundUpRowSql);
+    } else {
+      String insertRoundUpRowSql = String.format("INSERT INTO RoundUpBudgets (CustomerID, GroceriesAmount, BillsAmount, EntertainmentAmount, PersonalExpensesAmount) VALUES ('%s', %d, %d, %d, %d);", 
+                                                                            customerID,
+                                                                            GroceriesAmount,
+                                                                            BillsAmount,
+                                                                            EntertainmentAmount,
+                                                                            PersonalExpensesAmount);
+      jdbcTemplate.update(insertRoundUpRowSql);
+    }
+}
+//   public static int getCustomerRoundUpVals(JdbcTemplate jdbcTemplate, String customerID) {
+//   String getCustomerPasswordSql = String.format("SELECT GroceriesAmount FROM RoundUpBudgets WHERE CustomerID='%s';", customerID);
+//   int roundUpVals = jdbcTemplate.queryForObject(getCustomerPasswordSql, Integer.class);
+//   return roundUpVals;
+// } 
 }
