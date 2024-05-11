@@ -33,17 +33,17 @@ public class MvcControllerIntegTestHelpers {
   }
 
   // Uses given customer details to initialize the customer in the Customers and Passwords table in the MySQL DB.
-  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits) throws ScriptException {
-    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits);
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, int passwordAttempts, String securityAnswer, String firstName, String lastName, int balance, int overdraftBalance, int numFraudReversals, int numInterestDeposits, int resetPasswordDay, String newPasswordForReset) throws ScriptException {
+    String insertCustomerSql = String.format("INSERT INTO Customers VALUES ('%s', '%s', '%s', %d, %d, %d, %d, %d)", ID, firstName, lastName, balance, overdraftBalance, numFraudReversals, numInterestDeposits, resetPasswordDay);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerSql);
 
-    String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s')", ID, password);
+    String insertCustomerPasswordSql = String.format("INSERT INTO Passwords VALUES ('%s', '%s', %d, '%s', '%s', '%s', '%s')", ID, password, passwordAttempts, securityAnswer, securityAnswer, securityAnswer, newPasswordForReset);
     ScriptUtils.executeDatabaseScript(dbDelegate, null, insertCustomerPasswordSql);
   }
 
   // Adds a customer to the MySQL DB with no overdraft balance or fraud disputes
-  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, String firstName, String lastName, int balance, int interestDeposits) throws ScriptException {
-    addCustomerToDB(dbDelegate, ID, password, firstName, lastName, balance, 0, 0, 0);
+  public static void addCustomerToDB(DatabaseDelegate dbDelegate, String ID, String password, int passwordAttempts, String securityAnswer, String firstName, String lastName, int balance, int interestDeposits, int resetPasswordDay, String newPasswordForReset) throws ScriptException {
+    addCustomerToDB(dbDelegate, ID, password, passwordAttempts, securityAnswer, firstName, lastName, balance, 0, 0, 0, resetPasswordDay, newPasswordForReset);
   }
 
   // Set crypto balance to specified amount

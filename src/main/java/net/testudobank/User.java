@@ -18,6 +18,24 @@ public class User {
 	private String password;
 
   @Setter @Getter
+	private int passwordAttempts;
+
+  @Setter @Getter @ToString.Include
+	private String securityAnswer1;
+
+  @Setter @Getter @ToString.Include
+	private String securityAnswer2;
+
+  @Setter @Getter @ToString.Include
+	private String securityAnswer3;
+
+  @Setter @Getter @ToString.Include
+	private String newPasswordForReset;
+
+  @Setter @Getter
+	private int resetPasswordDay;
+
+  @Setter @Getter
   private String firstName;
 
   @Setter @Getter

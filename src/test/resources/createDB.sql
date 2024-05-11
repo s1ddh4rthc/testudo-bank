@@ -5,12 +5,18 @@ CREATE TABLE Customers (
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
-  NumDepositsForInterest int
+  NumDepositsForInterest int,
+  ResetPasswordDay int
 );
 
 CREATE TABLE Passwords (
   CustomerID varchar(255),
-  Password varchar(255)
+  Password varchar(255),
+  PasswordAttempts int,
+  SecurityAnswer1 varchar(255),
+  SecurityAnswer2 varchar(255),
+  SecurityAnswer3 varchar(255),
+  NewPasswordForReset varchar(255)
 );
 
 CREATE TABLE OverdraftLogs (

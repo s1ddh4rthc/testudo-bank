@@ -6,7 +6,7 @@
 <head>
   <link rel="icon" href="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png">
   <meta charset="ISO-8859-1">
-  <title>User Login Form</title>
+  <title>User Login Form with Security Questions</title>
   <style type="text/css">
     label {
       display: inline-block;
@@ -51,18 +51,23 @@
 </head>
 <body>
 	<div align="center">
-		<h2>Please sign in: </h2>
-        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:100px;height:100px;">
-		<form:form action="login" method="post" modelAttribute="user">
+        <h3>Three failed attempts. Please try logging in with your security questions:</h3>
+        <img src="https://fanapeel.com/wp-content/uploads/logo_-university-of-maryland-terrapins-testudo-turtle-hold-red-white-m.png" style="float:left;width:130px;height:130px;">
+		<form:form action="login_with_securityquestions" method="post" modelAttribute="user">
 			<form:label path="username">Username:</form:label>
 			<form:input path="username"/><br/>
 			
-			<form:label path="password">Password:</form:label>
-			<form:password path="password"/><br/>		
+            <form:label path="securityAnswer1">Question 1: What was your first car?</form:label>
+			<form:input path="securityAnswer1"/><br/>
+			
+			<form:label path="securityAnswer2">Question 2: What is the name of your first pet?</form:label>
+			<form:input path="securityAnswer2"/><br/>
+            
+            <form:label path="securityAnswer3">Question 3: What is your mother's maiden name?</form:label>
+			<form:input path="securityAnswer3"/><br/>	
 				
 			<form:button>Log in</form:button>
-      <a href='/securityquestions' class="button-link">Add Security Questions</a>
-      <a href='/resetpassword' class="button-link">Reset Password</a>
+            <a href='/resetpassword' class="button-link">Reset Password</a>
 		</form:form>
     <a href='/'>Home</a>
 	</div>
