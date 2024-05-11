@@ -381,6 +381,7 @@ public class MvcControllerIntegTest {
     List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
     List<Map<String,Object>> roundUpBudgetsTableData = jdbcTemplate.queryForList("SELECT * FROM RoundUpBudgets;");
 
+    //ensure it is of size 1 for transactions but 0 for roundupbudgets
     assertEquals(1, transactionHistoryTableData.size());
     assertEquals(0, roundUpBudgetsTableData.size());
 
