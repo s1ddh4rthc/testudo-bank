@@ -180,7 +180,21 @@ public class MvcController {
     model.addAttribute("user", user);
     return "sellcrypto_form";
   }
+  /**
+   * HTML GET request handler that serves the "freeze_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's account freezing input.
+   * 
+   * @param model
+   * @return "freeze_form" page
+   */
+  @GetMapping("/freeze")
+	public String showFreezeForm(Model model) {
+		User user = new User();
+    model.addAttribute("user", user);
 
+		return "freeze_form";
+	}
   //// HELPER METHODS ////
   public static int applyInterestRateToPennyAmount(int pennyAmount) {
     return (int) (pennyAmount * INTEREST_RATE);
@@ -235,6 +249,7 @@ public class MvcController {
           .getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0)
           * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
+    String isAccountFrozen = (TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, user.getUsername())) ? "Frozen" : "Unfrozen";
 
     user.setFirstName((String) userData.get("FirstName"));
     user.setLastName((String) userData.get("LastName"));
@@ -253,6 +268,7 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setSelectFreezeUnfreeze(isAccountFrozen);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL
@@ -268,7 +284,46 @@ public class MvcController {
   }
 
   // HTML POST HANDLERS ////
+/**
+   * HTML POST request handler that uses user input from Freeze Form page to determine 
+   * if the user has frozen or unfrozen their account.
+   * 
+   * If user password attempt is invalid or user tries to set state to the existing state, 
+   * user is redirected to welcome page.
+   * 
+   * User account state is set to the option that the user selects, either frozen or unfrozen.
+   * 
+   * @param user
+   * @return "account_info" page if account state is changed. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/freeze")
+	public String submitFreezeForm(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
 
+    //// Invalid Input/State Handling ////
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // user selected option
+    String selectedFreezeUnfreeze = user.getSelectFreezeUnfreeze();
+    boolean isSelectedOptionFreeze = (selectedFreezeUnfreeze.equals("Frozen")) ? true : false;
+    // retrieve existing account state
+    boolean isAccountFrozenCurrent = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+
+    // user is already the state they selected
+    if (isSelectedOptionFreeze == isAccountFrozenCurrent) {
+      return "welcome";
+    }
+
+    TestudoBankRepository.setIsCustomerAccountFrozen(jdbcTemplate, userID, isSelectedOptionFreeze);
+    updateAccountInfo(user);
+    return "account_info";
+	}
   /**
    * HTML POST request handler that uses user input from Login Form page to
    * determine
@@ -310,6 +365,7 @@ public class MvcController {
       return "welcome";
     }
   }
+  
 
   /**
    * HTML POST request handler for the Deposit Form page.
@@ -337,6 +393,13 @@ public class MvcController {
     if (userPasswordAttempt.equals(userPassword) == false) {
       return "welcome";
     }
+    // If customer account is frozen, they can not deposit
+
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
+      return "welcome";
+    }
+    
 
     // If customer already has too many reversals, their account is frozen. Don't
     // complete deposit.
@@ -429,7 +492,12 @@ public class MvcController {
     if (userPasswordAttempt.equals(userPassword) == false) {
       return "welcome";
     }
+    // If customer account is frozen, they can not withdraw
 
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
+      return "welcome";
+    }
     // If customer already has too many reversals, their account is frozen. Don't
     // complete deposit.
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
@@ -528,6 +596,11 @@ public class MvcController {
 
     // unsuccessful login
     if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+    // If customer account is frozen, they can not dispute
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
       return "welcome";
     }
 
@@ -651,6 +724,11 @@ public class MvcController {
     if (senderPasswordAttempt.equals(senderPassword) == false) {
       return "welcome";
     }
+    // If customer has set their account to frozen, don't transfer
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, senderUserID);
+    if (isFrozen) {
+      return "welcome";
+    }
 
     // case where customer already has too many reversals
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, senderUserID);
@@ -723,7 +801,11 @@ public class MvcController {
     if (!userPasswordAttempt.equals(userPassword)) {
       return "welcome";
     }
-
+    // If customer account is frozen, they can not buy
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
+      return "welcome";
+    }
     // must buy a supported cryptocurrency
     String cryptoToBuy = user.getWhichCryptoToBuy();
     if (MvcController.SUPPORTED_CRYPTOCURRENCIES.contains(cryptoToBuy) == false) {
@@ -825,7 +907,12 @@ public class MvcController {
     if (!userPasswordAttempt.equals(userPassword)) {
       return "welcome";
     }
+    // If customer account is frozen, they can not sell crypto
 
+    boolean isFrozen = TestudoBankRepository.getIsCustomerAccountFrozen(jdbcTemplate, userID);
+    if (isFrozen) {
+      return "welcome";
+    }
     // must buy a supported cryptocurrency
     String cryptoToBuy = user.getWhichCryptoToBuy();
     if (MvcController.SUPPORTED_CRYPTOCURRENCIES.contains(cryptoToBuy) == false) {

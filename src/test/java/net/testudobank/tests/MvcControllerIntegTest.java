@@ -32,6 +32,9 @@ import net.testudobank.CryptoPriceClient;
 import net.testudobank.MvcController;
 import net.testudobank.User;
 import net.testudobank.helpers.MvcControllerIntegTestHelpers;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransaction;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransactionTestType;
+import net.testudobank.tests.MvcControllerIntegTest.CryptoTransactionTester;
 
 @Testcontainers
 @SpringBootTest
@@ -393,7 +396,7 @@ public class MvcControllerIntegTest {
         MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
                 CUSTOMER1_FIRST_NAME,
                 CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
-                CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+                CUSTOMER1_NUM_FRAUD_REVERSALS, 0, false);
 
         // Prepare Deposit Form to Deposit $150 to customer 1's account.
         double CUSTOMER1_AMOUNT_TO_DEPOSIT = 150; // user input is in dollar amount, not pennies.
@@ -473,7 +476,7 @@ public class MvcControllerIntegTest {
         MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
                 CUSTOMER1_FIRST_NAME,
                 CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
-                CUSTOMER1_NUM_FRAUD_REVERSALS, 0);
+                CUSTOMER1_NUM_FRAUD_REVERSALS, 0, false);
 
         // Prepare Deposit Form to Deposit $50 to customer 1's account.
         double CUSTOMER1_AMOUNT_TO_DEPOSIT = 50; // user input is in dollar amount, not pennies.
@@ -767,7 +770,8 @@ public class MvcControllerIntegTest {
                 CUSTOMER1_MAIN_BALANCE_IN_PENNIES,
                 CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
                 CUSTOMER1_NUM_FRAUD_REVERSALS,
-                CUSTOMER1_NUM_INTEREST_DEPOSITS);
+                CUSTOMER1_NUM_INTEREST_DEPOSITS, 
+                false);
 
         // Deposit $50, and then immediately dispute/reverse that deposit.
         // this will bring the customer to the MAX_DISPUTES limit, and also have a few
@@ -880,7 +884,7 @@ public class MvcControllerIntegTest {
         int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
         MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
                 CUSTOMER1_FIRST_NAME,
-                CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+                CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0, 0, 0, false);
 
         // Prepare Deposit Form to Deposit $100 to customer 1's account.
         double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100; // user input is in dollar amount, not pennies.
@@ -1091,7 +1095,7 @@ public class MvcControllerIntegTest {
                 CUSTOMER1_BALANCE_IN_PENNIES,
                 CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,
                 CUSTOMER1_NUM_FRAUD_REVERSALS,
-                CUSTOMER1_NUM_INTEREST_DEPOSITS);
+                CUSTOMER1_NUM_INTEREST_DEPOSITS, false);
 
         // Prepare Deposit Form to Deposit $100 to customer 1's account.
         double CUSTOMER1_AMOUNT_TO_DEPOSIT = 100; // user input is in dollar amount, not pennies.
@@ -1150,7 +1154,7 @@ public class MvcControllerIntegTest {
         int CUSTOMER2_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER2_BALANCE);
         MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD,
                 CUSTOMER2_FIRST_NAME,
-                CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0);
+                CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, 0, 0, 0 , false);
 
         // Amount to transfer
         double TRANSFER_AMOUNT = 100;
@@ -1218,7 +1222,7 @@ public class MvcControllerIntegTest {
         MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD,
                 CUSTOMER2_FIRST_NAME,
                 CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES,
-                CUSTOMER2_NUM_FRAUD_REVERSALS, 0);
+                CUSTOMER2_NUM_FRAUD_REVERSALS, 0, false);
 
         // Amount to transfer
         double TRANSFER_AMOUNT = 100;
@@ -1289,7 +1293,7 @@ public class MvcControllerIntegTest {
         MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER2_ID, CUSTOMER2_PASSWORD,
                 CUSTOMER2_FIRST_NAME,
                 CUSTOMER2_LAST_NAME, CUSTOMER2_BALANCE_IN_PENNIES, CUSTOMER2_OVERDRAFT_BALANCE_IN_PENNIES,
-                CUSTOMER2_NUM_FRAUD_REVERSALS, 0);
+                CUSTOMER2_NUM_FRAUD_REVERSALS, 0, false);
 
         // Transfer $150 from sender's account to recipient's account.
         double TRANSFER_AMOUNT = 150;
@@ -1329,6 +1333,91 @@ public class MvcControllerIntegTest {
         // Check that transfer request goes through.
         assertEquals("account_info", returnedPage);
     }
+
+        /**
+         * Validates whether a customer's account is "Frozen" when they request to freeze their account,
+         * and confirms that the database updates the number of account freezes and the frozen status columns.
+         * 
+         * When an account is frozen, any attempts to deposit, withdraw, dispute transactions,
+         * or perform crypto transactions should redirect the user to the welcome page.
+         * 
+         * Customers should be able to view the status of their account (Frozen or Unfrozen)
+         * on the account_info page.
+         * 
+         * @throws SQLException
+         * @throws ScriptException
+         */
+        @Test
+        public void testAccountFreeze() throws SQLException, ScriptException {
+                double CUSTOMER1_MAIN_BALANCE = 100;
+                int CUSTOMER1_MAIN_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_MAIN_BALANCE);
+                int CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES = 0;
+                int CUSTOMER1_NUM_INTEREST_DEPOSITS = 0;
+                MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_MAIN_BALANCE_IN_PENNIES, CUSTOMER1_OVERDRAFT_BALANCE_IN_PENNIES,0,
+                CUSTOMER1_NUM_INTEREST_DEPOSITS,false);
+                String CUSTOMER1_ACCOUNT_STATE = "Frozen";  //freeze account
+                User customer1FreezeFormInputs = new User();
+                customer1FreezeFormInputs.setUsername(CUSTOMER1_ID);
+                customer1FreezeFormInputs.setPassword(CUSTOMER1_PASSWORD);
+                customer1FreezeFormInputs.setSelectFreezeUnfreeze(CUSTOMER1_ACCOUNT_STATE);
+
+                String returnedPage = controller.submitFreezeForm(customer1FreezeFormInputs);
+
+                // retrieve updated database data
+                List<Map<String,Object>> customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+                Map<String,Object> customer1Data = customersTableData.get(0);
+                // Check if account is frozen
+                boolean CUSTOMER1_EXPECTED_ACCOUNT_STATE = true;
+                assertEquals(CUSTOMER1_EXPECTED_ACCOUNT_STATE, (boolean)customer1Data.get("IsAccountFrozen"));
+                // Check if customer redirected to account info page
+                assertEquals("account_info", returnedPage);
+
+                // Check if customer can view account info with login form
+                String responsePage = controller.submitLoginForm(customer1FreezeFormInputs);
+                assertEquals("account_info", responsePage);
+
+                // Check that customer cannot deposit
+                customer1FreezeFormInputs.setAmountToDeposit(MvcControllerIntegTestHelpers.convertDollarsToPennies(50));
+                responsePage = controller.submitDeposit(customer1FreezeFormInputs);
+                assertEquals("welcome", responsePage);
+
+                // Customer should not be able to withdraw
+                customer1FreezeFormInputs.setAmountToWithdraw(MvcControllerIntegTestHelpers.convertDollarsToPennies(50));
+                responsePage = controller.submitWithdraw(customer1FreezeFormInputs);
+                assertEquals("welcome", responsePage);
+
+                // Customer should not be able to dispute/reverse a transaction
+                customer1FreezeFormInputs.setNumTransactionsAgo(1);
+                responsePage = controller.submitDispute(customer1FreezeFormInputs);
+                assertEquals("welcome", responsePage);
+
+                // Check customer's data and number of transactions remain unchanged
+                customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");
+                customer1Data = customersTableData.get(0);
+                assertEquals(CUSTOMER1_MAIN_BALANCE_IN_PENNIES, (int)customer1Data.get("Balance"));
+
+                List<Map<String,Object>> transactionHistoryTableData = jdbcTemplate.queryForList("SELECT * FROM TransactionHistory;");
+                assertEquals(0, transactionHistoryTableData.size());
+
+                // Confirm state changes to unfrozen when user selects "Unfrozen"
+                CUSTOMER1_ACCOUNT_STATE = "Unfrozen"; // set account state to unfrozen
+                customer1FreezeFormInputs.setSelectFreezeUnfreeze(CUSTOMER1_ACCOUNT_STATE);
+
+                returnedPage = controller.submitFreezeForm(customer1FreezeFormInputs);
+
+                // Fetch updated database data
+                customersTableData = jdbcTemplate.queryForList("SELECT * FROM Customers;");  
+                customer1Data = customersTableData.get(0);
+                // Check account state is now unfrozen 
+                CUSTOMER1_EXPECTED_ACCOUNT_STATE = false;
+                assertEquals(CUSTOMER1_EXPECTED_ACCOUNT_STATE, (boolean)customer1Data.get("IsAccountFrozen"));
+                // Check customer was redirected to the account page
+                assertEquals("account_info", returnedPage);
+
+                // Check customer is redirected to the welcome page if they try to set account to state that it already is
+                returnedPage = controller.submitFreezeForm(customer1FreezeFormInputs);
+                assertEquals("welcome", returnedPage);
+        }
 
     /**
      * Enum for {@link CryptoTransactionTester}
@@ -1438,7 +1527,7 @@ public class MvcControllerIntegTest {
             MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD,
                     CUSTOMER1_FIRST_NAME,
                     CUSTOMER1_LAST_NAME, balanceInPennies,
-                    MvcControllerIntegTestHelpers.convertDollarsToPennies(initialOverdraftBalanceInDollars), 0, 0);
+                    MvcControllerIntegTestHelpers.convertDollarsToPennies(initialOverdraftBalanceInDollars), 0, 0, false);
             for (Map.Entry<String, Double> initialBalance : initialCryptoBalance.entrySet()) {
                 MvcControllerIntegTestHelpers.setCryptoBalance(dbDelegate, CUSTOMER1_ID, initialBalance.getKey(),
                         initialBalance.getValue());
