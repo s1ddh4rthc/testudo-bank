@@ -42,11 +42,15 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <span>Credit Card Number: </span><span>${user.creditNum}</span><br/>
+    <span>Credit Card Balance: </span><span>${user.creditBalance}</span><br/>
+    <span>Credit Card Limit: </span><span>${user.creditLimit}</span><br/>
     <br/>
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>
     <a href='/transfer'>Transfer</a>
+    <a href='/credit'>Credit Payback</a>
     <a href='/'>Logout</a>
 	</div>
 </body>

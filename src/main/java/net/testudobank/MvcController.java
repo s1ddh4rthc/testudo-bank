@@ -48,6 +48,8 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_CREDIT_PAYBACK_ACTION = "CreditPayback";
+  public static String TRANSACTION_HISTORY_CREDIT_PAYOUT_ACTION = "CreditPayout";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -181,6 +183,21 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "credit_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's credit form input.
+   * 
+   * @param model
+   * @return "credit_form" page
+   */
+  @GetMapping("/credit")
+	public String showCreditForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "credit_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -222,7 +239,10 @@ public class MvcController {
     double cryptoBalanceInDollars = 0;
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
-    }
+    } 
+    String getCreditNumBalanceAndLimit = String.format("SELECT CardNumber,CreditBalance,CreditLimit FROM CreditInfo WHERE CustomerID='%s';", user.getUsername());
+    List<Map<String,Object>> creditQueryResults = jdbcTemplate.queryForList(getCreditNumBalanceAndLimit);
+    Map<String,Object> creditUserData = creditQueryResults.get(0);
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -239,6 +259,9 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setCreditNum((String)creditUserData.get("CardNumber"));
+    user.setCreditBalance((int)creditUserData.get("CreditBalance"));
+    user.setCreditLimit((int)creditUserData.get("CreditLimit"));
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -607,6 +630,12 @@ public class MvcController {
       return "welcome";
     }
 
+    // case where customer has outstanding credit balance
+    int creditBalance = TestudoBankRepository.getCustomerCreditBalanceInPennies(jdbcTemplate, senderUserID);
+    if (creditBalance != 0) {
+      return "welcome";
+    }
+
     // case where customer tries to send money to themselves
     if (sender.getTransferRecipientID().equals(senderUserID)){
       return "welcome";
@@ -808,6 +837,94 @@ public class MvcController {
     } else {
       return "welcome";
     }
+  }
+
+  /**
+   * HTML POST request handler for the Credit Form page.
+   * 
+   * The same username+password handling from the login page is used.
+   * 
+   * The user can pay back their outstanding credit balance with a withdrawl from their main balance.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * If the attempted pay amount is higher than outstanding balance, the user is redirected to the "welcome" page.
+   * 
+   * If the user's total accrued payments are higher than half their current credit limit and they have
+   * no outstanding credit balance, then their credit limit should double.
+   * 
+   * Credit payback function is implemented by re-using withdraw handlers and code from deposit
+   * to facilitate paying back the balance with a user's own funds.
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/credit")
+  public String submitPayback(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+
+    /// Invalid Input/State Handling ///
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // case where customer has no outstanding balance
+    int creditBalanceInPennies = TestudoBankRepository.getCustomerCreditBalanceInPennies(jdbcTemplate, userID);
+    if (creditBalanceInPennies <= 0) {
+      return "welcome";
+    }
+
+
+    // initialize variables for transfer amount
+    double paybackAmount = user.getAmountToPayback();
+    int paybackAmountInPennies = convertDollarsToPennies(paybackAmount);
+
+    // negative transfer amount is not allowed
+    if (paybackAmountInPennies < 0) {
+      return "welcome";
+    } 
+
+    //overpaying balance is not allowed
+    if ((creditBalanceInPennies - paybackAmountInPennies)<0) {
+      return "welcome";
+    } 
+  
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this transfer
+
+    // withdraw transfer amount from sender and deposit into user's credit balance
+    user.setAmountToWithdraw(paybackAmount);
+    submitWithdraw(user);
+
+     //// Complete Payback Transaction ////// dollar amounts stored as pennies to avoid floating point errors
+     int newCreditBalance= Math.max(creditBalanceInPennies - paybackAmountInPennies, 0);
+
+     //need to update the credit total
+     int creditTotalInPennies = TestudoBankRepository.getCustomerCreditTotalInPennies(jdbcTemplate, userID);
+     TestudoBankRepository.setCustomerCreditTotal(jdbcTemplate, userID, paybackAmountInPennies+creditTotalInPennies);
+
+     TestudoBankRepository.setCustomerCreditBalance(jdbcTemplate, userID, newCreditBalance);
+
+    // Inserting payback into transfer history
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,TRANSACTION_HISTORY_CREDIT_PAYBACK_ACTION, paybackAmountInPennies);
+
+     //check if credit limit should update
+     int creditLimitInPennies = TestudoBankRepository.getCustomerCreditLimitInPennies(jdbcTemplate, userID);
+     int currentCreditBalance = TestudoBankRepository.getCustomerCreditBalanceInPennies(jdbcTemplate, userID);
+
+     if ((creditTotalInPennies >= (creditLimitInPennies / 2))&&currentCreditBalance ==0) {
+
+      TestudoBankRepository.setCustomerCreditLimit(jdbcTemplate, userID, creditLimitInPennies*2);
+      TestudoBankRepository.setCustomerCreditTotal(jdbcTemplate, userID, 0);
+     }
+
+    updateAccountInfo(user);
+
+    return "account_info";
   }
 
   /**

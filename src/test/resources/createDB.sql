@@ -48,3 +48,11 @@ CREATE TABLE CryptoHistory (
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
 );
+
+CREATE TABLE CreditInfo (
+  CustomerID varchar(255),
+  CardNumber varchar(255),
+  CreditLimit int,
+  CreditBalance int,
+  CreditTotal int
+);
