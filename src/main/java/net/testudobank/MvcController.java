@@ -40,6 +40,8 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_VALUE_INTEREST_DEPOSIT = 20;
+  private final static int INTEREST_COUNT_DEPOSIT_NUM = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -223,6 +225,21 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+    String getRoundUpSavingsBudgetsAmountsSql = String.format("SELECT GroceriesAmount, BillsAmount, EntertainmentAmount, PersonalExpensesAmount FROM RoundUpBudgets WHERE CustomerID = '%s';", user.getUsername());
+    List<Map<String,Object>> roundUpBudgetsqueryResults = jdbcTemplate.queryForList(getRoundUpSavingsBudgetsAmountsSql);
+    if (!roundUpBudgetsqueryResults.isEmpty()) {
+      Map<String,Object> userRoundUpData = roundUpBudgetsqueryResults.get(0);
+      user.setRoundUpGroceries((int)userRoundUpData.get("GroceriesAmount")/100.0);
+      user.setRoundUpBills((int)userRoundUpData.get("BillsAmount")/100.0);
+      user.setRoundUpEntertainment((int)userRoundUpData.get("EntertainmentAmount")/100.0);
+      user.setRoundUpPersonalExpenses((int)userRoundUpData.get("PersonalExpensesAmount")/100.0);
+    } else {
+      user.setRoundUpGroceries(0.00);
+      user.setRoundUpBills(0.00);
+      user.setRoundUpEntertainment(0.00);
+      user.setRoundUpPersonalExpenses(0.00);
+    }
+
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
@@ -344,6 +361,11 @@ public class MvcController {
 
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
+      if (userDepositAmtInPennies > 2000) {
+        int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+        numDepositsForInterest++;
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numDepositsForInterest);
+      }
     }
 
     // only adds deposit to transaction history if is not transfer
@@ -357,8 +379,12 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
+    if (userDepositAmtInPennies >= 2000) {
+      int userNumDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, userNumDeposits % 5); // increment the # of deposits
+      // Increment the number of deposits the user has made, if the deposit is at least $20.00
+      applyInterest(user);
+    }
     updateAccountInfo(user);
     return "account_info";
   }
@@ -383,6 +409,7 @@ public class MvcController {
     String userID = user.getUsername();
     String userPasswordAttempt = user.getPassword();
     String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+    boolean roundedUp = false;
 
     //// Invalid Input/State Handling ////
 
@@ -427,8 +454,38 @@ public class MvcController {
       TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
 
     } else { // simple, non-overdraft withdraw case
+          // Calculate the round-up amount
+    int nextWholeDollarInPennies = ((int)Math.ceil(userWithdrawAmt)) * 100;
+    int roundUpAmount = nextWholeDollarInPennies - userWithdrawAmtInPennies;
+    int amountForEachCategory = roundUpAmount / 4; // equally divide the round-up among 4 categories
+    // int userRoundUpBudgetsAmount = TestudoBankRepository.getCustomerRoundUpVals(jdbcTemplate, userID);
+    int groceryAmount = 0, billAmount = 0, entertainmentAmount = 0, personExAmount = 0;
+    String getRoundUpSavingsBudgetsAmountsSql = String.format("SELECT GroceriesAmount, BillsAmount, EntertainmentAmount, PersonalExpensesAmount FROM RoundUpBudgets WHERE CustomerID = '%s';", user.getUsername());
+    List<Map<String,Object>> roundUpBudgetsqueryResults = jdbcTemplate.queryForList(getRoundUpSavingsBudgetsAmountsSql);
+
+    if (!roundUpBudgetsqueryResults.isEmpty()) {
+      Map<String,Object> userRoundUpData = roundUpBudgetsqueryResults.get(0);
+      groceryAmount = ((int)userRoundUpData.get("GroceriesAmount"));
+      billAmount = ((int)userRoundUpData.get("BillsAmount"));
+      entertainmentAmount = ((int)userRoundUpData.get("EntertainmentAmount"));
+      personExAmount = ((int)userRoundUpData.get("PersonalExpensesAmount"));
+    } 
+
+
+    int newAmount = amountForEachCategory;
+    if (nextWholeDollarInPennies <= userBalanceInPennies) {
+      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, nextWholeDollarInPennies);
+      TestudoBankRepository.insertRowToRoundUpBudgetsTable(jdbcTemplate, userID, groceryAmount + newAmount, billAmount + newAmount, entertainmentAmount + newAmount, personExAmount + newAmount);
+      // TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, nextWholeDollarInPennies);
+      roundedUp = true;
+    } else {
       TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+      // TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
     }
+    } 
+    // else {
+    //   TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
+    // }
 
     // only adds withdraw to transaction history if is not transfer
     if (user.isTransfer()){
@@ -437,7 +494,6 @@ public class MvcController {
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
     } else {
-      // Adds withdraw to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
     }
 
@@ -805,8 +861,33 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    double depAmount = user.getAmountToDeposit();
 
-    return "welcome";
+      //check that interest can be applied
+      int overdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+
+      if (overdraftBalanceInPennies > 0 || userBalanceInPennies == 0) { //no interest to apply or existing over
+        return "welcome";
+      }
+
+      int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+      if (numDepositsForInterest % 5 == 0) {
+        int customerCashBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+        int customerCashBalanceInPenniesWithInterest = (int) (customerCashBalanceInPennies * BALANCE_INTEREST_RATE);
+        TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, customerCashBalanceInPenniesWithInterest);
+        //reset numdeps to 0
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        int interestAmountPennies = customerCashBalanceInPennies - userBalanceInPennies;
+
+        TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, SQL_DATETIME_FORMATTER.format( new java.util.Date()), userID, interestAmountPennies);
+
+      }
+    //check if numdeposits is mult of 5 so it can be app
+    //
+    return "account_info";
 
   }
 
