@@ -283,7 +283,8 @@ public class MvcController {
 
     if (userPasswordAttempt.equals(userPassword)) {
       updateAccountInfo(user);
-
+      //everytime a customer succesfully logs in, the incentive is checked and appropriately applied
+      checkAndApplyPendingIncentives(user);
       return "account_info";
     } else {
       return "welcome";
@@ -358,9 +359,13 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
     updateAccountInfo(user);
+
+    //see if deposit qualifies for incentive
+    checkIfAmountQualifiesForIncentive(user);
     return "account_info";
   }
 	
@@ -446,7 +451,6 @@ public class MvcController {
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
-
   }
 
   /**
@@ -854,4 +858,117 @@ public class MvcController {
     return "account_info";
   }
 
+  /**
+  * Checks if the deposited amount qualifies for an incentive and logs the deposit if eligible.
+  *
+  * @param user The User object containing the deposit information.
+  * @return A String indicating the next page to redirect to.
+  */
+  public String checkIfAmountQualifiesForIncentive(@ModelAttribute("user") User user) {
+    String timestamp = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    double userDepositAmt = user.getAmountToDeposit();
+    String userID = user.getUsername();
+
+    // check if deposit amount qualifies for incentive
+    if (userDepositAmt < 2000) {
+      return "welcome";
+    }
+    
+    // check if customer has ever gone into overdraft
+    List<Map<String, Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogs(jdbcTemplate, userID);
+    if (!overdraftLogs.isEmpty()) {
+      return "welcome";
+    }
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, userID, timestamp, userDepositAmt);
+  }
+
+  /**
+  * Applies cryptocurrency incentives to eligible customers based on their deposit history.
+  * Calculates the incentive amount for each qualifying deposit and awards it to the customer.
+  */
+  public void applyIncentive() {
+    // Get all incentive deposit logs
+    List<Map<String, Object>> allIncentiveDepositLogs = TestudoBankRepository.getAllIncentiveDepositLogs(jdbcTemplate);
+
+    // Get the current time
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+
+    // Iterate through each incentive deposit log
+    for (Map<String, Object> incentiveLog : allIncentiveDepositLogs) {
+        String userID = (String) incentiveLog.get("CustomerID");
+        String timestamp = (String) incentiveLog.get("Timestamp");
+        double depositAmount = (double) incentiveLog.get("DepositAmount");
+
+        // Calculate the timestamp 60 days ago
+        LocalDateTime sixtyDaysAgo = LocalDateTime.parse(timestamp, SQL_DATETIME_FORMATTER).minusDays(60);
+        String sixtyDaysAgoStr = sixtyDaysAgo.format(SQL_DATETIME_FORMATTER);
+
+        // Retrieve the transactions within the 60-day period
+        List<Map<String, Object>> transactions = TestudoBankRepository.getTransactionHistoryWithinPeriod(jdbcTemplate, userID, sixtyDaysAgoStr, currentTime);
+
+        // Check if the customer's balance dropped below the deposit amount during the period
+        int netChange = transactions.stream()
+                .mapToInt(transaction -> (int) transaction.get("Amount"))
+                .sum();
+
+        // Calculate the final balance after applying the net change
+        int finalBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) + netChange;
+
+        // Check if the final balance is greater than or equal to the original deposit amount
+        if (finalBalance >= depositAmount) {
+          // Calculate how many times $2000 fits into the deposit amount
+          int depositCount = (int) (depositAmount / 2000);
+      
+          // Calculate the incentive amount in ETH
+          double ethAmount = depositCount * 0.005;
+      
+          // Award the incentive to the customer
+          awardCryptoIncentive(userID, ethAmount, "ETH", currentTime);
+      }
+    }
+  }
+  /**
+  * Checks if the customer's account maintained the minimum balance after a deposit within a 60 day period.
+  *
+  * @param jdbcTemplate  The JdbcTemplate object for database access.
+  * @param userID        The ID of the customer.
+  * @param timestamp     The timestamp of the deposit.
+  * @param depositAmount The amount deposited by the customer.
+  * @return true if the account maintained the minimum balance, otherwise false.
+  */
+
+  private boolean hasMinimumBalance(JdbcTemplate jdbcTemplate, String userID, String timestamp, double depositAmount) {
+    // Calculate the timestamp 60 days ago
+    LocalDateTime sixtyDaysAgo = LocalDateTime.parse(timestamp, SQL_DATETIME_FORMATTER).minusDays(60);
+
+    // Retrieve the transactions within the 60-day period
+    List<Map<String, Object>> transactions = TestudoBankRepository.getTransactionHistoryWithinPeriod(jdbcTemplate, userID, sixtyDaysAgo, LocalDateTime.parse(timestamp, SQL_DATETIME_FORMATTER));
+
+    // Calculate the net change in balance during the period
+    int netChange = transactions.stream()
+            .mapToInt(transaction -> (int) transaction.get("Amount"))
+            .sum();
+
+    // Calculate the final balance after applying the net change
+    int finalBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID) + netChange;
+
+    // Check if the final balance is greater than or equal to the original deposit amount
+    return finalBalance >= depositAmount;
+  }
+
+  /**
+  * Awards a cryptocurrency incentive to a customer.
+  *
+  * @param userID       The ID of the customer receiving the incentive.
+  * @param cryptoAmount The amount of cryptocurrency to award.
+  * @param cryptoName   The name of the cryptocurrency being awarded.
+  * @param timestamp    The timestamp of the incentive transaction.
+  */
+  public void awardCryptoIncentive(String userID, double cryptoAmount, String cryptoName, String timestamp) {
+    // Increase the customer's crypto balance
+    TestudoBankRepository.increaseCustomerCryptoBalance(jdbcTemplate, userID, cryptoName, cryptoAmount);
+
+    // Log the incentive transaction
+    TestudoBankRepository.insertRowToCryptoLogsTable(jdbcTemplate, userID, cryptoName, "Incentive", timestamp, cryptoAmount);
+  }
 }

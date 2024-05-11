@@ -1,0 +1,31 @@
+package net.testudobank;
+
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Component
+public class IncentiveScheduler {
+
+    private final TestudoBankRepository bankRepository;
+    private final CryptoPriceClient cryptoPriceClient;
+
+    /**
+    * Constructor for IncentiveScheduler.
+    * 
+    * @param bankRepository     The repository for accessing banking-related data.
+    * @param cryptoPriceClient The client for retrieving cryptocurrency prices.
+    */
+    public IncentiveScheduler(TestudoBankRepository bankRepository, CryptoPriceClient cryptoPriceClient) {
+        this.bankRepository = bankRepository;
+        this.cryptoPriceClient = cryptoPriceClient;
+    }
+
+    /**
+    * This a scheduled method that runs applyIncentives() which checks if the incentive can be applied.
+    * This runs at midnight every day.
+    */
+    @Scheduled(cron = "0 0 0 * * ?") // Run at midnight every day
+    public void scheduleIncentiveApplication() {
+        bankRepository.applyIncentive();
+    }
+}

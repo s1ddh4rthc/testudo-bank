@@ -1943,5 +1943,207 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
-}
 
+  /**
+   * Tests that the deposit qualifies for the incentive because the deposit amount is $2000 or over, 
+   * which means you won't be redirected to the welcome page
+   */
+  @Test
+  public void testAmountQualifiesForIncentive() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(2500) 
+              .build();
+  
+      // Call the method and assert that it does not return to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertNotEquals("welcome", result);
+  }
+  
+   /**
+   * Tests that the deposit does not qualify for the incentive because the deposit amount is under $2000, 
+   * which means you will be redirected to the welcome page
+   */
+  @Test
+  public void testAmountDoesNotQualifyForIncentive() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(1500) 
+              .build();
+  
+      // Call the method and assert that it returns to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertEquals("welcome", result);
+  }
+   /**
+   * Tests that the deposit does not qualify for the incentive because they've been in overdraft before,
+   * which means you will be redirected to the welcome page
+   */
+  @Test
+  public void testUserOverdraft() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(2500) // Deposit amount that qualifies for incentive
+              .build();
+  
+      // Mock the repository to simulate overdraft logs having at least one entry
+      Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+              .thenReturn(Collections.singletonList(Map.of()));
+  
+      // Call the method and assert that it returns to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertEquals("welcome", result);
+  }
+  
+    /**
+   * Tests that the deposit does qualify for the incentive because they've never been in overdraft before,
+   * which means you won't be redirected to the welcome page.
+   */
+  @Test
+  public void testUserNoOverdraft() throws SQLException, ScriptException {
+      // User deposit amount qualifies for incentive
+      User user = User.builder()
+              .username(CUSTOMER1_ID)
+              .amountToDeposit(2500) // Deposit amount that qualifies for incentive
+              .build();
+  
+      // Mock the repository to simulate no overdraft logs
+      Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+              .thenReturn(Collections.emptyList());
+  
+      // Call the method and assert that it returns to the welcome page
+      String result = controller.checkIfAmountQualifiesForIncentive(user);
+      assertEquals("welcome", result);
+  }
+
+   /**
+   * Tests that after 60 days a qualifying incentive results in the correct amount of ETH crypto being 
+   * added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountAfterIncentiveApplied() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(60);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is not returned
+    assertNotEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount has been updated correctly and now has 0.005 ETH
+    assertEquals(0.005, updatedUser.getCryptoBalance().get("ETH"));
+  }
+
+  /**
+   * Tests that after 59 days a qualifying incentive results in no ETH crypto being 
+   * added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountNotAppliedBefore60Days() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(59);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is not returned
+    assertNotEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount is still 0.0 
+    assertNotEquals(0.005, updatedUser.getCryptoBalance().get("ETH"));
+  }
+
+  /**
+   * Tests if the user goes into overdraft after getting a qualifying incentive deposit, that it results 
+   * in no ETH crypto being added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountAfterIncentiveNotAppliedDueToOverdrafts() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(60);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Mock the repository to simulate overdraft logs during the time frame
+    Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+            .thenReturn(Collections.singletonList(Map.of("timestamp", timestamp.toString())));
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is returned due to overdrafts
+    assertEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount remains 0.0 as the incentive was not applied due to overdrafts
+    assertEquals(0.0, updatedUser.getCryptoBalance().get("ETH"));
+  }
+
+  /**
+   * Tests if the user does not go into overdraft after getting a qualifying incentive deposit, but the 
+   * deposit amount drops to below the incentive deposit amount, that it results 
+   * in no ETH crypto being added to the user's cryptobalance. 
+   */
+  @Test
+  public void testETHAmountAfterIncentiveNotAppliedDueToLowBalance() {
+    // User deposit amount qualifies for incentive
+    User user = new User();
+    user.setUsername(CUSTOMER1_ID);
+    user.setAmountToDeposit(3000);
+    user.setInitialCryptoBalance(Collections.singletonMap("ETH", 0.0));
+
+    // Set the timestamp 60 days back
+    LocalDateTime timestamp = LocalDateTime.now().minusDays(60);
+    TestudoBankRepository.insertRowToIncentiveDepositLogTable(jdbcTemplate, CUSTOMER1_ID, timestamp.toString(), 3000);
+
+    // Mock the repository to simulate no overdraft logs during the time frame
+    Mockito.when(TestudoBankRepository.getOverdraftLogs(Mockito.any(), Mockito.eq(CUSTOMER1_ID)))
+            .thenReturn(Collections.emptyList());
+
+    // Reduce the user's balance below the incentive deposit amount
+    user.setAmountToDeposit(1500);
+
+    // Call the method to check if amount qualifies for incentive
+    String result = controller.checkIfAmountQualifiesForIncentive(user);
+
+    // Assert that the welcome page is returned due to the balance dropping below the incentive deposit amount
+    assertEquals("welcome", result);
+
+    // Retrieve the user's updated information about the incentive
+    User updatedUser = TestudoBankRepository.getUserByUsername(jdbcTemplate, CUSTOMER1_ID);
+
+    // Assert that the ETH amount remains 0.0 as the incentive was not applied due to low balance
+    assertEquals(0.0, updatedUser.getCryptoBalance().get("ETH"));
+  }
+} 
