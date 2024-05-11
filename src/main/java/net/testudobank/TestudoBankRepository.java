@@ -177,4 +177,30 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static double getSavingsTransferPercentage(JdbcTemplate jdbcTemplate, String customerID) {
+    String sql = String.format("SELECT SavingsPercentage FROM SavingsSettings WHERE CustomerID='%s';", customerID);
+    return jdbcTemplate.queryForObject(sql, Double.class);
+  }
+  
+  public static void updateSavingsBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
+    String sql = String.format("UPDATE SavingsAccounts SET Balance = %d WHERE CustomerID='%s';", newBalanceInPennies, customerID);
+    jdbcTemplate.update(sql);
+  }
+
+  public static int getSavingsBalance(JdbcTemplate jdbcTemplate, String customerID) {
+    String sql = String.format("SELECT Balance FROM SavingsAccounts WHERE CustomerID='%s';", customerID);
+    return jdbcTemplate.queryForObject(sql, Integer.class);
+  }
+
+  public static void logSavingsTransaction(JdbcTemplate jdbcTemplate, String customerID, int amountInPennies, String timestamp) {
+    String sql = String.format("INSERT INTO SavingsTransactionHistory (CustomerID, Amount, Timestamp) VALUES ('%s', %d, '%s');",
+                               customerID, amountInPennies, timestamp);
+    jdbcTemplate.update(sql);
+  }
+
+  public static int getCustomerSavingsBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String query = "SELECT Balance FROM SavingsAccounts WHERE CustomerID = ?";
+        return jdbcTemplate.queryForObject(query, Integer.class, customerID);
+  }
 }
