@@ -48,3 +48,11 @@ CREATE TABLE CryptoHistory (
   CryptoName varchar(255),
   CryptoAmount decimal(30,18)
 );
+
+CREATE TABLE RoundUpBudgets (
+  CustomerID varchar(255),
+  GroceriesAmount int,
+  BillsAmount int,
+  EntertainmentAmount int,
+  PersonalExpensesAmount int
+)

@@ -92,6 +92,19 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+#create empty roundup budgets table
+create_roundupbudgets_table_sql = ''' 
+CREATE TABLE RoundUpBudgets (
+  CustomerID varchar(255),
+  GroceriesAmount int,
+  BillsAmount int,
+  EntertainmentAmount int,
+  PersonalExpensesAmount int
+)
+'''
+
+cursor.execute(create_roundupbudgets_table_sql)
+
 
 
 # The two sets created below are used to ensure that this

@@ -42,6 +42,11 @@
     <span>Transaction History: </span><span>${user.transactionHist}</span><br/>
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
+    <h3>Round-up Savings Budget</h3>
+    <span>Groceries: $</span><span>${user.roundUpGroceries}</span><br/>
+    <span>Entertainment: $</span><span>${user.roundUpEntertainment}</span><br/>
+    <span>Bills: $</span><span>${user.roundUpBills}</span><br/>
+    <span>Personal Expenses: $</span><span>${user.roundUpPersonalExpenses}</span><br/>
     <br/>
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
