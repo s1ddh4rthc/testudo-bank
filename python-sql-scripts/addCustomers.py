@@ -51,7 +51,7 @@ create_transactionhistory_table_sql = '''
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell','CreditPayback','CreditPayout')),
   Amount int
 );
 '''
@@ -92,6 +92,17 @@ CREATE TABLE CryptoHistory (
 '''
 cursor.execute(create_cryptohistory_table_sql)
 
+# Make empty CreditInfo table
+create_creditinfo_table_sql = '''
+CREATE TABLE CreditInfo (
+  CustomerID varchar(255),
+  CardNumber varchar(255),
+  CreditLimit int,
+  CreditBalance int,
+  CreditTotal int
+);
+'''
+cursor.execute(create_creditinfo_table_sql)
 
 
 # The two sets created below are used to ensure that this
@@ -122,6 +133,7 @@ for i in range(num_customers_to_add):
     customer_last_name = names.get_last_name()
     customer_balance = random.randint(100, 10000) * 100 # multiply by 100 to have a penny value of 0
     customer_password = ''.join(random.choices(string.ascii_lowercase + string.ascii_uppercase + string.digits, k = 9))
+    customer_cardnum = ''.join(random.choices(string.digits, k = 16))
     
     # add random customer ID, name, and balance to Customers table.
     # all customers start with Overdraft balance of 0
@@ -146,6 +158,17 @@ for i in range(num_customers_to_add):
     '''.format("'" + customer_id + "'",
                 "'" + customer_password + "'")
     cursor.execute(insert_password_sql)
+
+    # add customer ID and password to Passwords table
+    insert_creditinfo_sql = '''
+    INSERT INTO CreditInfo
+    VALUES  ({0},{1},{2},{3},{4});
+    '''.format("'" + customer_id + "'",
+                "'" + customer_cardnum+ "'",
+                10000,
+                5000,
+                0)
+    cursor.execute(insert_creditinfo_sql)
     
     # add this customer's randomly-generated ID to the set
     # to ensure this ID is not re-used by accident.

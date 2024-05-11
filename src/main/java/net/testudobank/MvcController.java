@@ -1,24 +1,22 @@
 package net.testudobank;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.util.Map;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashSet;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-
-import java.util.Optional;
-import java.util.Set;
-
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
 public class MvcController {
@@ -35,11 +33,14 @@ public class MvcController {
 
   //// CONSTANT LITERALS ////
   public final static double INTEREST_RATE = 1.02;
+  private final static double BALANCE_INTEREST_RATE = 1.015;
   private final static int MAX_OVERDRAFT_IN_PENNIES = 100000;
   public final static int MAX_DISPUTES = 2;
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES = 2000;
+  private final static int DEPOSIT_TRIGGER_NUM_FOR_INTEREST = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -47,10 +48,12 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+  public static String TRANSACTION_HISTORY_CREDIT_PAYBACK_ACTION = "CreditPayback";
+  public static String TRANSACTION_HISTORY_CREDIT_PAYOUT_ACTION = "CreditPayout";
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -180,6 +183,21 @@ public class MvcController {
 		return "sellcrypto_form";
 	}
 
+    /**
+   * HTML GET request handler that serves the "credit_form" page to the user.
+   * An empty `User` object is also added to the Model as an Attribute to store
+   * the user's credit form input.
+   * 
+   * @param model
+   * @return "credit_form" page
+   */
+  @GetMapping("/credit")
+	public String showCreditForm(Model model) {
+    User user = new User();
+		model.addAttribute("user", user);
+		return "credit_form";
+	}
+
   //// HELPER METHODS ////
 
   /**
@@ -221,7 +239,10 @@ public class MvcController {
     double cryptoBalanceInDollars = 0;
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
-    }
+    } 
+    String getCreditNumBalanceAndLimit = String.format("SELECT CardNumber,CreditBalance,CreditLimit FROM CreditInfo WHERE CustomerID='%s';", user.getUsername());
+    List<Map<String,Object>> creditQueryResults = jdbcTemplate.queryForList(getCreditNumBalanceAndLimit);
+    Map<String,Object> creditUserData = creditQueryResults.get(0);
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -238,6 +259,9 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setCreditNum((String)creditUserData.get("CardNumber"));
+    user.setCreditBalance((int)creditUserData.get("CreditBalance"));
+    user.setCreditLimit((int)creditUserData.get("CreditLimit"));
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -249,6 +273,11 @@ public class MvcController {
   private static Date convertLocalDateTimeToDate(LocalDateTime ldt){
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
+  }
+
+  // Applies the interest to a given amount in penny representation and returns the value in int penny representation
+  private static int applyInterestRateToPennyAmount(int pennyAmount) {
+    return (int) (pennyAmount * INTEREST_RATE);
   }
 
   // HTML POST HANDLERS ////
@@ -297,6 +326,8 @@ public class MvcController {
    * 
    * If the user is in overdraft, the deposit amount first pays off the overdraft balance,
    * and any excess deposit amount is added to the main balance.
+   * 
+   * If the user has made 5 payments of $20 or more, apply interest to their balance with the APY.
    * 
    * @param user
    * @return "account_info" page if valid deposit request. Otherwise, redirect to "welcome" page.
@@ -353,6 +384,10 @@ public class MvcController {
     } else if (user.isCryptoTransaction()) {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
     } else {
+      // Increment number of deposits for interest trigger if transaction amount is greater than 20 dollars
+      if (userDepositAmtInPennies >= MIN_DEPOSIT_FOR_INTEREST_IN_PENNIES) {
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID)+1);
+      }
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
@@ -410,7 +445,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -592,6 +627,12 @@ public class MvcController {
     // case where customer already has too many reversals
     int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, senderUserID);
     if (numOfReversals >= MAX_DISPUTES) {
+      return "welcome";
+    }
+
+    // case where customer has outstanding credit balance
+    int creditBalance = TestudoBankRepository.getCustomerCreditBalanceInPennies(jdbcTemplate, senderUserID);
+    if (creditBalance != 0) {
       return "welcome";
     }
 
@@ -799,13 +840,115 @@ public class MvcController {
   }
 
   /**
+   * HTML POST request handler for the Credit Form page.
    * 
+   * The same username+password handling from the login page is used.
    * 
+   * The user can pay back their outstanding credit balance with a withdrawl from their main balance.
+   * 
+   * If the password attempt is incorrect, the user is redirected to the "welcome" page.
+   * If the attempted pay amount is higher than outstanding balance, the user is redirected to the "welcome" page.
+   * 
+   * If the user's total accrued payments are higher than half their current credit limit and they have
+   * no outstanding credit balance, then their credit limit should double.
+   * 
+   * Credit payback function is implemented by re-using withdraw handlers and code from deposit
+   * to facilitate paying back the balance with a user's own funds.
+   * 
+   * @param user
+   * @return "account_info" page if login successful. Otherwise, redirect to "welcome" page.
+   */
+  @PostMapping("/credit")
+  public String submitPayback(@ModelAttribute("user") User user) {
+
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+
+
+    /// Invalid Input/State Handling ///
+
+    // unsuccessful login
+    if (userPasswordAttempt.equals(userPassword) == false) {
+      return "welcome";
+    }
+
+    // case where customer has no outstanding balance
+    int creditBalanceInPennies = TestudoBankRepository.getCustomerCreditBalanceInPennies(jdbcTemplate, userID);
+    if (creditBalanceInPennies <= 0) {
+      return "welcome";
+    }
+
+
+    // initialize variables for transfer amount
+    double paybackAmount = user.getAmountToPayback();
+    int paybackAmountInPennies = convertDollarsToPennies(paybackAmount);
+
+    // negative transfer amount is not allowed
+    if (paybackAmountInPennies < 0) {
+      return "welcome";
+    } 
+
+    //overpaying balance is not allowed
+    if ((creditBalanceInPennies - paybackAmountInPennies)<0) {
+      return "welcome";
+    } 
+  
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this transfer
+
+    // withdraw transfer amount from sender and deposit into user's credit balance
+    user.setAmountToWithdraw(paybackAmount);
+    submitWithdraw(user);
+
+     //// Complete Payback Transaction ////// dollar amounts stored as pennies to avoid floating point errors
+     int newCreditBalance= Math.max(creditBalanceInPennies - paybackAmountInPennies, 0);
+
+     //need to update the credit total
+     int creditTotalInPennies = TestudoBankRepository.getCustomerCreditTotalInPennies(jdbcTemplate, userID);
+     TestudoBankRepository.setCustomerCreditTotal(jdbcTemplate, userID, paybackAmountInPennies+creditTotalInPennies);
+
+     TestudoBankRepository.setCustomerCreditBalance(jdbcTemplate, userID, newCreditBalance);
+
+    // Inserting payback into transfer history
+    TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,TRANSACTION_HISTORY_CREDIT_PAYBACK_ACTION, paybackAmountInPennies);
+
+     //check if credit limit should update
+     int creditLimitInPennies = TestudoBankRepository.getCustomerCreditLimitInPennies(jdbcTemplate, userID);
+     int currentCreditBalance = TestudoBankRepository.getCustomerCreditBalanceInPennies(jdbcTemplate, userID);
+
+     if ((creditTotalInPennies >= (creditLimitInPennies / 2))&&currentCreditBalance ==0) {
+
+      TestudoBankRepository.setCustomerCreditLimit(jdbcTemplate, userID, creditLimitInPennies*2);
+      TestudoBankRepository.setCustomerCreditTotal(jdbcTemplate, userID, 0);
+     }
+
+    updateAccountInfo(user);
+
+    return "account_info";
+  }
+
+  /**
+   * If we have reached the threshold for interest to be paid, apply interest to balance in pennies
+   * Pays out no interest if user is in overdraft because their balance is 0
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
 
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) == DEPOSIT_TRIGGER_NUM_FOR_INTEREST) {
+
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,0);
+      int interestGainedAmtInPennies =  (int) ((userBalanceInPennies*BALANCE_INTEREST_RATE) - userBalanceInPennies);
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestGainedAmtInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestGainedAmtInPennies);
+     
+      updateAccountInfo(user);
+
+      return "account_info";
+    }
     return "welcome";
 
   }

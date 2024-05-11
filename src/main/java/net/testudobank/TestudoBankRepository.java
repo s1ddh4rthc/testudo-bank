@@ -177,4 +177,39 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+public static int getCustomerCreditBalanceInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerCreditBalanceInPennies = String.format("SELECT CreditBalance FROM CreditInfo WHERE CustomerID='%s';", customerID);
+    int creditBalance = jdbcTemplate.queryForObject(getCustomerCreditBalanceInPennies, Integer.class);
+    return creditBalance;
+}
+
+public static int getCustomerCreditTotalInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+  String getCustomerCreditTotalInPennies = String.format("SELECT CreditTotal FROM CreditInfo WHERE CustomerID='%s';", customerID);
+  int creditTotal = jdbcTemplate.queryForObject(getCustomerCreditTotalInPennies, Integer.class);
+  return creditTotal;
+}
+
+public static int getCustomerCreditLimitInPennies(JdbcTemplate jdbcTemplate, String customerID) {
+  String getCustomerCreditLimitInPennies = String.format("SELECT CreditLimit FROM CreditInfo WHERE CustomerID='%s';", customerID);
+  int creditLimit = jdbcTemplate.queryForObject(getCustomerCreditLimitInPennies, Integer.class);
+  return creditLimit;
+}
+
+public static void setCustomerCreditBalance(JdbcTemplate jdbcTemplate, String customerID, int newCreditBalanceInPennies) {
+  String creditBalanceSql = String.format("UPDATE CreditInfo SET CreditBalance = %d WHERE CustomerID='%s';", newCreditBalanceInPennies, customerID);
+  jdbcTemplate.update(creditBalanceSql);
+}
+
+
+public static void setCustomerCreditTotal(JdbcTemplate jdbcTemplate, String customerID, int newCreditTotalInPennies) {
+  String creditTotalSql = String.format("UPDATE CreditInfo SET CreditTotal = %d WHERE CustomerID='%s';", newCreditTotalInPennies, customerID);
+  jdbcTemplate.update(creditTotalSql);
+  
+}
+
+public static void setCustomerCreditLimit(JdbcTemplate jdbcTemplate, String customerID, int newCreditLimitInPennies) {
+  String creditLimitSql = String.format("UPDATE CreditInfo SET CreditLimit = %d WHERE CustomerID='%s';", newCreditLimitInPennies, customerID);
+  jdbcTemplate.update(creditLimitSql);
+}
 }
