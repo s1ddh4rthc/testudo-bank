@@ -809,5 +809,34 @@ public class MvcController {
     return "welcome";
 
   }
+    /**
+     * Handles deposit transactions and automatically transfers a predefined percentage
+     * of the deposit into the user's savings account. To be called during a submitDeposit
+     * once approved.
+     * @param user The user performing the deposit.
+     * @param depositAmount The amount of the deposit in pennies.
+     * @return A string indicating the result of the transaction.
+     */
+  public String handleDepositAndAutoTransfer(User user, int depositAmount) {
+    String userID = user.getUsername();
+    double transferPercentage = TestudoBankRepository.getSavingsTransferPercentage(jdbcTemplate, userID);
 
+    // Calculate the amount to transfer to savings based on the user's specified percentage
+    int transferAmount = (int) (depositAmount * (transferPercentage / 100.0));
+    depositAmount = depositAmount- transferAmount;
+
+    // Perform the deposit transaction
+    int currentBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int newBalance = currentBalance + depositAmount;
+    TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, newBalance);
+
+    if (transferAmount > 0) {
+        // Update the savings balance
+        int currentSavingsBalance = TestudoBankRepository.getCustomerSavingsBalanceInPennies(jdbcTemplate, userID);
+        int newSavingsBalance = currentSavingsBalance + transferAmount;
+        TestudoBankRepository.updateSavingsBalance(jdbcTemplate, userID, newSavingsBalance);
+    }
+    return "account_info";
+  }
 }
+
