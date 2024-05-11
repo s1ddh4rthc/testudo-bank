@@ -94,9 +94,10 @@ cursor.execute(create_cryptohistory_table_sql)
 
 # Make empty CreditScore table
 create_creditScore_table_sql = '''
-CREATE TABLE CreditScore (
+CREATE TABLE CreditScores (
   CustomerID varchar(255),
-  CreditScore decimal(5,2)
+  CreditScore decimal(5,2),
+  PRIMARY KEY (CustomerID)
 );
 '''
 cursor.execute(create_creditScore_table_sql)
@@ -164,7 +165,7 @@ for i in range(num_customers_to_add):
     # add customer ID and creditScore to CreditScore table
 
     insert_creditScore_sql = '''
-    INSERT INTO CreditScore
+    INSERT INTO CreditScores
     VALUES  ({0},{1});
     '''.format("'" + customer_id + "'",
                 customer_creditScore)

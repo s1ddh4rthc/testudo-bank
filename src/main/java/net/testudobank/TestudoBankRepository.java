@@ -177,4 +177,15 @@ public class TestudoBankRepository {
       return false;
     }
   }
+
+  public static Double getCustomerCreditScore(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerCreditScoreSql = String.format("SELECT CreditScore FROM CreditScores WHERE CustomerID='%s';", customerID);
+    Double customerCreditScore = jdbcTemplate.queryForObject(getCustomerCreditScoreSql, Double.class);
+    return customerCreditScore;
+  }
+
+  public static void setCustomerCreditScore(JdbcTemplate jdbcTemplate, String customerID, double creditScore) { 
+    String customerCreditScoreSql = String.format("UPDATE CreditScores SET CreditScore = %f WHERE CustomerID='%s';", creditScore, customerID);
+    jdbcTemplate.update(customerCreditScoreSql);
+  }
 }
