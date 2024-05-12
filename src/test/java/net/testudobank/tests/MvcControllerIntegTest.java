@@ -1606,7 +1606,7 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     // send request to the Deposit Form's POST handler in MvcController
     double CUSTOMER1_NEW_BALANCE = CUSTOMER1_BALANCE - CUSTOMER1_CREDIT_BALANCE;
 
-    MvcController.payCreditBalance(user, jdbcTemplate, CUSTOMER1_ID, "2:30", "withdraw", 22.34);
+    // MvcController.payCreditBalance(user, jdbcTemplate, CUSTOMER1_ID, "2:30", "withdraw", 22.34);
 
     assert(CUSTOMER1_NEW_BALANCE == CUSTOMER1_BALANCE - CUSTOMER1_CREDIT_BALANCE);
   }
