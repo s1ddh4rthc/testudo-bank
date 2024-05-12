@@ -51,6 +51,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
   private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double CREDIT_LINE = 5000;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -810,6 +811,33 @@ public class MvcController {
 
   }
 
+      /**
+   * 
+   * 
+   * @param user
+   * @return "account_info" whether credit card is paid off or not.
+   */
   
+   // Presumed the credit card is used externally and there is code that handles processing of that, so here we take in credit balance as a given parameter
+   // Pay off the credit card from your bank account directly.
+   // Makes sure there is enough money in the bank to pay it off first.
+   // Adds the transaction to transaction history
+
+   // Additionally, this function is presumed to be called once a month by the bank.
+
+   public static String payCreditBalance(@ModelAttribute("user") User user, JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, double creditBalance) {
+
+    String user_id = user.getUsername();
+    int balance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, user_id);
+
+    // make sure there is money in the bank, and enough to pay off the credit card
+    if (creditBalance > 0 && TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, user_id) == 0 && creditBalance < balance) {
+
+      int newBalanceInPennies = (int) (balance - creditBalance);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user_id, newBalanceInPennies);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, customerID, timestamp, action, newBalanceInPennies);
+      }
+    return "account_info";
+  }
 
 }
