@@ -43,6 +43,23 @@
     <span>Transfer History: </span><span>${user.transferHist}</span><br/>
     <span>Crypto History: </span><span>${user.cryptoHist}</span><br/>
     <br/>
+
+    <form action="/timeframe" method="post" th:object="${user}">
+        <label for="selectedTimeframe">Select Timeframe:</label>
+        <select id="selectedTimeframe" name="selectedTimeframe" th:field="*{selectedTimeframe}">
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 90 Days</option>
+        </select>
+        <button type="submit">Update</button>
+    </form>
+
+    <div>
+        <p>Total Purchase Amount: <span th:text="*{totalPurchaseAmount}"></span></p>
+        <p>Total Sold Amount: <span th:text="*{totalSoldAmount}"></span></p>
+        <p>Profit/Loss: <span th:text="*{profitLoss}"></span></p>
+    </div>
+
     <a href='/deposit'>Deposit</a>
     <a href='/withdraw'>Withdraw</a>
     <a href='/dispute'>Dispute</a>

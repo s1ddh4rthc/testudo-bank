@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
 public class MvcController {
-  
   // A simplified JDBC client that is injected with the login credentials
   // specified in /src/main/resources/application.properties
   private JdbcTemplate jdbcTemplate;
@@ -43,7 +42,6 @@ public class MvcController {
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
-  public static String TRANSACTION_HISTORY_INTEREST_ACTION = "Interest";
   public static String TRANSACTION_HISTORY_TRANSFER_SEND_ACTION = "TransferSend";
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
@@ -51,7 +49,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -183,15 +181,7 @@ public class MvcController {
 
   //// HELPER METHODS ////
 
-  /**
-   * Applies the defined interest rate to a given amount in pennies.
-   * 
-   * @param pennyAmount The amount in pennies to which the interest rate will be applied.
-   * @return The amount after applying the interest rate
-   */
-  private int applyInterestRateToPennyAmount(int pennyAmount) {
-    return (int) (pennyAmount * INTEREST_RATE);
-  }
+
   
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
@@ -234,6 +224,26 @@ public class MvcController {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
 
+
+    LocalDateTime endDate = LocalDateTime.now();
+
+    // calculate the start date based on the user's selected timeframe
+    // the startDate is set by subtracting the number of days specified in the selectedTimeframe from the endDate
+    LocalDateTime startDate = endDate.minusDays(user.getSelectedTimeframe());
+
+    // retrieve the total crypto sold amount for the user within the timeframe
+    double totalPurchaseAmount = TestudoBankRepository.getTotalCryptoPurchaseAmount(jdbcTemplate, user.getUsername(), startDate, endDate);
+    double totalSoldAmount = TestudoBankRepository.getTotalCryptoSoldAmount(jdbcTemplate, user.getUsername(), startDate, endDate);
+    double profitLoss = totalSoldAmount - totalPurchaseAmount;
+
+    user.setTotalPurchaseAmount(totalPurchaseAmount);
+    user.setTotalSoldAmount(totalSoldAmount);
+   
+    // calculate the profit or loss by subtracting the total purchase amount from the total sold amount
+    user.setProfitLoss(profitLoss);
+
+
+
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
     user.setBalance((int)userData.get("Balance")/100.0);
@@ -261,7 +271,7 @@ public class MvcController {
     Date dateTime = Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
     return dateTime;
   }
-  
+
   // HTML POST HANDLERS ////
 
   /**
@@ -368,16 +378,11 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
-    int currentNumDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID); 
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,currentNumDeposits + 1);
-    user.setNumDepositsForInterest(currentNumDeposits + 1); 
-    
-    applyInterest(user);
+    // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
   }
 	
-
   /**
    * HTML POST request handler for the Withdraw Form page.
    * 
@@ -425,7 +430,7 @@ public class MvcController {
     int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
     if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
       int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = applyInterestRateToPennyAmount(excessWithdrawAmtInPennies);
+      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
       int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
 
       // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
@@ -557,6 +562,14 @@ public class MvcController {
 
     return "account_info";
   }
+
+// Update the submitTimeframe method
+  @PostMapping("/timeframe")
+  public String submitTimeframe(@ModelAttribute("user") User user) {
+      updateAccountInfo(user);
+      return "account_info";
+  }
+
 
   /**
    * HTML POST request handler for the Transfer Form page.
@@ -813,30 +826,6 @@ public class MvcController {
     }
   }
 
-  /**
-   * 
-   * 
-   * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
-   */
-  public String applyInterest(@ModelAttribute("user") User user) {
 
-    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());  
-    String userID = user.getUsername();
-    double amtDeposited = user.getAmountToDeposit()
-
-    int numberOfDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID) + 1;
-    TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numberOfDepositsForInterest);
-    
-    if ((numberOfDepositsForInterest % 5 == 0) && (amtDeposited >= 20)) {
-      int userBalancePennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)(userBalancePennies * BALANCE_INTEREST_RATE));
-
-      return "account_info";
-    } 
-      return "welcome";
-    }
 
 }
-

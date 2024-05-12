@@ -10,6 +10,21 @@ import lombok.ToString;
 @ToString(onlyExplicitlyIncluded = true)
 public class User {
   //// General Customer Fields ////
+  private static final int TIMEFRAME_7_DAYS = 7;
+  private static final int TIMEFRAME_30_DAYS = 30;
+  private static final int TIMEFRAME_90_DAYS = 90;
+  
+  @Setter @Getter
+  private int selectedTimeframe = TIMEFRAME_7_DAYS;
+
+  @Setter @Getter
+  private double totalPurchaseAmount;
+
+  @Setter @Getter
+  private double totalSoldAmount;
+
+  @Setter @Getter
+  private double profitLoss;
 
   @Setter @Getter @ToString.Include
 	private String username;
