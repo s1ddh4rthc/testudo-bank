@@ -85,14 +85,11 @@ public class TestudoBankRepository {
     jdbcTemplate.update(customerInterestDepositsSql);
   }
 
-  public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies) {
-    String insertRowToTransactionHistorySql = String.format("INSERT INTO TransactionHistory VALUES ('%s', '%s', '%s', %d);",
-                                                              customerID,
-                                                              timestamp,
-                                                              action,
-                                                              amtInPennies);
-    jdbcTemplate.update(insertRowToTransactionHistorySql);
-  }
+  public static void insertRowToTransactionHistoryTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, String action, int amtInPennies, int roundup) {
+    String insertRowToTransactionHistorySql = "INSERT INTO TransactionHistory (CustomerID, Timestamp, Action, Amount, RoundupAmount) VALUES (?, ?, ?, ?, ?)";
+    jdbcTemplate.update(insertRowToTransactionHistorySql, customerID, timestamp, action, amtInPennies, roundup);
+}
+
 
   public static void insertRowToOverdraftLogsTable(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int depositAmtIntPennies, int oldOverdraftBalanceInPennies, int newOverdraftBalanceInPennies) {
     String insertRowToOverdraftLogsSql = String.format("INSERT INTO OverdraftLogs VALUES ('%s', '%s', %d, %d, %d);", 
@@ -177,4 +174,68 @@ public class TestudoBankRepository {
       return false;
     }
   }
+/*
+ public static void logRoundupTransaction(JdbcTemplate jdbcTemplate, String customerID, String timestamp, int roundupAmountInPennies) {
+    String action = "Roundup";
+    // Assuming you want to log the transaction with zero as the primary transaction amount
+    // and the roundup amount as the roundup figure.
+    String sql = "INSERT INTO TransactionHistory (CustomerID, Timestamp, Action, Amount, RoundupAmount) VALUES (?, ?, ?, ?, ?)";
+    jdbcTemplate.update(sql, customerID, timestamp, action, 0, roundupAmountInPennies);
+}
+ */
+
+ public static void applyRoundup(JdbcTemplate jdbcTemplate, String customerID, int roundupAmountInPennies) {
+  int overdraftBalanceInPennies = getCustomerOverdraftBalanceInPennies(jdbcTemplate, customerID);
+
+  if (overdraftBalanceInPennies > 0) {
+      if (roundupAmountInPennies > overdraftBalanceInPennies) {
+          int excess = roundupAmountInPennies - overdraftBalanceInPennies;
+          // Clear the overdraft with the exact required amount
+          decreaseCustomerOverdraftBalance(jdbcTemplate, customerID, overdraftBalanceInPennies);
+          // Any excess from the roundup goes to the customer's roundup balance
+          updateRoundupBalance(jdbcTemplate, customerID, excess);
+      } else {
+          // Deduct the roundup amount directly from the overdraft
+          decreaseCustomerOverdraftBalance(jdbcTemplate, customerID, roundupAmountInPennies);
+      }
+  } else {
+      // If no overdraft, proceed as normal
+      updateRoundupBalance(jdbcTemplate, customerID, roundupAmountInPennies);
+  }
+}
+
+
+public static void decreaseCustomerOverdraftBalance(JdbcTemplate jdbcTemplate, String customerID, int decreaseAmtInPennies) {
+  String sql = "UPDATE Customers SET OverdraftBalance = OverdraftBalance - ? WHERE CustomerID = ?";
+  jdbcTemplate.update(sql, decreaseAmtInPennies, customerID);
+}
+
+
+public static void updateRoundupBalance(JdbcTemplate jdbcTemplate, String customerID, int increaseAmtInPennies) {
+    String sql = "UPDATE Customers SET RoundupBalance = RoundupBalance + ? WHERE CustomerID = ?";
+    jdbcTemplate.update(sql, increaseAmtInPennies, customerID);
+}
+
+
+
+  
+  public static void setRoundupEnabled(JdbcTemplate jdbcTemplate, String customerID, boolean enabled) {
+    String sql = "UPDATE Customers SET RoundupEnabled = ? WHERE CustomerID = ?";
+    jdbcTemplate.update(sql, enabled, customerID);
+  }
+
+
+  public static int getCustomerRoundupBalance(JdbcTemplate jdbcTemplate, String customerID) {
+    String sql = "SELECT RoundupBalance FROM Customers WHERE CustomerID = ?";
+    return jdbcTemplate.queryForObject(sql, new Object[]{customerID}, Integer.class);
+}
+
+public static void setCustomerRoundupBalance(JdbcTemplate jdbcTemplate, String customerID, int newBalanceInPennies) {
+    String sql = "UPDATE Customers SET RoundupBalance = ? WHERE CustomerID = ?";
+    jdbcTemplate.update(sql, newBalanceInPennies, customerID);
+}
+
+
+
+
 }

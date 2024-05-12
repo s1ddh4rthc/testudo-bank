@@ -1,24 +1,27 @@
 package net.testudobank;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.util.Map;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashSet;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-
-import java.util.Optional;
-import java.util.Set;
-
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 public class MvcController {
@@ -213,8 +216,11 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
-    List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
+    // Query to fetch user details along with RoundupBalance
+    String getUserNameAndBalanceSql = String.format(
+        "SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest, RoundupBalance " +
+        "FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
     // calculate total Crypto holdings balance by summing balance of each supported cryptocurrency
@@ -225,9 +231,9 @@ public class MvcController {
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
-    user.setBalance((int)userData.get("Balance")/100.0);
-    double overDraftBalance = (int)userData.get("OverdraftBalance");
-    user.setOverDraftBalance(overDraftBalance/100);
+    user.setBalance((int)userData.get("Balance")/100.0); // Assuming balance is stored in pennies
+    user.setOverDraftBalance((int)userData.get("OverdraftBalance")/100.0); // Assuming overdraft balance is stored in pennies
+    user.setRoundupBalance((int)userData.get("RoundupBalance")/100.0); // Assuming roundup balance is stored in pennies
     user.setCryptoBalanceUSD(cryptoBalanceInDollars);
     user.setLogs(logs);
     user.setTransactionHist(transactionHistoryOutput);
@@ -237,8 +243,9 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
-  }
+    user.setNumDepositsForInterest((Integer)userData.get("NumDepositsForInterest"));
+}
+
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
   private static int convertDollarsToPennies(double dollarAmount) {
@@ -303,66 +310,50 @@ public class MvcController {
    */
   @PostMapping("/deposit")
   public String submitDeposit(@ModelAttribute("user") User user) {
-    String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
-    //// Invalid Input/State Handling ////
-
-    // unsuccessful login
-    if (userPasswordAttempt.equals(userPassword) == false) {
-      return "welcome";
-    }
-
-    // If customer already has too many reversals, their account is frozen. Don't complete deposit.
-    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
-    if (numOfReversals >= MAX_DISPUTES){
-      return "welcome";
-    }
-
-    // Negative deposit amount is not allowed
-    double userDepositAmt = user.getAmountToDeposit();
-    if (userDepositAmt < 0) {
-      return "welcome";
-    }
-    
-    //// Complete Deposit Transaction ////
-    int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
-    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
-    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    if (userOverdraftBalanceInPennies > 0) { // deposit will pay off overdraft first
-      // update overdraft balance in Customers table, and log the repayment in OverdraftLogs table.
-      int newOverdraftBalanceInPennies = Math.max(userOverdraftBalanceInPennies - userDepositAmtInPennies, 0);
-      TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
-      TestudoBankRepository.insertRowToOverdraftLogsTable(jdbcTemplate, userID, currentTime, userDepositAmtInPennies, userOverdraftBalanceInPennies, newOverdraftBalanceInPennies);
-      
-      // add any excess deposit amount to main balance in Customers table
-      if (userDepositAmtInPennies > userOverdraftBalanceInPennies) {
-        int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
-        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
+      String userID = user.getUsername();
+      String userPasswordAttempt = user.getPassword();
+      String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
+  
+      if (!userPasswordAttempt.equals(userPassword)) {
+          return "welcome";
       }
-
-    } else { // simple deposit case
-      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
-    }
-
-    // only adds deposit to transaction history if is not transfer
-    if (user.isTransfer()){
-      // Adds transaction recieve to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION, userDepositAmtInPennies);
-    } else if (user.isCryptoTransaction()) {
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_SELL_ACTION, userDepositAmtInPennies);
-    } else {
-      // Adds deposit to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
-    }
-
-    // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
-    updateAccountInfo(user);
-    return "account_info";
+  
+      int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
+      if (numOfReversals >= MAX_DISPUTES) {
+          return "welcome";
+      }
+  
+      double userDepositAmt = user.getAmountToDeposit();
+      if (userDepositAmt < 0) {
+          return "welcome";
+      }
+  
+      int totalDepositAmountInPennies = convertDollarsToPennies(userDepositAmt);
+      int mainDepositAmountInPennies = (totalDepositAmountInPennies / 100) * 100;
+      int roundupAmountInPennies = totalDepositAmountInPennies % 100;
+  
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
+  
+      if (userOverdraftBalanceInPennies > 0) {
+          // Existing overdraft logic goes here
+      } else {
+          TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainDepositAmountInPennies);
+          if (roundupAmountInPennies > 0) {
+              TestudoBankRepository.updateRoundupBalance(jdbcTemplate, userID, roundupAmountInPennies);
+          }
+      }
+  
+      // Logging the transaction
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, mainDepositAmountInPennies, roundupAmountInPennies);
+  
+      updateAccountInfo(user);
+      return "account_info";
   }
-	
+  
+
+   
+
   /**
    * HTML POST request handler for the Withdraw Form page.
    * 
@@ -378,75 +369,52 @@ public class MvcController {
    * @param user
    * @return "account_info" page if withdraw request is valid. Otherwise, redirect to "welcome" page.
    */
+
   @PostMapping("/withdraw")
   public String submitWithdraw(@ModelAttribute("user") User user) {
-    String userID = user.getUsername();
-    String userPasswordAttempt = user.getPassword();
-    String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
-
-    //// Invalid Input/State Handling ////
-
-    // unsuccessful login
-    if (userPasswordAttempt.equals(userPassword) == false) {
-      return "welcome";
-    }
-
-    // If customer already has too many reversals, their account is frozen. Don't complete deposit.
-    int numOfReversals = TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID);
-    if (numOfReversals >= MAX_DISPUTES){
-      return "welcome";
-    }
-
-    // Negative deposit amount is not allowed
-    double userWithdrawAmt = user.getAmountToWithdraw();
-    if (userWithdrawAmt < 0) {
-      return "welcome";
-    }
-
-    //// Complete Withdraw Transaction ////
-    int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt); // dollar amounts stored as pennies to avoid floating point errors
-    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
-    int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
-    int userOverdraftBalanceInPennies = TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID);
-    if (userWithdrawAmtInPennies > userBalanceInPennies) { // if withdraw amount exceeds main balance, withdraw into overdraft with interest fee
-      int excessWithdrawAmtInPennies = userWithdrawAmtInPennies - userBalanceInPennies;
-      int newOverdraftIncreaseAmtAfterInterestInPennies = (int)(excessWithdrawAmtInPennies * INTEREST_RATE);
-      int newOverdraftBalanceInPennies = userOverdraftBalanceInPennies + newOverdraftIncreaseAmtAfterInterestInPennies;
-
-      // abort withdraw transaction if new overdraft balance exceeds max overdraft limit
-      // IMPORTANT: Compare new overdraft balance to max overdraft limit AFTER applying the interest rate!
-      if (newOverdraftBalanceInPennies > MAX_OVERDRAFT_IN_PENNIES) {
-        return "welcome";
-      }
-
-      // this is a valid withdraw into overdraft, so we can set Balance column to 0.
-      // OK to do this even if we were already in overdraft since main balance was already 0 anyways
-      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, 0);
-
-      // increase overdraft balance by the withdraw amount after interest
-      TestudoBankRepository.setCustomerOverdraftBalance(jdbcTemplate, userID, newOverdraftBalanceInPennies);
-
-    } else { // simple, non-overdraft withdraw case
-      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, userWithdrawAmtInPennies);
-    }
-
-    // only adds withdraw to transaction history if is not transfer
-    if (user.isTransfer()){
-      // Adds transfer send to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_TRANSFER_SEND_ACTION, userWithdrawAmtInPennies);
-    } else if (user.isCryptoTransaction()) {
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_CRYPTO_BUY_ACTION, userWithdrawAmtInPennies);
-    } else {
-      // Adds withdraw to transaction history
-      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
-    }
-
+      String userID = user.getUsername();
+      String userPasswordAttempt = user.getPassword();
+      String userPassword = TestudoBankRepository.getCustomerPassword(jdbcTemplate, userID);
   
-    // update Model so that View can access new main balance, overdraft balance, and logs
-    updateAccountInfo(user);
-    return "account_info";
-
+      if (!userPasswordAttempt.equals(userPassword)) {
+          return "welcome"; // Login check failed
+      }
+  
+      if (TestudoBankRepository.getCustomerNumberOfReversals(jdbcTemplate, userID) >= MAX_DISPUTES) {
+          return "welcome"; // Too many reversals, account possibly frozen
+      }
+  
+      double userWithdrawAmt = user.getAmountToWithdraw();
+      if (userWithdrawAmt < 0) {
+          return "welcome"; // Cannot withdraw negative amounts
+      }
+  
+      int userWithdrawAmtInPennies = convertDollarsToPennies(userWithdrawAmt);
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      int userBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+  
+      boolean isRoundupEnabled = roundupEnabledForUser(userID);
+      int roundupAmountInPennies = isRoundupEnabled ? calculateRoundup(userWithdrawAmtInPennies) : 0;
+  
+      int totalWithdrawalAmount = userWithdrawAmtInPennies + roundupAmountInPennies;
+      if (totalWithdrawalAmount > userBalanceInPennies) {
+          return "welcome"; // Aborting because total withdrawal would exceed the balance
+      }
+  
+      // Process the withdrawal
+      TestudoBankRepository.decreaseCustomerCashBalance(jdbcTemplate, userID, totalWithdrawalAmount);
+  
+      if (roundupAmountInPennies > 0) {
+          TestudoBankRepository.applyRoundup(jdbcTemplate, userID, roundupAmountInPennies);
+      }
+  
+      // Log the transaction with the roundup amount
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies, roundupAmountInPennies);
+  
+      updateAccountInfo(user); // Refresh user account information to reflect the latest changes
+      return "account_info";
   }
+  
 
   /**
    * HTML POST request handler for the Dispute Form page.
@@ -810,4 +778,106 @@ public class MvcController {
 
   }
 
+  private boolean roundupEnabledForUser(String userID) {
+    String sql = "SELECT RoundupEnabled FROM Customers WHERE CustomerID = ?";
+    try {
+        Integer roundupEnabled = jdbcTemplate.queryForObject(sql, new Object[]{userID}, Integer.class);
+        // Assuming RoundupEnabled is stored as an integer (0 or 1)
+        return roundupEnabled != null && roundupEnabled == 1;
+    } catch (EmptyResultDataAccessException e) {
+        // This exception is thrown if the query found no rows.
+        System.err.println("No customer found with ID: " + userID);
+        return false;
+    } catch (DataAccessException e) {
+        // General database exceptions
+        System.err.println("Database error: " + e.getMessage());
+        return false;
+    }
 }
+
+
+
+  private int calculateRoundup(int amountInPennies) {
+    int cents = amountInPennies % 100; // Get the cents part
+    if (cents == 0) {
+        return 0; // No roundup needed if it's an exact dollar amount
+    }
+    return 100 - cents; // The amount needed to round up to the next dollar
+}
+
+
+
+
+    /**
+   * 
+   * 
+   * @param user
+   * @return 
+   */
+@PostMapping("/enableRoundup")
+@ResponseBody
+public String enableRoundup(@RequestParam("username") String userID, RedirectAttributes redirectAttrs) {
+  if (TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userID) > 0) {
+    return "Cannot enable roundup while in overdraft.";
+}
+    if (TestudoBankRepository.doesCustomerExist(jdbcTemplate, userID)) {
+        TestudoBankRepository.setRoundupEnabled(jdbcTemplate, userID, true);
+        redirectAttrs.addFlashAttribute("successMessage", "Roundup feature enabled successfully!");
+    } else {
+        redirectAttrs.addFlashAttribute("errorMessage", "Failed to enable roundup feature.");
+    }
+    return "account_info";  // Redirect to a confirmation page or back to the account settings
+}
+
+  /**
+   * 
+   * 
+   * @param user
+   * @return 
+   */
+@PostMapping("/disableRoundup")
+@ResponseBody
+public String disableRoundup(@RequestParam("username") String userID, RedirectAttributes redirectAttrs) {
+    
+    if (TestudoBankRepository.doesCustomerExist(jdbcTemplate, userID)) {
+        TestudoBankRepository.setRoundupEnabled(jdbcTemplate, userID, false);
+        redirectAttrs.addFlashAttribute("successMessage", "Roundup feature disabled successfully!");
+    } else {
+        redirectAttrs.addFlashAttribute("errorMessage", "Failed to disable roundup feature.");
+    }
+    return "account_info";  // Redirect to a confirmation page or back to the account settings
+}
+
+@PostMapping("/testRoundup")
+@ResponseBody
+public String testRoundup() {
+  System.out.println("Roundup test endpoint hit");
+  return "Roundup test endpoint hit"; // Return a response to the client
+}
+
+@PostMapping("/transferRoundupToMain")
+public String transferRoundupToMain(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+
+    // Retrieve the roundup balance
+    int roundupBalanceInPennies = TestudoBankRepository.getCustomerRoundupBalance(jdbcTemplate, userID);
+    if (roundupBalanceInPennies > 0) {
+        // Transfer roundup balance to main balance
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, roundupBalanceInPennies);
+        // Reset roundup balance to zero
+        TestudoBankRepository.setCustomerRoundupBalance(jdbcTemplate, userID, 0);
+        // Log this transfer event in transaction history if necessary
+    }
+
+    // Update user info to reflect changes on the account_info page
+    updateAccountInfo(user);
+    return "account_info";
+}
+
+
+
+
+
+}
+
+

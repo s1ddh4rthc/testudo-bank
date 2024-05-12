@@ -5,7 +5,9 @@ CREATE TABLE Customers (
   Balance int,
   OverdraftBalance int,
   NumFraudReversals int,
-  NumDepositsForInterest int
+  NumDepositsForInterest int,
+  RoundupEnabled BOOLEAN DEFAULT FALSE,
+  RoundupBalance int DEFAULT 0
 );
 
 CREATE TABLE Passwords (
@@ -24,8 +26,9 @@ CREATE TABLE OverdraftLogs (
 CREATE TABLE TransactionHistory (
   CustomerID varchar(255),
   Timestamp DATETIME,
-  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferRecieve', 'CryptoBuy', 'CryptoSell')),
-  Amount int
+  Action varchar(255) CHECK (Action IN ('Deposit', 'Withdraw', 'TransferSend', 'TransferReceive', 'CryptoBuy', 'CryptoSell')),
+  Amount int,
+  RoundupAmount int DEFAULT 0
 );
 
 CREATE TABLE TransferHistory (

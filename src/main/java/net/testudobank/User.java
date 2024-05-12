@@ -27,6 +27,10 @@ public class User {
 	private double balance;
 
   @Setter @Getter @PositiveOrZero
+  private double roundupBalance; // This stores the total amount accumulated via roundup features
+
+
+  @Setter @Getter @PositiveOrZero
 	private double overDraftBalance;
 
   @Setter @Getter
