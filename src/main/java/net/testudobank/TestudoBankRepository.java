@@ -1,11 +1,13 @@
 package net.testudobank;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 public class TestudoBankRepository {
@@ -176,5 +178,37 @@ public class TestudoBankRepository {
     } else {
       return false;
     }
+  }
+
+  /**
+  * Calculates the total amount of cryptocurrency purchased
+  * by a specific user within a given time range.  
+  */
+  public static double getTotalCryptoPurchaseAmount(JdbcTemplate jdbcTemplate, String userID, LocalDateTime startDate, LocalDateTime endDate) {
+    try {
+        String sql = "SELECT COALESCE(SUM(CryptoAmount), 0) AS TotalPurchaseAmount " +
+                     "FROM CryptoHistory " +
+                     "WHERE CustomerID = ? AND Action = 'Buy' AND Timestamp BETWEEN ? AND ?";
+        return jdbcTemplate.queryForObject(sql, Double.class, userID, startDate, endDate);
+    } catch (BadSqlGrammarException e) {
+        System.err.println("Error executing SQL query: " + e.getMessage());
+        return 0.0;
+    }
+  }
+
+  /**
+  * Calculates the total amount of cryptocurrency sold by a
+  * specific user within a given time range.  
+  */
+  public static double getTotalCryptoSoldAmount(JdbcTemplate jdbcTemplate, String userID, LocalDateTime startDate, LocalDateTime endDate) {
+    try {
+      String sql = "SELECT COALESCE(SUM(CryptoAmount), 0) AS TotalSoldAmount " +
+                   "FROM CryptoHistory " +
+                   "WHERE CustomerID = ? AND Action = 'Sell' AND Timestamp BETWEEN ? AND ?";
+      return jdbcTemplate.queryForObject(sql, Double.class, userID, startDate, endDate);
+  } catch (BadSqlGrammarException e) {
+      System.err.println("Error executing SQL query: " + e.getMessage());
+      return 0.0;
+  }
   }
 }

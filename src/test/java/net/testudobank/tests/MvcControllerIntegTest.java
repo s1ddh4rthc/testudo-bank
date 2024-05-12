@@ -1581,5 +1581,96 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+
+    /**
+     * Test the cryptocurrency statistics feature with a basic case.
+     * @throws ScriptException 
+     */
+    @Test
+    public void testCryptoStatisticsBasic() throws ScriptException {
+        CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+                .initialBalanceInDollars(1000)
+                .initialCryptoBalance(Collections.singletonMap("ETH", 1.0))
+                .build();
+
+        cryptoTransactionTester.initialize();
+
+        CryptoTransaction buyCryptoTransaction = CryptoTransaction.builder()
+                .expectedEndingBalanceInDollars(500)
+                .expectedEndingCryptoBalance(1.5)
+                .cryptoPrice(1000)
+                .cryptoAmountToTransact(0.5)
+                .cryptoName("ETH")
+                .cryptoTransactionTestType(CryptoTransactionTestType.BUY)
+                .shouldSucceed(true)
+                .build();
+
+        cryptoTransactionTester.test(buyCryptoTransaction);
+
+        CryptoTransaction sellCryptoTransaction = CryptoTransaction.builder()
+                .expectedEndingBalanceInDollars(1200)
+                .expectedEndingCryptoBalance(1.0)
+                .cryptoPrice(1400)
+                .cryptoAmountToTransact(0.5)
+                .cryptoName("ETH")
+                .cryptoTransactionTestType(CryptoTransactionTestType.SELL)
+                .shouldSucceed(true)
+                .build();
+
+        cryptoTransactionTester.test(sellCryptoTransaction);
+
+        User user = new User();
+        user.setSelectedTimeframe(30);
+
+
+        assertEquals(500, user.getTotalPurchaseAmount(), 500);
+        assertEquals(700, user.getTotalSoldAmount(), 700);
+        assertEquals(200, user.getProfitLoss(), 200);
+    }
+
+
+    /**
+     * Test the cryptocurrency statistics feature with no transactions.
+     * @throws ScriptException 
+     */
+    @Test
+    public void testCryptoStatisticsNoTransactions() throws ScriptException {
+        CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+                .initialBalanceInDollars(1000)
+                .initialCryptoBalance(Collections.singletonMap("ETH", 0.0))
+                .build();
+
+        cryptoTransactionTester.initialize();
+
+        User user = new User();
+        user.setSelectedTimeframe(30);
+
+
+        assertEquals(0, user.getTotalPurchaseAmount(), 0.01);
+        assertEquals(0, user.getTotalSoldAmount(), 0.01);
+        assertEquals(0, user.getProfitLoss(), 0.01);
+    }
+
+    /**
+     * Test the cryptocurrency statistics feature with an invalid timeframe.
+     */
+  @Test
+  public void testCryptoStatisticsInvalidTimeframe() throws ScriptException {
+      CryptoTransactionTester cryptoTransactionTester = CryptoTransactionTester.builder()
+              .initialBalanceInDollars(1000)
+              .initialCryptoBalance(Collections.singletonMap("ETH", 1.0))
+              .build();
+
+      cryptoTransactionTester.initialize();
+
+      User user = new User();
+      user.setSelectedTimeframe(-1);
+
+
+      assertEquals(0, user.getTotalPurchaseAmount(), 0.01);
+      assertEquals(0, user.getTotalSoldAmount(), 0.01);
+      assertEquals(0, user.getProfitLoss(), 0.01);
+  }
   
 }

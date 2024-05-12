@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
 public class MvcController {
-  
   // A simplified JDBC client that is injected with the login credentials
   // specified in /src/main/resources/application.properties
   private JdbcTemplate jdbcTemplate;
@@ -50,7 +49,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -182,6 +181,8 @@ public class MvcController {
 
   //// HELPER METHODS ////
 
+
+  
   /**
    * Helper method that queries the MySQL DB for the customer account info (First Name, Last Name, and Balance)
    * and adds these values to the `user` Model Attribute so that they can be displayed in the "account_info" page.
@@ -222,6 +223,26 @@ public class MvcController {
     for (String cryptoName : MvcController.SUPPORTED_CRYPTOCURRENCIES) {
       cryptoBalanceInDollars += TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), cryptoName).orElse(0.0) * cryptoPriceClient.getCurrentCryptoValue(cryptoName);
     }
+
+
+    LocalDateTime endDate = LocalDateTime.now();
+
+    // calculate the start date based on the user's selected timeframe
+    // the startDate is set by subtracting the number of days specified in the selectedTimeframe from the endDate
+    LocalDateTime startDate = endDate.minusDays(user.getSelectedTimeframe());
+
+    // retrieve the total crypto sold amount for the user within the timeframe
+    double totalPurchaseAmount = TestudoBankRepository.getTotalCryptoPurchaseAmount(jdbcTemplate, user.getUsername(), startDate, endDate);
+    double totalSoldAmount = TestudoBankRepository.getTotalCryptoSoldAmount(jdbcTemplate, user.getUsername(), startDate, endDate);
+    double profitLoss = totalSoldAmount - totalPurchaseAmount;
+
+    user.setTotalPurchaseAmount(totalPurchaseAmount);
+    user.setTotalSoldAmount(totalSoldAmount);
+   
+    // calculate the profit or loss by subtracting the total purchase amount from the total sold amount
+    user.setProfitLoss(profitLoss);
+
+
 
     user.setFirstName((String)userData.get("FirstName"));
     user.setLastName((String)userData.get("LastName"));
@@ -358,7 +379,6 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -542,6 +562,14 @@ public class MvcController {
 
     return "account_info";
   }
+
+// Update the submitTimeframe method
+  @PostMapping("/timeframe")
+  public String submitTimeframe(@ModelAttribute("user") User user) {
+      updateAccountInfo(user);
+      return "account_info";
+  }
+
 
   /**
    * HTML POST request handler for the Transfer Form page.
@@ -798,16 +826,6 @@ public class MvcController {
     }
   }
 
-  /**
-   * 
-   * 
-   * @param user
-   * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
-   */
-  public String applyInterest(@ModelAttribute("user") User user) {
 
-    return "welcome";
-
-  }
 
 }
