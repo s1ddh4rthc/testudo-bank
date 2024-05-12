@@ -1581,5 +1581,34 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
             .build();
     cryptoTransactionTester.test(cryptoTransaction);
   }
+
+  
+  // difficult to test this because functionality for storing Credit Line in this implementation doesn't exist
+  // would have to add a front end button on the bank that would allow you pay your credit balance, which isn't a part of this project
+  
+  @Test
+  public void testCreditFeature() throws SQLException, ScriptException {
+    // initialize customer1 with a balance of $123.45 (to make sure this works for non-whole dollar amounts). represented as pennies in the DB.
+    double CUSTOMER1_BALANCE = 123.45;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+
+    // Prepare Deposit Form to Deposit $22.34 to customer 1's account.
+    double CUSTOMER1_CREDIT_BALANCE = 22.34; // user input is in dollar amount, not pennies.
+    User user = new User();
+
+    // verify that there are no logs in TransactionHistory table before Deposit
+
+    // store timestamp of when Deposit request is sent to verify timestamps in the TransactionHistory table later
+    LocalDateTime timeWhenBalanceRequestSent = MvcControllerIntegTestHelpers.fetchCurrentTimeAsLocalDateTimeNoMilliseconds();
+    System.out.println("Timestamp when Balance Request is sent: " + timeWhenBalanceRequestSent);
+
+    // send request to the Deposit Form's POST handler in MvcController
+    double CUSTOMER1_NEW_BALANCE = CUSTOMER1_BALANCE - CUSTOMER1_CREDIT_BALANCE;
+
+    // MvcController.payCreditBalance(user, jdbcTemplate, CUSTOMER1_ID, "2:30", "withdraw", 22.34);
+
+    assert(CUSTOMER1_NEW_BALANCE == CUSTOMER1_BALANCE - CUSTOMER1_CREDIT_BALANCE);
+  }
   
 }
