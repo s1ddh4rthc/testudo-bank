@@ -24,7 +24,7 @@ public class User {
   private String lastName;
 
   @Setter  @Getter @PositiveOrZero @ToString.Include
-	private double balance;
+    private double balance;
 
   @Setter @Getter @PositiveOrZero
 	private double overDraftBalance;
@@ -98,5 +98,4 @@ public class User {
 
   @Setter @Getter
   private int numDepositsForInterest;
-
 }

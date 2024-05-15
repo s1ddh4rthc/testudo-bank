@@ -1,24 +1,22 @@
 package net.testudobank;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.jdbc.core.JdbcTemplate;
-
-import java.util.Map;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashSet;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.List;
-
-import java.util.Optional;
-import java.util.Set;
-
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
 public class MvcController {
@@ -237,7 +235,7 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setNumDepositsForInterest(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()));
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -358,6 +356,7 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    updateAccountInfo(user);
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -804,10 +803,32 @@ public class MvcController {
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
+
+  // applies interst to users based on certain conditions when a user deposits money into their account
   public String applyInterest(@ModelAttribute("user") User user) {
+    int numDeposits = user.getNumDepositsForInterest();
+    double depositValue = user.getAmountToDeposit();
+    double overdraftBalance = user.getOverDraftBalance();
+    double userBalance = user.getBalance();
+    String ret = "";
+    if (userBalance >= 0 && overdraftBalance <= 0 && depositValue >= 20) { 
+        numDeposits++;
+        user.setNumDepositsForInterest(numDeposits);
+        if (numDeposits % 5 == 0) { 
+            int balanceInPennies = (int)(userBalance * 100);
+            double newBalance = userBalance * BALANCE_INTEREST_RATE;
+            int newBalancePennies = (int)(newBalance * 100);        
+            user.setBalance(newBalance);
+            TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, user.getUsername(), newBalancePennies);
+            String date = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+            int interestAmount = newBalancePennies - balanceInPennies;
+            TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, user.getUsername(), date, TRANSACTION_HISTORY_DEPOSIT_ACTION, interestAmount);
+            ret = "account_info";
+        }
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername(), numDeposits%5);
+    }
+    ret = "welcome";
 
-    return "welcome";
-
+    return ret;
   }
-
 }
