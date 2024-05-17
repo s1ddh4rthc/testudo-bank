@@ -40,6 +40,7 @@ public class MvcController {
   private final static int MAX_NUM_TRANSACTIONS_DISPLAYED = 3;
   private final static int MAX_NUM_TRANSFERS_DISPLAYED = 10;
   private final static int MAX_REVERSABLE_TRANSACTIONS_AGO = 3;
+  private final static int MAX_SAVINGS_GRAPHIC_TRANSACTIONS = 5;
   private final static String HTML_LINE_BREAK = "<br/>";
   public static String TRANSACTION_HISTORY_DEPOSIT_ACTION = "Deposit";
   public static String TRANSACTION_HISTORY_WITHDRAW_ACTION = "Withdraw";
@@ -47,6 +48,7 @@ public class MvcController {
   public static String TRANSACTION_HISTORY_TRANSFER_RECEIVE_ACTION = "TransferReceive";
   public static String TRANSACTION_HISTORY_CRYPTO_SELL_ACTION = "CryptoSell";
   public static String TRANSACTION_HISTORY_CRYPTO_BUY_ACTION = "CryptoBuy";
+
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
@@ -81,8 +83,8 @@ public class MvcController {
   @GetMapping("/login")
 	public String showLoginForm(Model model) {
 		User user = new User();
-    model.addAttribute("user", user);
-
+		model.addAttribute("user", user);
+		
 		return "login_form";
 	}
 
@@ -213,7 +215,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest, SavingsBalance, SpendingBalance FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -238,6 +240,8 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    user.setSavingsBalance((int) userData.get("SavingsBalance")/100.0);
+    user.setSpendingBalance((int) userData.get("SpendingBalance")/100);
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -343,6 +347,13 @@ public class MvcController {
       }
 
     } else { // simple deposit case
+      // Adds to number of deposits for interest when the deposit is $20.00 or more
+      if (userDepositAmtInPennies >= 2000) {
+        int interestDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, interestDeposits + 1);
+      }
+      
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
 
@@ -356,6 +367,26 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
+
+    List<Map<String,Object>> recentDeposits = TestudoBankRepository.getRecentDeposits(jdbcTemplate, userID, MAX_SAVINGS_GRAPHIC_TRANSACTIONS);
+    int aggregateSavings = 0;
+
+    // Adds up last 5 deposits as savings
+    for (Map<String, Object> depositInfo : recentDeposits) {
+      if (depositInfo.containsKey("Amount")) {
+        aggregateSavings += (Integer) depositInfo.get("Amount");
+      }
+    }
+
+    System.out.println(aggregateSavings);
+
+    // Saves aggregate savings from last 5 deposits as savings in database
+    TestudoBankRepository.setSavingsBalance(jdbcTemplate, userID, aggregateSavings);
+
+    // System.out.println(aggregateSavings);
+    // if (recentDeposits.size() > 0) {
+    //   System.out.println(recentDeposits.get(0));
+    // }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
@@ -441,11 +472,24 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_WITHDRAW_ACTION, userWithdrawAmtInPennies);
     }
 
+    List<Map<String,Object>> recentDeposits = TestudoBankRepository.getRecentWithdrawals(jdbcTemplate, userID, MAX_SAVINGS_GRAPHIC_TRANSACTIONS);
+    int aggregateWithdrawals = 0;
+
+    // Gets latest 5 withdrawals and adds them up
+    for (Map<String, Object> withdrawInfo : recentDeposits) {
+      if (withdrawInfo.containsKey("Amount")) {
+        aggregateWithdrawals += (Integer) withdrawInfo.get("Amount");
+      }
+    }
+
+    System.out.println(aggregateWithdrawals);
+
+    // Saves last 5 withdrawal sum as spending in database
+    TestudoBankRepository.setSpendingBalance(jdbcTemplate, userID, aggregateWithdrawals);
   
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
     return "account_info";
-
   }
 
   /**
@@ -799,15 +843,47 @@ public class MvcController {
   }
 
   /**
-   * 
+   * Helper method for applying interest, after a deposit has been made.
+   * <p>
+   * If the user balance is positive (no overdraft), there have been
+   * over 5 deposits for interest, and the deposit just made makes
+   * the count of deposits for interest divisible by 5, then the function
+   * adds the interest to the balance in the form of a deposit and logs
+   * it.
+   * <p>
+   * Otherwise, it just returns "welcome"
    * 
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userID = user.getUsername();
+    int pennyBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+    int interestDeposits = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+  
+    /* Every 5th deposit triggers the special interest rate. Ensures that the balance isn't in
+    overdraft, then makes sure 5 or more deposits have been made, and then ensures that the
+    interestDeposits value is divisible by 5, so every 5th deposit for interest generates interest. */
+    if (pennyBalance > 0 && interestDeposits >= 5 && interestDeposits % 5 == 0) {
+      // Makes 1.5% interest apply to the TOTAL cash balance after 5 valid deposits
+      int interestValue = (int) ((pennyBalance) * BALANCE_INTEREST_RATE); // Interest balance with original deposit
+      int interestToDeposit = interestValue - pennyBalance; // Interest without original balance
+  
+      // Adds interest as a transaction, which displays as a deposit
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime,
+      TRANSACTION_HISTORY_DEPOSIT_ACTION, interestToDeposit);
+  
+      // Updates customer balance to have interest included
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, interestValue);
 
+      // Update number of deposits for interest to be 5 less than before
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, interestDeposits - 5);
+      
+      return "account_info";
+    }
+  
     return "welcome";
-
   }
 
 }

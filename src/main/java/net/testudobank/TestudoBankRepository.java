@@ -51,6 +51,18 @@ public class TestudoBankRepository {
     return transactionLogs;
   }
 
+  public static List<Map<String,Object>> getRecentDeposits(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+    return transactionLogs;
+  }
+
+  public static List<Map<String,Object>> getRecentWithdrawals(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
+    String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' AND Action='Withdraw' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
+    List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
+    return transactionLogs;
+  }
+
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
@@ -82,6 +94,16 @@ public class TestudoBankRepository {
 
   public static void setCustomerNumberOfDepositsForInterest(JdbcTemplate jdbcTemplate, String customerID, int numDepositsForInterest) { 
     String customerInterestDepositsSql = String.format("UPDATE Customers SET NumDepositsForInterest = %d WHERE CustomerID='%s';", numDepositsForInterest, customerID);
+    jdbcTemplate.update(customerInterestDepositsSql);
+  }
+
+  public static void setSavingsBalance(JdbcTemplate jdbcTemplate, String customerID, int savingsBalance) { 
+    String customerInterestDepositsSql = String.format("UPDATE Customers SET SavingsBalance = %d WHERE CustomerID='%s';", savingsBalance, customerID);
+    jdbcTemplate.update(customerInterestDepositsSql);
+  }
+
+  public static void setSpendingBalance(JdbcTemplate jdbcTemplate, String customerID, int spendingBalance) { 
+    String customerInterestDepositsSql = String.format("UPDATE Customers SET SpendingBalance = %d WHERE CustomerID='%s';", spendingBalance, customerID);
     jdbcTemplate.update(customerInterestDepositsSql);
   }
 
