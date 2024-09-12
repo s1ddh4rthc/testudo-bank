@@ -325,6 +325,14 @@ public class MvcController {
     if (userDepositAmt < 0) {
       return "welcome";
     }
+    System.out.println("userDepositAmt" + userDepositAmt);
+    if (userDepositAmt >= 20) {
+
+      int numdepositcounter = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      numdepositcounter = numdepositcounter + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, numdepositcounter);
+
+    }
     
     //// Complete Deposit Transaction ////
     int userDepositAmtInPennies = convertDollarsToPennies(userDepositAmt); // dollar amounts stored as pennies to avoid floating point errors
@@ -358,6 +366,8 @@ public class MvcController {
     }
 
     // update Model so that View can access new main balance, overdraft balance, and logs
+    System.out.println(user.getNumDepositsForInterest());
+    System.out.println("new user balance? " + TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID));
     applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
@@ -805,6 +815,25 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    String userId = user.getUsername();
+    String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date()); // use same timestamp for all logs created by this deposit
+    if (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId) == 0 || TestudoBankRepository.getCustomerOverdraftBalanceInPennies(jdbcTemplate, userId) > 0) {
+      
+      return "welcome";
+
+    }
+
+    if (TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userId) == 5) {
+
+      double newbalance = 0;
+      double oldbalance = 0;
+      oldbalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId);
+      newbalance = (TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userId)) * BALANCE_INTEREST_RATE;
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userId, (int) newbalance);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userId, 0);
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userId, currentTime, "Interest rate applied after 5 deposits", (int) (newbalance - oldbalance));
+      return "account_info";
+    }
 
     return "welcome";
 
