@@ -804,10 +804,42 @@ public class MvcController {
    * @param user
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
-  public String applyInterest(@ModelAttribute("user") User user) {
+  public String applyInterest(@ModelAttribute("user") User user) {    //User info
+    String userID = user.getUsername();
+    String userPasswordAttempt = user.getPassword();
+    String userPassword = TestudoBankRepository.getCustomerPassword((jdbcTemplate), userID);
+    //Login vars
+ String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());
+    boolean appliedInterest = false;
 
-    return "welcome";
+    double userDepositAmt = user.getAmountToDeposit();
+    //Must have 
+    if(userDepositAmt < 0){
+      return "welcome";
+    } else if (userDepositAmt >= 20){
+      int depositsGreaterThan20 = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, ++depositsGreaterThan20);
+    }
+    else {
+      int customerBalance = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int dueInterestBalance = (int)(customerBalance * (BALANCE_INTEREST_RATE -1));
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, dueInterestBalance);
 
+      if(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID)==0){
+        TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, dueInterestBalance);
+        TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, 0);
+        appliedInterest = true;
+        user.setNumDepositsForInterest(0);
+      }
+    }
+
+    if(appliedInterest){
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, (int)numDepositsForInterest);
+      updateAccountInfo(user);
+    }
+    return "account_info";
+    }
+   
+    
   }
-
-}
+ 
