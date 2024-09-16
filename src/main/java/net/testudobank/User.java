@@ -3,6 +3,8 @@ package net.testudobank;
 import javax.validation.constraints.Positive;
 import javax.validation.constraints.PositiveOrZero;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -99,4 +101,9 @@ public class User {
   @Setter @Getter
   private int numDepositsForInterest;
 
+  @Setter @Getter
+  private double withdrawPercentChange;
+
+  @Setter @Getter
+  private double depositPercentChange;
 }

@@ -238,6 +238,8 @@ public class MvcController {
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
     user.setNumDepositsForInterest(user.getNumDepositsForInterest());
+    User.setWithdrawPercentChange(jdbcTemplate, user.getUsername(), user.getWithdrawPercentChange());
+    User.setDepositPercentChange(jdbcTemplate, user.getUsername(), user.getDepositPercentChange());
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
