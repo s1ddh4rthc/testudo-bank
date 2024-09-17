@@ -357,6 +357,9 @@ public class MvcController {
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
 
+    /* Calling helper method to update the numDepositsForInterest if the deposit was over 20 dollars */
+    incrementNumDepositsForInterest(userID, userDepositAmtInPennies);
+
     // update Model so that View can access new main balance, overdraft balance, and logs
     applyInterest(user);
     updateAccountInfo(user);
@@ -798,6 +801,20 @@ public class MvcController {
     }
   }
 
+  /*
+  Helper method
+  - Increments the number of deposits for interest if the deposit was above 20 dollars
+  */
+  private void incrementNumDepositsForInterest(String userID, int depositAmount) {
+    double currentDepositAmountInDollars = (double) depositAmount / 100.0;
+    if (currentDepositAmountInDollars >= 20.0) {
+      /* Only increment if the deposit is over 20 dollors */
+      int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+      int newAmountOfDepositsForInterest = numDepositsForInterest + 1;
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,  newAmountOfDepositsForInterest);
+    }
+  }
+
   /**
    * 
    * 
@@ -805,8 +822,41 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    
+    String userID = user.getUsername();
 
-    return "welcome";
+    /*Getting the current number of deposits for interest 
+      numDepositsForInterest will have already been incremented after deposit 
+      by helper method (incrementNumDepositsForInterest) at this point, so do not need to increment here */
+    int numDepositsForInterest = TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, userID);
+    
+    if (numDepositsForInterest >= 5) { //should not be greater than 5, but just in case
+      /*
+        Reset number of deposits to zero after the 5th
+      */
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID,  0);
+
+      /* Since is the fifth deposit over 20 dollars, 
+      also need to apply the 1.5 interest*/
+      int currBalanceInPennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      int interestInPennies = (int) (currBalanceInPennies * 1.5); // Calculate interest to apply
+      
+      // Update balance to include this additional interest in sql
+      // Using already made helper method to add amount to balance
+      TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, interestInPennies);
+      
+      /*
+      // There is no "interest" action current in the sql table, so will not add a row to the transation history table - commenting this section out
+      //Adding a row to show the interest in the sql database
+      String currentTime = SQL_DATETIME_FORMATTER.format(new java.util.Date());  
+      TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, "Deposit", interestInPennies);
+      */
+
+      updateAccountInfo(user);
+      return "account_info";
+    } else {
+      return "welcome";
+    }
 
   }
 
