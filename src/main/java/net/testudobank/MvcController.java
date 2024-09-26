@@ -18,6 +18,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import com.twilio.rest.api.v2010.account.Message;
+import com.twilio.Twilio;
+import com.twilio.rest.api.v2010.account.Call;
+import com.twilio.type.PhoneNumber;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Controller
@@ -50,7 +55,7 @@ public class MvcController {
   public static String CRYPTO_HISTORY_SELL_ACTION = "Sell";
   public static String CRYPTO_HISTORY_BUY_ACTION = "Buy";
   public static Set<String> SUPPORTED_CRYPTOCURRENCIES = new HashSet<>(Arrays.asList("ETH", "SOL"));
-  private static double BALANCE_INTEREST_RATE = 1.015;
+  private static double SAVINGS_INTEREST_RATE = 0.015;
 
   public MvcController(@Autowired JdbcTemplate jdbcTemplate, @Autowired CryptoPriceClient cryptoPriceClient) {
     this.jdbcTemplate = jdbcTemplate;
@@ -189,6 +194,7 @@ public class MvcController {
    * @param user
    */
   private void updateAccountInfo(User user) {
+    applyInterest(user);
     List<Map<String,Object>> overdraftLogs = TestudoBankRepository.getOverdraftLogs(jdbcTemplate, user.getUsername());
     String logs = HTML_LINE_BREAK;
     for(Map<String, Object> overdraftLog : overdraftLogs){
@@ -213,7 +219,7 @@ public class MvcController {
       cryptoHistoryOutput.append(cryptoLog).append(HTML_LINE_BREAK);
     }
 
-    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance, NumDepositsForInterest FROM Customers WHERE CustomerID='%s';", user.getUsername());
+    String getUserNameAndBalanceAndOverDraftBalanceSql = String.format("SELECT FirstName, LastName, Balance, OverdraftBalance FROM Customers WHERE CustomerID='%s';", user.getUsername());
     List<Map<String,Object>> queryResults = jdbcTemplate.queryForList(getUserNameAndBalanceAndOverDraftBalanceSql);
     Map<String,Object> userData = queryResults.get(0);
 
@@ -237,7 +243,6 @@ public class MvcController {
     user.setSolBalance(TestudoBankRepository.getCustomerCryptoBalance(jdbcTemplate, user.getUsername(), "SOL").orElse(0.0));
     user.setEthPrice(cryptoPriceClient.getCurrentEthValue());
     user.setSolPrice(cryptoPriceClient.getCurrentSolValue());
-    user.setNumDepositsForInterest(user.getNumDepositsForInterest());
   }
 
   // Converts dollar amounts in frontend to penny representation in backend MySQL DB
@@ -341,7 +346,7 @@ public class MvcController {
         int mainBalanceIncreaseAmtInPennies = userDepositAmtInPennies - userOverdraftBalanceInPennies;
         TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, mainBalanceIncreaseAmtInPennies);
       }
-
+      
     } else { // simple deposit case
       TestudoBankRepository.increaseCustomerCashBalance(jdbcTemplate, userID, userDepositAmtInPennies);
     }
@@ -356,9 +361,9 @@ public class MvcController {
       // Adds deposit to transaction history
       TestudoBankRepository.insertRowToTransactionHistoryTable(jdbcTemplate, userID, currentTime, TRANSACTION_HISTORY_DEPOSIT_ACTION, userDepositAmtInPennies);
     }
-
+    // apply interest
+    
     // update Model so that View can access new main balance, overdraft balance, and logs
-    applyInterest(user);
     updateAccountInfo(user);
     return "account_info";
   }
@@ -444,6 +449,8 @@ public class MvcController {
   
     // update Model so that View can access new main balance, overdraft balance, and logs
     updateAccountInfo(user);
+    // Let the user know the transaction was successful
+    sendTextMessage(user, "+15139518342", "Hi, "+ user.getFirstName() + ", you have successfully withdrawn $" + userWithdrawAmt + " from your Testudo Bank account. Please visit Testudo Bank to view your account information.");
     return "account_info";
 
   }
@@ -805,9 +812,39 @@ public class MvcController {
    * @return "account_info" if interest applied. Otherwise, redirect to "welcome" page.
    */
   public String applyInterest(@ModelAttribute("user") User user) {
+    
+    String userID = user.getUsername();
+
+    if (user.getOverDraftBalance() > 0) {
+      return "welcome";
+    }
+    
+    if(TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername()) % 5 == 0 && user.getAmountToDeposit() >= 20) {
+      double current_balance_in_pennies = TestudoBankRepository.getCustomerCashBalanceInPennies(jdbcTemplate, userID);
+      double balance_after_interest = current_balance_in_pennies + (current_balance_in_pennies * SAVINGS_INTEREST_RATE);
+      TestudoBankRepository.setCustomerCashBalance(jdbcTemplate, userID, (int)balance_after_interest);
+      TestudoBankRepository.setCustomerNumberOfDepositsForInterest(jdbcTemplate, userID, TestudoBankRepository.getCustomerNumberOfDepositsForInterest(jdbcTemplate, user.getUsername() + 1));
+      return "account_info";
+    }
 
     return "welcome";
-
   }
 
+
+
+/*
+ * Function that makes a call to Twillio API to send a text message to the user
+ */
+public void sendTextMessage(User user, String phoneNumber, String message) {
+  Twilio.init("AC170ce6ac7aa2128d61b57c92f22fe874","b11a5742862a693b7554bb0342305120");
+
+  Message messageToUser = 
+    Message.creator(
+        new PhoneNumber("2405431492"), 
+        new PhoneNumber(phoneNumber), 
+        message).create();
+
+        System.out.println("Customer alerted! Twillio message ID:" + messageToUser.getSid());
+
+}
 }

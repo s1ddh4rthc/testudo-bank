@@ -14,6 +14,11 @@ public class TestudoBankRepository {
     String customerPassword = jdbcTemplate.queryForObject(getCustomerPasswordSql, String.class);
     return customerPassword;
   }
+  public static String getCustomerPhoneNumber(JdbcTemplate jdbcTemplate, String customerID) {
+    String getCustomerPhoneNumberSql = String.format("SELECT PhoneNumber FROM ContactInfo WHERE CustomerID='%s';", customerID);
+    String customerPhoneNumber = jdbcTemplate.queryForObject(getCustomerPhoneNumberSql, String.class);
+    return customerPhoneNumber;
+  }
 
   public static int getCustomerNumberOfReversals(JdbcTemplate jdbcTemplate, String customerID) {
     String getNumberOfReversalsSql = String.format("SELECT NumFraudReversals FROM Customers WHERE CustomerID='%s';", customerID);
@@ -50,7 +55,7 @@ public class TestudoBankRepository {
     List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
     return transactionLogs;
   }
-
+  
   public static List<Map<String,Object>> getTransferLogs(JdbcTemplate jdbcTemplate, String customerID, int numTransfersToFetch) {
     String getTransferHistorySql = String.format("Select * from TransferHistory WHERE TransferFrom='%s' OR TransferTo='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, customerID, numTransfersToFetch);
     List<Map<String,Object>> transferLogs = jdbcTemplate.queryForList(getTransferHistorySql);
