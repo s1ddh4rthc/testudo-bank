@@ -197,6 +197,8 @@ public class MvcControllerIntegTest {
     MvcControllerIntegTestHelpers.checkTransactionLog(customer1TransactionLog, timeWhenWithdrawRequestSent, CUSTOMER1_ID, MvcController.TRANSACTION_HISTORY_WITHDRAW_ACTION, CUSTOMER1_AMOUNT_TO_WITHDRAW_IN_PENNIES);
   }
 
+
+
   /**
    * Verifies the case where a customer withdraws more than their available balance.
    * The customer's main balance should be set to $0, and their Overdraft balance
@@ -1115,6 +1117,112 @@ public void testTransferPaysOverdraftAndDepositsRemainder() throws SQLException,
     //Check that transfer request goes through.
     assertEquals("account_info", returnedPage);
   }
+
+  /**
+ * This test will test a scenario where the user deposits an eligible amount 5 times and checks if the interest after 5 eligible deposits is applied 
+ * 
+ * The customer will be initialized with $1000, and there will be 5 deposits of $50. After the 5 deposits the account balance should reflect applying the 1.5% on the 
+ * account balance.
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+@Test
+  public void testSimpleAppliedInterest() throws SQLException, ScriptException{
+      //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+    double CUSTOMER1_BALANCE = 1000;
+    int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+    MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+    int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = 5000;
+
+    //Initializing user for the deposits
+    User CUSTOMER1 = new User();
+    CUSTOMER1.setUsername(CUSTOMER1_ID);
+    CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+    //Simulates 5 deposits
+    for(int i = 0; i < 5; i++){
+    CUSTOMER1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+    // send request to the Deposit Form's POST handler in MvcController
+    controller.submitDeposit(CUSTOMER1);
+    }
+
+    List<Map<String,Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+    Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+    //Checks for correct balance after 5 deposits and applied interest
+    assertEquals((126875), (int)customer1Data.get("Balance"));
+  }
+
+   /**
+ * This test will test a scenario where the user deposits an eligible amount 5 times and checks if the interest counter after 5 eligible deposits is reset to 0 
+ * 
+ * The customer will be initialized with $1000, and there will be 5 deposits of $50. After the 5 deposits the account interest counter should be 0
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+  @Test
+  public void testInterestResetsAfterApplied() throws SQLException, ScriptException{
+    //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+  double CUSTOMER1_BALANCE = 1000;
+  int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+  MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+  int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = 5000;
+
+  //Initializing user for the deposits
+  User CUSTOMER1 = new User();
+  CUSTOMER1.setUsername(CUSTOMER1_ID);
+  CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+  for(int i = 0; i < 5; i++){
+  CUSTOMER1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+  // send request to the Deposit Form's POST handler in MvcController
+  controller.submitDeposit(CUSTOMER1);
+  }
+
+  List<Map<String,Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+  Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+  assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+}
+ /**
+ * This test will test a scenario where the user deposits an ineligible amount 5 times and checks if the interest after the 5 ineligible deposits is applied 
+ * 
+ * The customer will be initialized with $1000, and there will be 5 deposits of $10. After the 5 deposits the account balance should reflect simply the amounts deposited
+ * and nothing more.
+ * 
+ * @throws SQLException
+ * @throws ScriptException
+ */
+@Test
+public void testDepositsThatDoNotMeetRequirement() throws SQLException, ScriptException{
+  //Initialize customer1 with a balance of $1000. Balance will be represented as pennies in DB.
+double CUSTOMER1_BALANCE = 1000;
+int CUSTOMER1_BALANCE_IN_PENNIES = MvcControllerIntegTestHelpers.convertDollarsToPennies(CUSTOMER1_BALANCE);
+MvcControllerIntegTestHelpers.addCustomerToDB(dbDelegate, CUSTOMER1_ID, CUSTOMER1_PASSWORD, CUSTOMER1_FIRST_NAME, CUSTOMER1_LAST_NAME, CUSTOMER1_BALANCE_IN_PENNIES, 0);
+int CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES = 1000;
+
+//Initializing user for the deposits
+User CUSTOMER1 = new User();
+CUSTOMER1.setUsername(CUSTOMER1_ID);
+CUSTOMER1.setPassword(CUSTOMER1_PASSWORD);
+
+for(int i = 0; i < 5; i++){
+CUSTOMER1.setAmountToDeposit(CUSTOMER1_AMOUNT_TO_DEPOSIT_IN_PENNIES);
+
+// send request to the Deposit Form's POST handler in MvcController
+controller.submitDeposit(CUSTOMER1);
+}
+
+List<Map<String,Object>> customer1SqlResult = jdbcTemplate.queryForList(String.format("SELECT * FROM Customers WHERE CustomerID='%s';", CUSTOMER1_ID));
+Map<String, Object> customer1Data = customer1SqlResult.get(0);
+
+assertEquals((105000), (int)customer1Data.get("Balance"));
+assertEquals(0, (int)customer1Data.get("NumDepositsForInterest"));
+}
 
   /**
    * Enum for {@link CryptoTransactionTester}
