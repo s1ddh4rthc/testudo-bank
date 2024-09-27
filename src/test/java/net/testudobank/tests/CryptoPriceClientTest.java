@@ -18,4 +18,5 @@ public class CryptoPriceClientTest {
         assertTrue(cryptoPriceClient.getCurrentSolValue() > 0);
     
     }
+    
 }
