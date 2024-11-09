@@ -45,8 +45,10 @@
     <a href='/transfer'>Transfer</a> <br/>
     <a href='/buycrypto'>Buy Cryptocurrency</a>
     <a href='/sellcrypto'>Sell Cryptocurrency</a> <br/>
+    <a href='/freeze'>Freeze Account</a>
 
 	</div>
+  
 </body>
 
 </html>

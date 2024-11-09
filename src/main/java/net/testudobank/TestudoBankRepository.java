@@ -45,6 +45,7 @@ public class TestudoBankRepository {
     return userOverdraftBalanceInPennies;
   }
 
+
   public static List<Map<String,Object>> getRecentTransactions(JdbcTemplate jdbcTemplate, String customerID, int numTransactionsToFetch) {
     String getTransactionHistorySql = String.format("Select * from TransactionHistory WHERE CustomerId='%s' ORDER BY Timestamp DESC LIMIT %d;", customerID, numTransactionsToFetch);
     List<Map<String,Object>> transactionLogs = jdbcTemplate.queryForList(getTransactionHistorySql);
@@ -177,4 +178,17 @@ public class TestudoBankRepository {
       return false;
     }
   }
+  public static boolean getIsCustomerAccountFrozen(JdbcTemplate jdbcTemplate, String customerID) {
+    String getIsFrozenSql = String.format("SELECT IsAccountFrozen FROM Customers WHERE CustomerID='%s';", customerID);
+    boolean isFrozen = jdbcTemplate.queryForObject(getIsFrozenSql, Boolean.class);
+    return isFrozen;
+  }
+
+  public static void setIsCustomerAccountFrozen(JdbcTemplate jdbcTemplate, String customerID, boolean isFrozen) {
+    String setIsFrozenSql = String.format("UPDATE Customers SET IsAccountFrozen = %b WHERE CustomerID='%s';", isFrozen, customerID);
+    jdbcTemplate.update(setIsFrozenSql);
+  }
+
 }
+
+
